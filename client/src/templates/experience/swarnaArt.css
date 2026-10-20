@@ -1,0 +1,22 @@
+/* Ornament for Swarna Nelum (sn-). See swarnaArt.jsx. */
+
+.sn-moonstone, .sn-lotus-img { display: block; max-width: none; height: auto; }
+
+/* the carved band: double gold rules above and below a running scroll */
+.sn-band {
+  position: relative;
+  display: block;
+  height: 44px;
+  background:
+    linear-gradient(var(--sn-gold, #b08a3e), var(--sn-gold, #b08a3e)) 0 0 / 100% 1.2px no-repeat,
+    linear-gradient(var(--sn-gold, #b08a3e), var(--sn-gold, #b08a3e)) 0 4px / 100% 0.6px no-repeat,
+    linear-gradient(var(--sn-gold, #b08a3e), var(--sn-gold, #b08a3e)) 0 calc(100% - 4px) / 100% 0.6px no-repeat,
+    linear-gradient(var(--sn-gold, #b08a3e), var(--sn-gold, #b08a3e)) 0 100% / 100% 1.2px no-repeat;
+}
+.sn-band-scroll { position: absolute; inset: 6px 0; background-repeat: repeat-x; background-position: center; background-size: auto 100%; }
+
+/* divider: rule — lotus — rule */
+.sn-divider { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 14px auto; }
+.sn-divider-rule { width: min(70px, 18vw); height: 1px; background: linear-gradient(90deg, transparent, var(--sn-gold, #b08a3e)); }
+.sn-divider-rule:last-child { background: linear-gradient(90deg, var(--sn-gold, #b08a3e), transparent); }
+.sn-divider-lotus { width: 44px; }

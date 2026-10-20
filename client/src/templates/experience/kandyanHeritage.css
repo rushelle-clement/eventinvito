@@ -1,0 +1,258 @@
+/* Kandyan Heritage (kh-). The opening plays on its own as a CSS timeline (seconds):
+   0.0 a warm, dim screen and the unlit brass lamp · 0.6–2.3 the wicks catch light one by one,
+   centre outwards, and the lamp warms · 2.2–4.2 Liyawel vines grow from the lamp's base in mirror
+   symmetry · 2.8–4.9 they rise into a Thorana arch with a pearl edge and lotus finial ·
+   4.1 the lamp's light swells to fill the arch · 4.4 the lamp fades into the light ·
+   4.5 the card appears, crowned with the lotus medallion · 5.2 guest · 5.5 names · 6.0 date ·
+   6.2 venue · 6.6 "Open Invitation". */
+
+.kh-opening,
+.kh-invite {
+  --kh-maroon: #7a1f2b;
+  --kh-gold: #b88a2e;
+  --kh-saffron: #d98b2b;
+  --ka-gold: #b88a2e;
+  --ka-pearl: #f6ead0;
+}
+.kh-opening {
+  background-color: #2a0d10;
+  background-image:
+    radial-gradient(ellipse at 50% 45%, rgba(110, 35, 40, 0.75), transparent 70%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56'%3E%3Cg fill='none' stroke='%23c9a14a' stroke-opacity='.13' stroke-width='.8'%3E%3Cpath d='M28 6 L50 28 L28 50 L6 28 Z'/%3E%3Cpath d='M28 18 C 32 22, 32 26, 28 30 C 24 26, 24 22, 28 18 Z'/%3E%3C/g%3E%3Ccircle cx='28' cy='38' r='1.2' fill='%23c9a14a' fill-opacity='.16'/%3E%3C/svg%3E");
+}
+.kh-invite {
+  background-color: var(--ei-page);
+  background-image:
+    radial-gradient(ellipse at 50% 0%, rgba(122, 31, 43, 0.08), transparent 55%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56'%3E%3Cg fill='none' stroke='%23b88a2e' stroke-opacity='.14' stroke-width='.8'%3E%3Cpath d='M28 6 L50 28 L28 50 L6 28 Z'/%3E%3Cpath d='M28 18 C 32 22, 32 26, 28 30 C 24 26, 24 22, 28 18 Z'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+.kh-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.3em; text-transform: uppercase; color: var(--kh-maroon); }
+.kh-eyebrow.is-local { letter-spacing: normal; text-transform: none; font-size: 14px; }
+
+/* ================================================================ opening */
+.kh-opening {
+  position: fixed;
+  inset: var(--ei-top, 0px) 0 0 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: safe center;
+  flex-direction: column;
+  padding: clamp(56px, 10svh, 90px) 16px 28px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  text-align: center;
+}
+.kh-opening.is-leaving { animation: kh-leave 0.8s ease forwards; pointer-events: none; }
+@keyframes kh-leave { to { opacity: 0; transform: scale(1.03); visibility: hidden; } }
+
+/* the lamp's warm glow, and the light that later fills the arch */
+.kh-halo,
+.kh-light { position: absolute; left: 50%; top: 46%; border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%); }
+.kh-halo {
+  width: min(120vmin, 760px);
+  aspect-ratio: 1;
+  background: radial-gradient(circle, rgba(255, 196, 100, 0.42) 0%, rgba(255, 160, 70, 0.16) 35%, rgba(255, 150, 60, 0) 65%);
+  opacity: 0;
+  animation: kh-halo 2.2s ease 0.8s forwards, kh-breathe 4s ease-in-out 3s infinite alternate;
+}
+@keyframes kh-halo { to { opacity: 1; } }
+@keyframes kh-breathe { from { scale: 1; } to { scale: 1.06; } }
+.kh-light {
+  width: min(150vmin, 1000px);
+  aspect-ratio: 1;
+  background: radial-gradient(circle, rgba(255, 246, 225, 0.95) 0%, rgba(255, 228, 170, 0.55) 30%, rgba(255, 200, 120, 0) 62%);
+  opacity: 0;
+  scale: 0.3;
+  animation: kh-light 1.6s cubic-bezier(0.2, 0.7, 0.2, 1) 4.1s forwards;
+}
+@keyframes kh-light { to { opacity: 0.85; scale: 1; } }
+
+/* the card and the frame that grows around it (the frame's size follows the card) */
+.kh-stage {
+  position: relative;
+  z-index: 3;
+  flex-shrink: 0;
+  /* height-aware, so the button stays on screen on short phones and landscape */
+  width: max(236px, min(76vw, 340px, calc((100svh - var(--ei-top, 0px) - 130px) * 0.6)));
+}
+.kh-frame-box { position: absolute; inset: -14% -12% -3% -12%; z-index: 1; pointer-events: none; }
+
+.kh-open-card,
+.kh-card {
+  position: relative;
+  background: #fffaf0;
+  border-radius: 50% 50% 4px 4px / 32% 32% 4px 4px;
+  box-shadow: inset 0 0 0 1px rgba(184, 138, 46, 0.6), 0 34px 70px -40px rgba(30, 5, 8, 0.8);
+}
+.kh-open-card::before,
+.kh-card::before {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  border: 1px solid rgba(122, 31, 43, 0.4);
+  border-radius: 50% 50% 2px 2px / 31% 31% 2px 2px;
+  pointer-events: none;
+}
+.kh-open-card { z-index: 2; opacity: 0; animation: kh-card 1.4s cubic-bezier(0.2, 0.7, 0.2, 1) 4.5s forwards; }
+@keyframes kh-card { from { opacity: 0; transform: scale(0.95); filter: brightness(1.4) blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+.kh-medallion { position: relative; display: block; width: 74%; margin: 0 auto; padding-top: 11%; filter: drop-shadow(0 4px 6px rgba(90, 40, 10, 0.25)); }
+.kh-open-card .kh-medallion { opacity: 0; animation: kh-medal 1.2s ease 4.9s forwards; }
+@keyframes kh-medal { from { opacity: 0; transform: translateY(-8px) scale(0.94); } to { opacity: 1; transform: none; } }
+.kh-band-bottom { position: absolute; left: 12%; right: 12%; bottom: 16px; opacity: 0; clip-path: inset(0 50% 0 50%); animation: kh-band 1.2s ease 5s forwards; }
+@keyframes kh-band { to { opacity: 1; clip-path: inset(0 0 0 0); } }
+
+.kh-open-text { position: relative; padding: clamp(6px, 1.4svh, 12px) 20px clamp(40px, 7svh, 54px); }
+.kh-step { opacity: 0; animation: kh-step 1.1s cubic-bezier(0.2, 0.7, 0.2, 1) forwards; }
+.kh-step.s1 { animation-delay: 5.2s; }
+.kh-step.s2 { animation-delay: 5.5s; }
+.kh-step.s3 { animation-delay: 6s; }
+.kh-step.s4 { animation-delay: 6.2s; }
+.kh-step.s5 { animation-delay: 6.6s; }
+@keyframes kh-step { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+.kh-open-names { margin-top: 6px; font-family: var(--ei-names-font); font-weight: 500; font-size: clamp(30px, min(9.5vw, 5.8svh), 46px); line-height: 1.08; color: var(--kh-maroon); overflow-wrap: anywhere; }
+.kh-open-names span { display: block; }
+.kh-amp { font-family: 'Great Vibes', var(--ei-names-font); font-weight: 400; color: var(--kh-gold); }
+.kh-open-names .kh-amp { font-size: 0.8em; line-height: 1; }
+.kh-open-names:lang(si), .kh-open-names:lang(ta) { font-size: clamp(24px, min(8vw, 5svh), 36px); line-height: 1.3; }
+.kh-open-date { font-family: var(--ei-heading-font); font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ei-text); }
+.kh-open-venue { margin-top: 2px; font-family: var(--ei-heading-font); font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ei-muted); }
+.kh-open-date.is-local, .kh-open-venue.is-local { letter-spacing: normal; text-transform: none; font-size: 15px; }
+.kh-open-btn {
+  margin-top: clamp(12px, 2.2svh, 18px);
+  padding: clamp(10px, 1.8svh, 12px) clamp(20px, 6vw, 28px);
+  white-space: nowrap;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #8c2633, var(--kh-maroon));
+  color: #fff7e6;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  box-shadow: inset 0 0 0 1px rgba(232, 196, 120, 0.7), 0 0 0 3px #fffaf0, 0 0 0 4px rgba(184, 138, 46, 0.7), 0 14px 26px -14px rgba(60, 10, 15, 0.8);
+  transition: transform 0.25s ease;
+}
+.kh-open-btn:hover { transform: translateY(-1px); }
+.kh-open-btn:focus-visible { outline: 2px solid var(--kh-maroon); outline-offset: 6px; }
+.kh-open-btn:lang(si), .kh-open-btn:lang(ta) { letter-spacing: normal; text-transform: none; font-size: 15px; }
+
+/* the lamp: dim at first, warming as its wicks are lit; then it fades into the light */
+.kh-lamp { position: relative; display: inline-block; }
+.kh-lamp img { display: block; height: 100%; width: auto; max-width: none; }
+.kh-open-lamp {
+  position: absolute;
+  z-index: 4;
+  left: 50%;
+  top: -6%;
+  height: 104%;
+  transform: translateX(-50%);
+  filter: brightness(0.45) saturate(0.8);
+  animation: kh-warm 2.2s ease 0.6s forwards, kh-lamp-out 1s ease 4.35s forwards;
+}
+@keyframes kh-warm { to { filter: brightness(1.05) saturate(1) drop-shadow(0 0 18px rgba(255, 190, 90, 0.35)); } }
+@keyframes kh-lamp-out { to { opacity: 0; transform: translateX(-50%) scale(1.04); visibility: hidden; } }
+
+.kh-flame { position: absolute; width: 6.6%; aspect-ratio: 10 / 16; transform: translate(-50%, -94%); transform-origin: 50% 100%; }
+.kh-flame svg { display: block; width: 100%; height: 100%; overflow: visible; transform-origin: 50% 100%; fill: #ffb547; filter: drop-shadow(0 0 3px rgba(255, 170, 60, 0.95)) drop-shadow(0 0 9px rgba(255, 150, 50, 0.6)); }
+.kh-flame-core { fill: #fff6d6; }
+.kh-flame::after { content: ''; position: absolute; left: 50%; top: 40%; width: 420%; aspect-ratio: 1; border-radius: 50%; transform: translate(-50%, -50%); background: radial-gradient(circle, rgba(255, 200, 110, 0.45), rgba(255, 170, 70, 0) 65%); pointer-events: none; }
+.kh-open-lamp .kh-flame { opacity: 0; scale: 0.2; animation: kh-ignite 0.55s cubic-bezier(0.2, 0.8, 0.3, 1.3) calc(0.6s + var(--k) * 0.14s) forwards; }
+.kh-flame svg { animation: kh-flicker var(--fl) ease-in-out infinite alternate; }
+@keyframes kh-ignite { to { opacity: 1; scale: 1; } }
+@keyframes kh-flicker {
+  0% { transform: scale(1, 1) skewX(0deg); }
+  30% { transform: scale(0.96, 1.07) skewX(2deg); }
+  60% { transform: scale(1.03, 0.94) skewX(-2deg); }
+  100% { transform: scale(0.98, 1.04) skewX(1deg); }
+}
+
+/* "Skip" (or reduced motion) jumps straight to the finished card with the button */
+.kh-opening.is-skipped *,
+.kh-opening.is-skipped *::before,
+.kh-opening.is-skipped *::after { animation-duration: 0.01s !important; animation-delay: 0s !important; }
+.kh-opening.is-skipped .kh-open-lamp { display: none; }
+
+/* ================================================================ invitation */
+.kh-invite { position: relative; overflow-x: clip; }
+.kh-invite.is-entering { animation: kh-enter 1.1s ease both; }
+@keyframes kh-enter { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+.kh-section { position: relative; max-width: 700px; margin: 0 auto; padding: 0 22px 32px; }
+.kh-last { padding-bottom: 72px; }
+.kh-hero { padding-top: clamp(90px, 22vw, 150px); padding-bottom: 56px; min-height: calc(100svh - var(--ei-top, 0px)); display: grid; align-items: center; }
+.kh-card-wrap { position: relative; width: min(100%, 560px); margin: 0 auto; }
+.kh-card { text-align: center; }
+.kh-corner { position: absolute; width: 34%; max-width: none; pointer-events: none; filter: drop-shadow(0 3px 5px rgba(90, 40, 10, 0.2)); }
+.kh-corner.bl { left: 10px; bottom: 10px; transform: scaleY(-1); }
+.kh-corner.br { right: 10px; bottom: 10px; transform: scale(-1, -1); }
+.kh-card-body { position: relative; padding: 2% 9% 30%; }
+
+.kh-greeting { display: inline-block; margin-top: 10px; padding: 6px 16px; border-radius: 3px; background: var(--ei-soft); color: var(--kh-maroon); font-size: 14px; font-weight: 600; }
+.kh-blessing, .kh-hostline { margin: 10px auto 0; max-width: 28rem; font-family: var(--ei-heading-font); font-style: italic; font-size: 16px; color: var(--ei-muted); }
+.kh-names { margin-top: 12px; font-family: var(--ei-names-font); font-weight: 500; line-height: 1.05; color: var(--kh-maroon); overflow-wrap: anywhere; }
+.kh-names > span { display: block; }
+.kh-name { font-size: clamp(38px, 10.5vw, 64px); animation: kh-name 1.4s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.kh-names .kh-amp { font-size: clamp(30px, 8vw, 44px); animation: kh-name 1.2s ease both; }
+.kh-names:lang(si) .kh-name, .kh-names:lang(ta) .kh-name { font-size: clamp(30px, 8.5vw, 48px); line-height: 1.3; }
+@keyframes kh-name { from { opacity: 0; transform: translateY(10px); filter: blur(5px); } to { opacity: 1; transform: none; filter: none; } }
+.kh-message { margin: 0 auto; max-width: 26rem; font-family: var(--ei-heading-font); font-size: 18px; line-height: 1.6; color: var(--ei-muted); }
+.kh-date { margin: 22px auto 0; max-width: 22rem; }
+.kh-date p { padding: 8px 0; font-family: var(--ei-heading-font); font-size: clamp(20px, 5.4vw, 26px); font-weight: 600; color: var(--kh-maroon); }
+.kh-when, .kh-venue { margin-top: 10px; font-family: var(--ei-heading-font); font-size: 13px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ei-text); }
+.kh-venue { margin-top: 2px; color: var(--ei-muted); }
+.kh-when.is-local, .kh-venue.is-local { letter-spacing: normal; text-transform: none; font-size: 15px; }
+.kh-sub { margin-top: 4px; font-size: 15px; line-height: 1.6; color: var(--ei-muted); }
+
+.kh-details { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+.kh-panel {
+  position: relative;
+  padding: 34px 24px 28px;
+  text-align: center;
+  background: #fffaf0;
+  border: 1px solid rgba(122, 31, 43, 0.22);
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 5px #fffaf0, inset 0 0 0 6px rgba(184, 138, 46, 0.45), 0 26px 46px -40px rgba(60, 20, 20, 0.6);
+}
+.kh-panel-band { position: absolute; left: 18px; right: 18px; top: 12px; }
+.kh-icon { display: block; margin: 8px auto 10px; color: var(--kh-gold); }
+.kh-panel-title { margin-top: 8px; font-family: var(--ei-heading-font); font-size: 24px; font-weight: 600; color: var(--ei-text); }
+.kh-panel-title.big { font-size: clamp(28px, 6vw, 36px); }
+.kh-link { display: inline-block; margin-top: 12px; font-size: 13px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--kh-maroon); border-bottom: 1px solid currentColor; padding-bottom: 2px; }
+
+.kh-ceremonies { margin-top: 10px; }
+.kh-ceremonies > li { padding: 14px 0; border-top: 1px solid var(--ei-border); }
+.kh-ceremonies > li:first-child { border-top: 0; }
+.kh-ceremonies .ka-lotus { --ka-gold: var(--kh-gold); }
+.kh-cer-name { font-family: var(--ei-heading-font); font-size: 24px; font-weight: 600; color: var(--ei-text); }
+.kh-cer-when { margin-top: 4px; font-size: 14px; font-weight: 600; color: var(--kh-maroon); }
+
+/* photos: arched like temple windows; same size in every row; an odd last photo takes the row */
+.kh-photos { display: grid; gap: 12px; margin-top: 8px; grid-template-columns: repeat(2, 1fr); }
+.kh-photo { overflow: hidden; aspect-ratio: 3 / 4; border-radius: 999px 999px 4px 4px / 110px 110px 4px 4px; border: 4px solid #fffaf0; box-shadow: 0 0 0 1px rgba(184, 138, 46, 0.7), 0 18px 32px -24px rgba(60, 20, 20, 0.7); }
+.kh-photos.count-1 { grid-template-columns: 1fr; }
+.kh-photos.count-1 .kh-photo { max-width: 360px; width: 100%; margin: 0 auto; }
+.kh-photos.count-3 .kh-photo:last-child,
+.kh-photos.count-5 .kh-photo:last-child { grid-column: 1 / -1; aspect-ratio: 16 / 9; border-radius: 4px; }
+@media (min-width: 640px) {
+  .kh-photos.count-3, .kh-photos.count-6 { grid-template-columns: repeat(3, 1fr); }
+  .kh-photos.count-3 .kh-photo:last-child { grid-column: auto; aspect-ratio: 3 / 4; border-radius: 999px 999px 4px 4px / 110px 110px 4px 4px; }
+}
+.kh-photo img { width: 100%; height: 100%; object-fit: cover; }
+
+.kh-sign-lamp { height: 150px; }
+.kh-sign-lamp .kh-flame svg { animation-duration: 1.4s; }
+.kh-sign { margin-top: 8px; font-family: var(--ei-names-font); font-weight: 500; font-size: 30px; color: var(--kh-maroon); }
+.kh-invite:not(:lang(en)) .kh-sign { font-size: 24px; }
+
+/* ================================================================ thumbnails & reduced motion */
+.is-poster .kh-opening { position: absolute; inset: 0; }
+.is-poster .kh-skip, .is-poster .kh-open-lamp { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  /* a simplified, still opening: the finished card in the lamp's light */
+  .kh-opening *, .kh-opening *::before, .kh-opening *::after { animation-duration: 0.01s !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; }
+  .kh-open-lamp, .kh-skip { display: none; }
+  .kh-flame svg { animation: none !important; }
+  .kh-name, .kh-names .kh-amp, .kh-invite.is-entering { animation: none; }
+}

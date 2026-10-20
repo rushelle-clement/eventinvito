@@ -1,0 +1,279 @@
+/* White Rose Elegance (wr-). The opening plays on its own as a CSS timeline (seconds):
+   0.0 pearl glow · 0.3 a white rose bud emerges from the light · 1.7 it opens · 2.9 full bloom ·
+   2.4 real petals drift, lights shimmer · 4.3 the rose lifts and fades away · 4.5 the framed card
+   and its garland appear · 5.0 gold frame draws · 5.4 guest · 5.7 names · 6.2 date · 6.4 venue ·
+   6.8 "View Invitation". The flowers are photographs (transparent WebP in /public/white-rose). */
+
+.wr-opening,
+.wr-invite {
+  --wr-green: #4b5a40;
+  background-color: var(--ei-page);
+  /* a whisper of paper / linen texture */
+  background-image:
+    radial-gradient(ellipse at 50% 35%, rgba(255, 255, 255, 0.9), transparent 65%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.55 0 0 0 0 0.5 0 0 0 0 0.42 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.wr-eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.32em; text-transform: uppercase; color: var(--ei-accent-text); }
+.wr-eyebrow.is-local { letter-spacing: normal; text-transform: none; font-size: 14px; }
+
+/* ================================================================ opening */
+.wr-opening {
+  position: fixed;
+  inset: var(--ei-top, 0px) 0 0 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: safe center;
+  flex-direction: column;
+  padding: 24px 16px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  text-align: center;
+}
+.wr-opening.is-leaving { animation: wr-leave 0.75s ease forwards; pointer-events: none; }
+@keyframes wr-leave { to { opacity: 0; transform: scale(1.03); visibility: hidden; } }
+
+.wr-glow {
+  position: absolute;
+  left: 50%;
+  top: 45%;
+  width: min(120vw, 900px);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 1) 0%, rgba(250, 244, 233, 0.85) 25%, rgba(240, 230, 214, 0.35) 50%, transparent 70%);
+  pointer-events: none;
+  animation: wr-glow-in 1.6s ease both, wr-glow-breathe 7s ease-in-out 1.6s infinite;
+}
+@keyframes wr-glow-in { from { opacity: 0; transform: translate(-50%, -50%) scale(0.6); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+@keyframes wr-glow-breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.8; } }
+
+/* tiny shimmering lights */
+.wr-lights { position: absolute; inset: 0; pointer-events: none; }
+.wr-lights span {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #fffaf0;
+  box-shadow: 0 0 6px 2px rgba(232, 214, 176, 0.55);
+  opacity: 0;
+  animation: wr-twinkle var(--tw) ease-in-out calc(1s + var(--td)) infinite;
+}
+@keyframes wr-twinkle { 0%, 100% { opacity: 0; transform: scale(0.6); } 50% { opacity: 0.85; transform: scale(1); } }
+
+.wr-petals { opacity: 0; animation: wr-fade-in 1.6s ease 2.4s forwards; }
+.wr-real-petal { width: 34px; height: 34px; }
+.wr-real-petal img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 2px 3px rgba(120, 100, 70, 0.3)); animation: ei-petal-sway calc(var(--d) / 3) ease-in-out var(--delay) infinite alternate; }
+@keyframes wr-fade-in { to { opacity: 1; } }
+
+/* the rose blooming in the centre of the screen, then lifting away */
+.wr-bloom {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  z-index: 4;
+  width: min(80vw, 52svh, 440px);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  animation: wr-lift 1.3s cubic-bezier(0.5, 0, 0.3, 1) 4.3s forwards;
+}
+@keyframes wr-lift { to { opacity: 0; transform: translate(-50%, -62%) scale(1.12); filter: blur(6px); visibility: hidden; } }
+.wr-stage {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  height: 100%;
+  width: auto;
+  max-width: none;
+  opacity: 0;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 14px 22px rgba(120, 100, 70, 0.22));
+}
+/* each stage sits so the flower heads line up while they cross-fade */
+.wr-stage.st1 { height: 74%; bottom: 6%; animation: wr-emerge 1.5s ease 0.3s forwards, wr-out 1s ease 2.1s forwards; }
+.wr-stage.st2 { height: 86%; bottom: 5%; animation: wr-grow-in 1.2s ease 1.7s forwards, wr-out 1s ease 3.2s forwards; }
+.wr-stage.st3 { height: 84%; bottom: 10%; animation: wr-bloom-in 1.6s cubic-bezier(0.2, 0.7, 0.2, 1) 2.9s forwards; }
+@keyframes wr-emerge { from { opacity: 0; transform: translateX(-50%) scale(0.86); filter: blur(12px) brightness(1.35); } to { opacity: 1; transform: translateX(-50%); filter: drop-shadow(0 14px 22px rgba(120, 100, 70, 0.22)); } }
+@keyframes wr-grow-in { from { opacity: 0; transform: translateX(-50%) scale(0.94); } to { opacity: 1; transform: translateX(-50%); } }
+@keyframes wr-bloom-in { from { opacity: 0; transform: translateX(-50%) scale(0.9); } to { opacity: 1; transform: translateX(-50%) scale(1.04); } }
+@keyframes wr-out { to { opacity: 0; } }
+
+/* the framed card that the rose reveals */
+.wr-open-frame {
+  display: flow-root;
+  position: relative;
+  z-index: 3;
+  /* height-aware, so the button stays on screen on short phones and landscape */
+  width: max(240px, min(90vw, 400px, calc((100svh - var(--ei-top, 0px) - 70px) * 0.66)));
+  flex-shrink: 0;
+  margin-top: clamp(14px, 3svh, 26px);
+  padding: 0 26px 0;
+  opacity: 0;
+  animation: wr-card-in 1.4s cubic-bezier(0.2, 0.7, 0.2, 1) 4.5s forwards;
+}
+@keyframes wr-card-in { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: none; } }
+.wr-frame-line {
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  background: #fffefb;
+  box-shadow: 0 30px 60px -40px rgba(120, 100, 70, 0.5), 0 0 0 1px rgba(184, 151, 90, 0.16);
+}
+.wr-goldframe { position: absolute; inset: 10px; width: calc(100% - 20px); height: calc(100% - 20px); overflow: visible; pointer-events: none; }
+.wr-goldframe polygon { fill: none; stroke: #b8975a; stroke-width: 1; vector-effect: non-scaling-stroke; opacity: 0.75; }
+.wr-goldframe polygon + polygon { opacity: 0.5; }
+.wr-open-gold { clip-path: inset(0 0 100% 0); animation: wr-draw-frame 1.6s cubic-bezier(0.6, 0, 0.2, 1) 5s forwards; }
+@keyframes wr-draw-frame { to { clip-path: inset(-4px); } }
+
+/* the garland across the top of a card and the bouquet in its lower-left corner.
+   Margins in % follow the card's width, so they scale together on every screen. */
+.wr-garland {
+  position: relative;
+  display: block;
+  width: 116%;
+  max-width: none;
+  margin: -15% -8% -6%;
+  pointer-events: none;
+  filter: drop-shadow(0 10px 14px rgba(120, 100, 70, 0.16));
+}
+.wr-corner-space { display: block; padding-top: 30%; }
+.wr-corner {
+  position: absolute;
+  left: -6%;
+  bottom: -5%;
+  width: 66%;
+  max-width: none;
+  pointer-events: none;
+  filter: drop-shadow(0 8px 12px rgba(120, 100, 70, 0.16));
+}
+
+.wr-open-text { position: relative; }
+.wr-step { opacity: 0; animation: wr-step 1.1s cubic-bezier(0.2, 0.7, 0.2, 1) forwards; }
+.wr-step.s1 { animation-delay: 5.4s; }
+.wr-step.s2 { animation-delay: 5.7s; }
+.wr-step.s3 { animation-delay: 6.2s; }
+.wr-step.s4 { animation-delay: 6.4s; }
+.wr-step.s5 { animation-delay: 6.8s; }
+@keyframes wr-step { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+.wr-open-names { margin-top: 8px; font-family: var(--ei-names-font); font-weight: 400; font-size: clamp(30px, min(9.5vw, 6svh), 46px); line-height: 1.1; color: var(--wr-green); overflow-wrap: anywhere; }
+.wr-open-names:lang(en) { text-transform: uppercase; letter-spacing: 0.06em; }
+.wr-open-names span { display: block; }
+.wr-open-amp { font-family: 'Great Vibes', var(--ei-names-font); font-size: 0.85em; line-height: 0.9; text-transform: none; letter-spacing: normal; color: var(--ei-accent-text); }
+.wr-open-rule { display: block; width: 90px; height: 1px; margin: clamp(10px, 2svh, 18px) auto; background: linear-gradient(90deg, transparent, var(--ei-accent), transparent); }
+.wr-open-date { font-family: var(--ei-heading-font); font-size: 18px; color: var(--ei-text); }
+.wr-open-date:lang(en), .wr-open-venue:lang(en) { text-transform: uppercase; letter-spacing: clamp(0.06em, 1.2vw, 0.14em); font-size: 13px; }
+.wr-open-date:lang(en) { font-size: clamp(12px, 3.6vw, 14px); font-weight: 600; }
+.wr-open-venue { margin-top: 2px; font-size: 14px; color: var(--ei-muted); }
+.wr-view-btn {
+  margin-top: clamp(14px, 2.6svh, 22px);
+  padding: clamp(10px, 1.8svh, 13px) clamp(20px, 6vw, 30px);
+  white-space: nowrap;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, var(--ei-accent) 70%, transparent);
+  background: linear-gradient(180deg, #ffffff, #f6f0e5);
+  color: var(--ei-text);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  box-shadow: 0 10px 24px -14px rgba(120, 100, 70, 0.6), inset 0 1px 0 #fff;
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+.wr-view-btn:hover { transform: translateY(-1px); box-shadow: 0 14px 28px -14px rgba(120, 100, 70, 0.7), inset 0 1px 0 #fff; }
+.wr-view-btn:focus-visible { outline: 2px solid var(--ei-accent); outline-offset: 4px; }
+.wr-view-btn:lang(si), .wr-view-btn:lang(ta) { letter-spacing: normal; text-transform: none; font-size: 15px; }
+
+/* "Skip" (or reduced motion) jumps straight to the finished frame with the button */
+.wr-opening.is-skipped *,
+.wr-opening.is-skipped *::before,
+.wr-opening.is-skipped *::after { animation-duration: 0.01s !important; animation-delay: 0s !important; }
+
+/* ================================================================ invitation */
+.wr-invite { overflow-x: clip; }
+.wr-invite.is-entering { animation: wr-enter 1.1s ease both; }
+@keyframes wr-enter { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+.wr-section { max-width: 700px; margin: 0 auto; padding: 0 22px 32px; }
+.wr-last { padding-bottom: 72px; }
+.wr-hero { padding-top: 64px; padding-bottom: 48px; min-height: calc(100svh - var(--ei-top, 0px)); display: grid; align-items: center; }
+
+.wr-card {
+  position: relative;
+  display: flow-root;
+  padding: 0 30px;
+  text-align: center;
+  background: #fffefb;
+  border-radius: 3px;
+  box-shadow: 0 40px 80px -50px rgba(120, 100, 70, 0.45), 0 0 0 1px rgba(184, 151, 90, 0.18);
+}
+@media (min-width: 640px) { .wr-card { padding-inline: 70px; } }
+
+.wr-greeting { position: relative; display: inline-block; padding: 6px 16px; border-radius: 9999px; background: var(--ei-soft); color: var(--ei-accent-text); font-size: 14px; font-weight: 600; }
+.wr-blessing, .wr-hostline { margin: 10px auto 0; max-width: 28rem; font-family: var(--ei-heading-font); font-style: italic; font-size: 16px; color: var(--ei-muted); }
+.wr-names { position: relative; margin-top: 22px; font-family: var(--ei-names-font); font-weight: 400; line-height: 1.05; color: var(--wr-green); overflow-wrap: anywhere; }
+.wr-names > span { display: block; }
+.wr-name { font-size: clamp(36px, 10vw, 62px); animation: wr-name 1.4s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.wr-names:lang(en) .wr-name { text-transform: uppercase; letter-spacing: 0.07em; }
+.wr-amp { font-family: 'Great Vibes', var(--ei-names-font); font-size: clamp(30px, 7vw, 42px); line-height: 1; color: var(--ei-accent-text); animation: wr-name 1.2s ease both; }
+@keyframes wr-name { from { opacity: 0; transform: translateY(10px); filter: blur(5px); } to { opacity: 1; transform: none; filter: none; } }
+.wr-together { margin: 24px auto 0; max-width: 26rem; font-family: var(--ei-heading-font); font-size: 13px; font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ei-text); }
+.wr-together.is-local { letter-spacing: normal; text-transform: none; font-size: 16px; }
+.wr-message { margin: 8px auto 0; max-width: 26rem; font-family: var(--ei-heading-font); font-size: 18px; line-height: 1.6; color: var(--ei-muted); }
+.wr-date { margin-top: 24px; font-family: var(--ei-names-font); font-size: clamp(26px, 7vw, 36px); letter-spacing: 0.08em; color: var(--wr-green); }
+.wr-when, .wr-venue { margin-top: 6px; font-family: var(--ei-heading-font); font-size: 13px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ei-text); }
+.wr-when span + span::before { content: ' · '; }
+.wr-venue { margin-top: 2px; color: var(--ei-muted); }
+.wr-when.is-local, .wr-venue.is-local { letter-spacing: normal; text-transform: none; font-size: 15px; }
+.wr-rule { display: block; width: 110px; height: 1px; margin: 26px auto 18px; background: linear-gradient(90deg, transparent, var(--ei-accent), transparent); }
+.wr-sub { margin-top: 4px; font-size: 15px; line-height: 1.6; color: var(--ei-muted); }
+
+.wr-details { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+.wr-panel {
+  padding: 32px 24px 28px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(184, 151, 90, 0.3);
+  border-radius: 3px;
+  box-shadow: 0 24px 44px -38px rgba(120, 100, 70, 0.6);
+}
+.wr-icon { display: block; margin: 12px auto 0; color: var(--ei-accent-text); }
+.wr-panel-title { margin-top: 10px; font-family: var(--ei-heading-font); font-size: 24px; color: var(--ei-text); }
+.wr-panel-title.big { font-size: clamp(28px, 6vw, 36px); }
+.wr-link { display: inline-block; margin-top: 12px; font-size: 13px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ei-accent-text); border-bottom: 1px solid currentColor; padding-bottom: 2px; }
+
+.wr-ceremonies { margin-top: 14px; }
+.wr-ceremonies > li { padding: 16px 0; border-top: 1px solid var(--ei-border); }
+.wr-ceremonies > li:first-child { border-top: 0; }
+.wr-cer-name { font-family: var(--ei-heading-font); font-size: 24px; color: var(--ei-text); }
+.wr-cer-when { margin-top: 4px; font-size: 14px; font-weight: 600; color: var(--ei-accent-text); }
+
+/* photos: same size in every row; an odd last photo takes the whole row */
+.wr-photos { display: grid; gap: 10px; margin-top: 16px; grid-template-columns: repeat(2, 1fr); }
+.wr-photo { overflow: hidden; aspect-ratio: 3 / 4; border-radius: 3px; box-shadow: 0 0 0 1px color-mix(in srgb, var(--ei-accent) 35%, transparent); }
+.wr-photos.count-1 { grid-template-columns: 1fr; }
+.wr-photos.count-1 .wr-photo { max-width: 360px; width: 100%; margin: 0 auto; }
+.wr-photos.count-3 .wr-photo:last-child,
+.wr-photos.count-5 .wr-photo:last-child { grid-column: 1 / -1; aspect-ratio: 16 / 9; }
+@media (min-width: 640px) {
+  .wr-photos.count-3, .wr-photos.count-6 { grid-template-columns: repeat(3, 1fr); }
+  .wr-photos.count-3 .wr-photo:last-child { grid-column: auto; aspect-ratio: 3 / 4; border-radius: 3px; }
+}
+.wr-photo img { width: 100%; height: 100%; object-fit: cover; }
+
+.wr-sign-rose { display: block; width: 86px; margin: 0 auto; filter: drop-shadow(0 8px 12px rgba(120, 100, 70, 0.2)); }
+.wr-sign { margin-top: 2px; font-family: 'Great Vibes', var(--ei-names-font); font-size: 40px; color: var(--wr-green); }
+
+/* ================================================================ thumbnails & reduced motion */
+.is-poster .wr-opening { position: absolute; inset: 0; }
+.is-poster .wr-lights, .is-poster .wr-skip { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  /* a simplified, still opening: the finished frame with the button, no drifting petals */
+  .wr-opening *, .wr-opening *::before, .wr-opening *::after { animation-duration: 0.01s !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; }
+  .wr-bloom { display: none; }
+  .wr-lights, .wr-petals, .wr-skip { display: none; }
+  .wr-name, .wr-amp, .wr-invite.is-entering { animation: none; }
+}

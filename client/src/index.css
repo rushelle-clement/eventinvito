@@ -1,0 +1,205 @@
+@import "tailwindcss";
+
+/*
+  EventInvito design tokens — generated from the Stitch DESIGN.md.
+  Names match the Stitch export, so classes like bg-primary-container,
+  text-on-surface-variant, font-headline-lg text-headline-lg work unchanged.
+*/
+@theme {
+  /* Colors */
+  --color-surface: #fbf9f5;
+  --color-surface-dim: #dbdad6;
+  --color-surface-bright: #fbf9f5;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f5f3ef;
+  --color-surface-container: #efeeea;
+  --color-surface-container-high: #eae8e4;
+  --color-surface-container-highest: #e4e2de;
+  --color-on-surface: #1b1c1a;
+  --color-on-surface-variant: #4e4639;
+  --color-inverse-surface: #30312e;
+  --color-inverse-on-surface: #f2f0ed;
+  --color-outline: #7f7667;
+  --color-outline-variant: #d1c5b4;
+  --color-surface-tint: #775a19;
+  --color-primary: #775a19;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #c5a059;
+  --color-on-primary-container: #4e3700;
+  --color-inverse-primary: #e9c176;
+  --color-secondary: #645d5c;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #e8dddb;
+  --color-on-secondary-container: #686160;
+  --color-tertiary: #72585a;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #be9da0;
+  --color-on-tertiary-container: #4c3537;
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #93000a;
+  --color-primary-fixed: #ffdea5;
+  --color-primary-fixed-dim: #e9c176;
+  --color-on-primary-fixed: #261900;
+  --color-on-primary-fixed-variant: #5d4201;
+  --color-secondary-fixed: #eae0de;
+  --color-secondary-fixed-dim: #cec4c3;
+  --color-on-secondary-fixed: #1f1b1a;
+  --color-on-secondary-fixed-variant: #4b4544;
+  --color-tertiary-fixed: #fedadd;
+  --color-tertiary-fixed-dim: #e1bec1;
+  --color-on-tertiary-fixed: #2a1619;
+  --color-on-tertiary-fixed-variant: #594043;
+  --color-background: #fbf9f5;
+  --color-on-background: #1b1c1a;
+  --color-surface-variant: #e4e2de;
+
+  /* Brand extras from the design notes */
+  --color-espresso: #2b2625;
+  --color-gold: #c5a059;
+  --color-gold-text: #8f6e28;
+  --color-blush: #e8c5c8;
+  --color-blush-tint: #f4ebea;
+  --color-ivory: #fdfbf7;
+  --color-bone: #eae4da;
+
+  /* Fonts */
+  --font-serif: "Playfair Display", Georgia, serif;
+  --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-display: var(--font-serif);
+  --font-display-mobile: var(--font-serif);
+  --font-headline-lg: var(--font-serif);
+  --font-headline-lg-mobile: var(--font-serif);
+  --font-headline-md: var(--font-serif);
+  --font-headline-md-mobile: var(--font-serif);
+  --font-headline-sm: var(--font-serif);
+  --font-title-lg: var(--font-sans);
+  --font-title-md: var(--font-sans);
+  --font-body-lg: var(--font-sans);
+  --font-body-md: var(--font-sans);
+  --font-body-sm: var(--font-sans);
+  --font-label-md: var(--font-sans);
+  --font-label-sm: var(--font-sans);
+
+  /* Type scale: text-<name> sets size, line height, weight, tracking */
+  --text-display: 56px;
+  --text-display--line-height: 64px;
+  --text-display--font-weight: 600;
+  --text-display--letter-spacing: -0.02em;
+  --text-display-mobile: 36px;
+  --text-display-mobile--line-height: 44px;
+  --text-display-mobile--font-weight: 600;
+  --text-display-mobile--letter-spacing: -0.01em;
+  --text-headline-lg: 40px;
+  --text-headline-lg--line-height: 48px;
+  --text-headline-lg--font-weight: 500;
+  --text-headline-lg--letter-spacing: -0.01em;
+  --text-headline-lg-mobile: 28px;
+  --text-headline-lg-mobile--line-height: 36px;
+  --text-headline-lg-mobile--font-weight: 500;
+  --text-headline-md: 28px;
+  --text-headline-md--line-height: 36px;
+  --text-headline-md--font-weight: 500;
+  --text-headline-md-mobile: 22px;
+  --text-headline-md-mobile--line-height: 30px;
+  --text-headline-md-mobile--font-weight: 500;
+  --text-headline-sm: 20px;
+  --text-headline-sm--line-height: 28px;
+  --text-headline-sm--font-weight: 600;
+  --text-title-lg: 18px;
+  --text-title-lg--line-height: 26px;
+  --text-title-lg--font-weight: 600;
+  --text-title-lg--letter-spacing: -0.01em;
+  --text-title-md: 16px;
+  --text-title-md--line-height: 24px;
+  --text-title-md--font-weight: 600;
+  --text-body-lg: 18px;
+  --text-body-lg--line-height: 28px;
+  --text-body-lg--font-weight: 400;
+  --text-body-md: 15px;
+  --text-body-md--line-height: 24px;
+  --text-body-md--font-weight: 400;
+  --text-body-sm: 13px;
+  --text-body-sm--line-height: 20px;
+  --text-body-sm--font-weight: 400;
+  --text-label-md: 12px;
+  --text-label-md--line-height: 16px;
+  --text-label-md--font-weight: 600;
+  --text-label-md--letter-spacing: 0.06em;
+  --text-label-sm: 11px;
+  --text-label-sm--line-height: 14px;
+  --text-label-sm--font-weight: 500;
+  --text-label-sm--letter-spacing: 0.04em;
+
+  /* Spacing tokens (p-space-lg, gap-gutter, px-margin-mobile …) */
+  --spacing-gutter: 1.5rem;
+  --spacing-gutter-mobile: 1rem;
+  --spacing-margin: 3rem;
+  --spacing-margin-mobile: 1.25rem;
+  --spacing-space-xs: 0.25rem;
+  --spacing-space-sm: 0.5rem;
+  --spacing-space-md: 1rem;
+  --spacing-space-lg: 1.5rem;
+  --spacing-space-xl: 2.5rem;
+
+  /* Shadows from "Elevation & Depth" */
+  --shadow-sheet: 0 4px 24px -2px rgba(43, 38, 37, 0.04);
+  --shadow-float: 0 12px 36px -4px rgba(43, 38, 37, 0.08);
+  --shadow-gold: 0 4px 14px rgba(197, 160, 89, 0.35);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-ivory);
+    color: var(--color-on-surface);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* Reusable pieces from the design system */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-gold px-6 py-3 font-semibold text-espresso transition-shadow hover:shadow-gold disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-bone bg-white px-5 py-2.5 font-medium text-espresso transition-colors hover:border-gold hover:bg-ivory;
+  }
+
+  .card {
+    @apply rounded-lg border border-bone bg-white shadow-sheet;
+  }
+
+  .field-input {
+    @apply w-full rounded-lg border border-transparent bg-surface-container-low py-3.5 pr-12 pl-12 text-body-md text-on-surface placeholder:text-outline transition-[border-color,box-shadow] outline-none focus:border-gold focus:bg-white focus:shadow-[0_0_0_3px_rgba(197,160,89,0.15)];
+  }
+
+  .field-input[aria-invalid="true"] {
+    @apply border-error;
+  }
+
+  .eyebrow {
+    @apply flex items-center gap-2 text-label-md text-gold-text uppercase;
+  }
+}

@@ -1,0 +1,769 @@
+// Invitation editor — settings on the left, live preview on the right
+// (based on the Stitch "Invitation Editor" screen). Template-based: no drag-and-drop.
+
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import {
+  ArrowLeft,
+  CalendarDays,
+  CheckCircle2,
+  ChevronDown,
+  Circle,
+  Eye,
+  Languages,
+  LayoutTemplate,
+  MapPin,
+  Monitor,
+  NotebookPen,
+  Save,
+  Smartphone,
+  TicketCheck,
+  Send,
+  Users,
+  EyeOff,
+  Music,
+  ImageIcon,
+} from 'lucide-react'
+import { api } from '../lib/api'
+import FormAlert from '../components/FormAlert'
+import Modal from '../components/Modal'
+import InvitationCard from '../templates/InvitationCard'
+import TemplateThumbnail from '../templates/TemplateThumbnail'
+import TierBadge from '../components/TierBadge'
+import { getTheme } from '../templates/themes'
+import { LANGUAGES, OCCASIONS, sampleGuestName } from '../templates/strings'
+import { sinhalaWording } from '../templates/wording'
+import MusicChooser from '../components/editor/MusicChooser'
+import PhotosSection from '../components/editor/PhotosSection'
+import CeremoniesEditor from '../components/editor/CeremoniesEditor'
+
+// The fields this screen edits, in the order the server expects
+const FIELDS = [
+  'partnerOne', 'partnerTwo', 'blessing', 'ceremonies', 'hostLine', 'partnerOneParents', 'partnerTwoParents', 'message', 'inviteLine', 'eventDate', 'eventTime', 'endTime',
+  'venueName', 'address', 'mapUrl', 'dressCode', 'rsvpDeadline', 'language', 'eventType', 'templateKey', 'musicTrack',
+]
+
+const FIELD_LABELS = {
+  partnerOne: 'First partner’s name',
+  partnerTwo: 'Second partner’s name',
+  eventDate: 'Event date',
+  eventTime: 'Start time',
+  venueName: 'Venue name',
+  address: 'Venue address',
+  rsvpDeadline: 'RSVP deadline',
+}
+
+function pickFields(inv) {
+  return Object.fromEntries(FIELDS.map((f) => [f, inv?.[f] ?? (f === 'ceremonies' ? [] : f === 'eventType' ? 'wedding' : '')]))
+}
+
+// Fields can be text or a list (ceremonies), so compare by value
+function same(a, b) {
+  return typeof a === 'object' || typeof b === 'object' ? JSON.stringify(a) === JSON.stringify(b) : a === b
+}
+
+// ---------- small form building blocks ----------
+
+function Section({ id, icon: Icon, number, title, subtitle, open, onToggle, children }) {
+  return (
+    <section className="card">
+      <h2>
+        <button
+          type="button"
+          onClick={() => onToggle(id)}
+          aria-expanded={open}
+          aria-controls={`${id}-panel`}
+          className="flex w-full items-center gap-4 px-5 py-4 text-left"
+        >
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-blush-tint text-gold-text" aria-hidden="true">
+            <Icon size={17} />
+          </span>
+          <span className="flex-1">
+            <span className="block text-title-md text-espresso">
+              {number}. {title}
+            </span>
+            <span className="block text-body-sm text-on-surface-variant">{subtitle}</span>
+          </span>
+          <ChevronDown size={18} aria-hidden="true" className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+      </h2>
+      {open && (
+        <div id={`${id}-panel`} className="space-y-5 border-t border-bone px-5 pt-5 pb-6">
+          {children}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function Field({ label, name, value, onChange, error, hint, as = 'input', required, ...props }) {
+  const id = `f-${name}`
+  const Tag = as
+  return (
+    <div>
+      <label htmlFor={id} className="mb-1.5 block text-label-md text-espresso uppercase">
+        {label} {required && <span className="text-gold-text" aria-hidden="true">*</span>}
+      </label>
+      <Tag
+        id={id}
+        name={name}
+        value={value}
+        onChange={(e) => onChange(name, e.target.value)}
+        aria-invalid={error ? 'true' : undefined}
+        aria-describedby={error ? `${id}-err` : hint ? `${id}-hint` : undefined}
+        className={`w-full rounded-lg border bg-surface-container-low px-4 py-3 text-body-md text-on-surface outline-none transition-[border-color,box-shadow] focus:border-gold focus:bg-white focus:shadow-[0_0_0_3px_rgba(197,160,89,0.15)] ${
+          error ? 'border-error' : 'border-transparent'
+        } ${as === 'textarea' ? 'min-h-24 resize-y' : ''}`}
+        {...props}
+      />
+      {error ? (
+        <p id={`${id}-err`} className="mt-1.5 text-body-sm text-error">
+          {error}
+        </p>
+      ) : (
+        hint && (
+          <p id={`${id}-hint`} className="mt-1.5 text-body-sm text-on-surface-variant">
+            {hint}
+          </p>
+        )
+      )}
+    </div>
+  )
+}
+
+// ---------- the page ----------
+
+export default function InvitationEditor() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+
+  const [saved, setSaved] = useState(null) // last version from the server
+  const [form, setForm] = useState(null) // what's on screen
+  const [templates, setTemplates] = useState([])
+  const [errors, setErrors] = useState({})
+  const [status, setStatus] = useState({ type: 'idle', message: '' }) // idle | saving | saved | error
+  const [loadError, setLoadError] = useState('')
+  const [open, setOpen] = useState('language') // the first step: language decides the standard wording
+  const [device, setDevice] = useState('mobile')
+  // null = a sample name in the invitation's language (follows the language until the couple types one)
+  const [previewGuestInput, setPreviewGuest] = useState(null)
+  const [showPreviewMobile, setShowPreviewMobile] = useState(false)
+  const [publishing, setPublishing] = useState(false)
+  const [justPublished, setJustPublished] = useState(false)
+  const [confirmUnpublish, setConfirmUnpublish] = useState(false)
+
+  // Load the invitation and the list of designs
+  useEffect(() => {
+    Promise.all([api(`/invitations/${id}`), api('/templates', { auth: false })])
+      .then(([inv, tpl]) => {
+        setSaved(inv.invitation)
+        setForm(pickFields(inv.invitation))
+        setTemplates(tpl.templates)
+      })
+      .catch((err) => setLoadError(err.status === 404 ? 'This invitation could not be found.' : err.message))
+  }, [id])
+
+  const dirty = useMemo(() => {
+    if (!form || !saved) return false
+    const base = pickFields(saved)
+    return FIELDS.some((f) => !same(form[f], base[f]))
+  }, [form, saved])
+
+  // Warn before closing the tab with unsaved changes
+  useEffect(() => {
+    if (!dirty) return
+    const handler = (e) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [dirty])
+
+  const update = useCallback((name, value) => {
+    setForm((f) => ({ ...f, [name]: value }))
+    setErrors((e) => ({ ...e, [name]: undefined }))
+    setStatus((s) => (s.type === 'saved' ? { type: 'idle', message: '' } : s))
+  }, [])
+
+  const save = useCallback(async () => {
+    if (!form || status.type === 'saving') return false
+    // Send only what changed
+    const base = pickFields(saved)
+    const changes = Object.fromEntries(FIELDS.filter((f) => !same(form[f], base[f])).map((f) => [f, form[f]]))
+    if (!Object.keys(changes).length) {
+      setStatus({ type: 'saved', message: 'All changes saved' })
+      return true
+    }
+    setStatus({ type: 'saving', message: 'Saving…' })
+    try {
+      const data = await api(`/invitations/${id}`, { method: 'PATCH', body: changes })
+      setSaved(data.invitation)
+      setForm(pickFields(data.invitation))
+      setErrors({})
+      setStatus({ type: 'saved', message: 'All changes saved' })
+      return true
+    } catch (err) {
+      setErrors(err.fieldErrors || {})
+      setStatus({ type: 'error', message: err.message })
+      // Open the section that holds the first error
+      const first = Object.keys(err.fieldErrors || {})[0]
+      if (first) setOpen(sectionFor(first))
+      return false
+    }
+  }, [form, saved, id, status.type])
+
+  // Ctrl+S / Cmd+S saves
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault()
+        save()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [save])
+
+  async function openPreview() {
+    if (dirty && !(await save())) return
+    navigate(`/invitations/${id}/preview?guest=${encodeURIComponent(previewGuest.trim())}`)
+  }
+
+  async function publish() {
+    if (dirty && !(await save())) return
+    setPublishing(true)
+    try {
+      const data = await api(`/invitations/${id}/publish`, { method: 'POST' })
+      setSaved(data.invitation)
+      setForm(pickFields(data.invitation))
+      setJustPublished(true)
+      setStatus({ type: 'saved', message: 'Published' })
+    } catch (err) {
+      setErrors(err.fieldErrors || {})
+      setStatus({ type: 'error', message: err.message })
+      const first = Object.keys(err.fieldErrors || {})[0]
+      if (first) setOpen(sectionFor(first))
+    } finally {
+      setPublishing(false)
+    }
+  }
+
+  async function unpublish() {
+    setPublishing(true)
+    try {
+      const data = await api(`/invitations/${id}/unpublish`, { method: 'POST' })
+      setSaved(data.invitation)
+      setJustPublished(false)
+      setConfirmUnpublish(false)
+    } catch (err) {
+      setStatus({ type: 'error', message: err.message })
+    } finally {
+      setPublishing(false)
+    }
+  }
+
+  function leave(e) {
+    if (dirty && !window.confirm('You have unsaved changes. Leave without saving?')) e.preventDefault()
+  }
+
+  const toggle = (sectionId) => setOpen((o) => (o === sectionId ? '' : sectionId))
+
+  if (loadError) {
+    return (
+      <div className="mx-auto max-w-xl px-margin-mobile py-16 text-center">
+        <FormAlert>{loadError}</FormAlert>
+        <Link to="/dashboard" className="btn-secondary mt-6">
+          Back to dashboard
+        </Link>
+      </div>
+    )
+  }
+
+  if (!form) {
+    return (
+      <p className="py-20 text-center text-body-md text-on-surface-variant" role="status">
+        Loading your invitation…
+      </p>
+    )
+  }
+
+  const missing = saved.missingForPublish || []
+  // Free designs are static cards: no photos, music or online RSVP
+  const freeDesign = (templates.find((t) => t.key === form.templateKey)?.tier || saved.tier) === 'free'
+  const isLive = saved.status === 'published'
+  const title = form.partnerOne || form.partnerTwo ? `${form.partnerOne || '…'} & ${form.partnerTwo || '…'}` : 'Untitled invitation'
+  const theme = getTheme(form.templateKey)
+  // Photos and the couple's music are saved immediately, so they come from the saved copy
+  const previewGuest = previewGuestInput ?? sampleGuestName(form.language)
+  const previewInvitation = { ...form, photos: saved.photos || [], customMusic: saved.customMusic }
+  const today = new Date().toISOString().slice(0, 10)
+
+  const preview = (
+    <div className="card overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-bone px-4 py-3">
+        <div className="flex rounded-full bg-surface-container-low p-1" role="group" aria-label="Preview size">
+          {[
+            { v: 'mobile', label: 'Mobile', Icon: Smartphone },
+            { v: 'desktop', label: 'Desktop', Icon: Monitor },
+          ].map(({ v, label, Icon }) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setDevice(v)}
+              aria-pressed={device === v}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-label-md uppercase ${device === v ? 'bg-white text-espresso shadow-sheet' : 'text-on-surface-variant'}`}
+            >
+              <Icon size={15} aria-hidden="true" /> {label}
+            </button>
+          ))}
+        </div>
+        <button type="button" onClick={openPreview} className="inline-flex items-center gap-1.5 rounded-full bg-gold px-3 py-1.5 text-label-md text-espresso uppercase hover:shadow-gold">
+          <Eye size={14} aria-hidden="true" /> Animated preview
+        </button>
+        <label className="flex items-center gap-2 text-body-sm text-on-surface-variant">
+          Preview as
+          <input
+            value={previewGuest}
+            onChange={(e) => setPreviewGuest(e.target.value)}
+            maxLength={60}
+            className="w-36 rounded-full border border-bone bg-white px-3 py-1.5 text-body-sm outline-none focus:border-gold"
+            aria-label="Guest name for preview"
+          />
+        </label>
+      </div>
+      <div className="flex justify-center px-4 py-8" style={{ background: theme.page }}>
+        {device === 'mobile' ? (
+          <div className="w-full max-w-[380px] rounded-[2.5rem] border-[10px] border-espresso bg-espresso shadow-float">
+            <div className="max-h-[680px] overflow-y-auto rounded-[1.8rem]" style={{ background: theme.page }}>
+              <InvitationCard invitation={previewInvitation} templateKey={form.templateKey} guestName={previewGuest.trim()} className="rounded-none" />
+            </div>
+          </div>
+        ) : (
+          <InvitationCard invitation={previewInvitation} templateKey={form.templateKey} guestName={previewGuest.trim()} className="w-full max-w-2xl shadow-float" />
+        )}
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="mx-auto max-w-[1280px] px-margin-mobile pt-6 pb-28 md:px-margin lg:pb-12">
+      {/* Top bar */}
+      <div className="flex flex-col gap-4 border-b border-bone pb-5 md:flex-row md:items-center md:justify-between">
+        <div className="min-w-0">
+          <Link to="/dashboard" onClick={leave} className="inline-flex items-center gap-1.5 text-label-md text-on-surface-variant uppercase hover:text-gold-text">
+            <ArrowLeft size={15} aria-hidden="true" /> Dashboard
+          </Link>
+          <h1 className="mt-2 truncate font-serif text-headline-md-mobile text-espresso md:text-headline-md">{title}</h1>
+          <p className="mt-1 flex flex-wrap items-center gap-2 text-body-sm text-on-surface-variant">
+            <span className={`rounded-full px-2.5 py-0.5 text-label-sm uppercase ${isLive ? 'bg-[#e3f4e8] text-[#1e6b3a]' : 'bg-surface-container text-on-surface-variant'}`}>
+              {saved.status}
+            </span>
+            <span>{saved.templateName || form.templateKey}</span>
+            <span aria-hidden="true">•</span>
+            <span role="status" aria-live="polite" className={status.type === 'error' ? 'text-error' : ''}>
+              {status.type === 'saving' ? 'Saving…' : dirty ? 'Unsaved changes' : 'All changes saved'}
+            </span>
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <button type="button" className="btn-secondary" onClick={openPreview}>
+            <Eye size={16} aria-hidden="true" /> Preview
+          </button>
+          <button type="button" className={`${isLive ? 'btn-primary' : 'btn-secondary'} px-5 py-2.5`} onClick={save} disabled={!dirty || status.type === 'saving'}>
+            <Save size={16} aria-hidden="true" /> {status.type === 'saving' ? 'Saving…' : isLive ? 'Save changes' : 'Save Draft'}
+          </button>
+          {!isLive && (
+            <button
+              type="button"
+              className="btn-primary px-5 py-2.5"
+              onClick={publish}
+              disabled={publishing || status.type === 'saving'}
+              title={missing.length ? 'Fill in the required details first' : undefined}
+            >
+              <Send size={16} aria-hidden="true" /> {publishing ? 'Publishing…' : 'Publish'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {justPublished ? (
+        <div className="mt-4 flex flex-col gap-3 rounded-lg border border-[#b7e0c4] bg-[#e3f4e8] px-5 py-4 sm:flex-row sm:items-center sm:justify-between" role="status">
+          <p className="text-body-md text-[#1e6b3a]">
+            <strong>Your invitation is live.</strong> Next, add your guests to get their personal links.
+          </p>
+          <Link to={`/invitations/${id}/guests`} className="btn-primary shrink-0">
+            <Users size={16} aria-hidden="true" /> Add guests
+          </Link>
+        </div>
+      ) : (
+        isLive && (
+          <div className="mt-4 flex flex-col gap-3 rounded-lg bg-blush-tint px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-body-sm text-espresso">This invitation is live. Changes you save will show to every guest straight away.</p>
+            <div className="flex shrink-0 gap-2">
+              <Link to={`/invitations/${id}/guests`} className="btn-secondary px-4 py-2 text-body-sm">
+                <Users size={15} aria-hidden="true" /> Guests
+              </Link>
+              <button type="button" className="btn-secondary px-4 py-2 text-body-sm" onClick={() => setConfirmUnpublish(true)}>
+                <EyeOff size={15} aria-hidden="true" /> Unpublish
+              </button>
+            </div>
+          </div>
+        )
+      )}
+
+      {status.type === 'error' && (
+        <div className="mt-4">
+          <FormAlert>{status.message}</FormAlert>
+        </div>
+      )}
+
+      <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,480px)_minmax(0,1fr)]">
+        {/* Settings */}
+        <div className="space-y-4">
+          <Section id="language" icon={Languages} number={1} title="Language" subtitle="One language per invitation" open={open === 'language'} onToggle={toggle}>
+            <fieldset>
+              <legend className="mb-3 text-body-sm text-on-surface-variant">
+                The standard wording on the invitation will use this language. Type your own text (names, message, venue) in the same language.
+              </legend>
+              <div className="space-y-2">
+                {LANGUAGES.map((l) => {
+                  // "Coming soon" languages can't be picked for a new choice, but an invitation that
+                  // already uses one keeps it (so it stays selected and still displays)
+                  const unavailable = l.comingSoon && form.language !== l.code
+                  return (
+                    <label
+                      key={l.code}
+                      className={`flex items-center gap-3 rounded-lg border px-4 py-3 ${unavailable ? 'cursor-not-allowed border-bone bg-surface-container-low opacity-60' : 'cursor-pointer'} ${form.language === l.code ? 'border-gold bg-blush-tint' : unavailable ? '' : 'border-bone bg-white'}`}
+                    >
+                      <input
+                        type="radio"
+                        name="language"
+                        value={l.code}
+                        checked={form.language === l.code}
+                        disabled={unavailable}
+                        onChange={() => update('language', l.code)}
+                        className="accent-espresso"
+                      />
+                      <span className="text-body-md text-espresso">{l.label}</span>
+                      {l.comingSoon && <span className="ml-auto rounded-full bg-gold/15 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-espresso">Coming soon</span>}
+                    </label>
+                  )
+                })}
+              </div>
+            </fieldset>
+          </Section>
+
+          <Section id="details" icon={CalendarDays} number={2} title="Event Details" subtitle="Occasion, names, date, time and dress code" open={open === 'details'} onToggle={toggle}>
+            <fieldset>
+              <legend className="mb-2 text-label-md text-espresso">Occasion</legend>
+              <div className="grid grid-cols-3 gap-2">
+                {OCCASIONS.map((o) => (
+                  <label
+                    key={o.value}
+                    className={`flex cursor-pointer items-center justify-center rounded-lg border px-2 py-2.5 text-center text-body-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-gold ${form.eventType === o.value ? 'border-gold bg-blush-tint font-semibold text-espresso' : 'border-bone bg-white text-espresso'}`}
+                  >
+                    <input type="radio" name="eventType" value={o.value} checked={form.eventType === o.value} onChange={() => update('eventType', o.value)} className="sr-only" />
+                    {o.label}
+                  </label>
+                ))}
+              </div>
+              <p className="mt-2 text-body-sm text-on-surface-variant">The standard wording on your invitation follows the occasion.</p>
+            </fieldset>
+            <div className="grid gap-5 sm:grid-cols-2">
+              <Field label="First partner" name="partnerOne" value={form.partnerOne} onChange={update} error={errors.partnerOne} maxLength={60} required placeholder="e.g. Amaya" />
+              <Field label="Second partner" name="partnerTwo" value={form.partnerTwo} onChange={update} error={errors.partnerTwo} maxLength={60} required placeholder="e.g. Nuwan" />
+            </div>
+            <Field label="Event date" name="eventDate" type="date" value={form.eventDate} onChange={update} error={errors.eventDate} required min={today} />
+            <div className="grid gap-5 sm:grid-cols-2">
+              <Field label="Start time" name="eventTime" type="time" value={form.eventTime} onChange={update} error={errors.eventTime} required />
+              <Field label="End time" name="endTime" type="time" value={form.endTime} onChange={update} error={errors.endTime} />
+            </div>
+            <Field label="Dress code" name="dressCode" value={form.dressCode} onChange={update} error={errors.dressCode} maxLength={200} placeholder="e.g. Formal" />
+          </Section>
+
+          <Section id="venue" icon={MapPin} number={3} title="Venue" subtitle="Where guests should go" open={open === 'venue'} onToggle={toggle}>
+            <Field label="Venue name" name="venueName" value={form.venueName} onChange={update} error={errors.venueName} maxLength={120} required placeholder="e.g. Mount Lavinia Hotel" />
+            <Field label="Address" name="address" as="textarea" rows={2} value={form.address} onChange={update} error={errors.address} maxLength={250} required placeholder="Street, city" />
+            <Field
+              label="Map link"
+              name="mapUrl"
+              type="url"
+              value={form.mapUrl}
+              onChange={update}
+              error={errors.mapUrl}
+              maxLength={500}
+              placeholder="https://maps.google.com/…"
+              hint="Optional. Paste a Google Maps link so guests can find the venue."
+            />
+          </Section>
+
+          <Section id="wording" icon={NotebookPen} number={4} title="Wording" subtitle="The words on your invitation" open={open === 'wording'} onToggle={toggle}>
+            {form.language === 'si' && <SinhalaWordingFill form={form} update={update} />}
+            <Field
+              label="Opening blessing"
+              name="blessing"
+              value={form.blessing}
+              onChange={update}
+              error={errors.blessing}
+              maxLength={140}
+              placeholder="e.g. ॥ श्री गणेशाय नमः ॥ or a line of scripture"
+              hint="Optional. Printed in small type at the very top, in any language or script."
+            />
+            <Field
+              label="Hosts' line"
+              name="hostLine"
+              as="textarea"
+              rows={2}
+              value={form.hostLine}
+              onChange={update}
+              error={errors.hostLine}
+              maxLength={200}
+              placeholder="e.g. Mr. & Mrs. Perera request the honour of your presence"
+              hint={`Optional. ${form.hostLine.length}/200`}
+            />
+            <Field
+              label={`Line above ${form.partnerOne.trim() || 'the first partner'}’s name`}
+              name="partnerOneParents"
+              as="textarea"
+              rows={2}
+              value={form.partnerOneParents}
+              onChange={update}
+              error={errors.partnerOneParents}
+              maxLength={200}
+              placeholder={form.language === 'si' ? 'e.g. සුනිල් පෙරේරා මහතා සහ කමලා පෙරේරා මැතිනියගේ ආදරණීය දියණිය' : 'e.g. Daughter of Mr. & Mrs. Sunil Perera'}
+              hint={bracketHint(form.partnerOneParents) || 'Optional. Usually the parents’ names, shown just above the name.'}
+            />
+            <Field
+              label={`Line above ${form.partnerTwo.trim() || 'the second partner'}’s name`}
+              name="partnerTwoParents"
+              as="textarea"
+              rows={2}
+              value={form.partnerTwoParents}
+              onChange={update}
+              error={errors.partnerTwoParents}
+              maxLength={200}
+              placeholder={form.language === 'si' ? 'e.g. රංජිත් සිල්වා මහතා සහ නිලන්ති සිල්වා මැතිනියගේ ආදරණීය පුත්' : 'e.g. Son of Mr. & Mrs. Ranjith Silva'}
+              hint={bracketHint(form.partnerTwoParents) || 'Optional.'}
+            />
+            <Field
+              label="Invitation message"
+              name="message"
+              as="textarea"
+              rows={4}
+              value={form.message}
+              onChange={update}
+              error={errors.message}
+              maxLength={600}
+              placeholder="Leave empty to use the standard wording for your language."
+              hint={`${form.message.length}/600`}
+            />
+            <Field
+              label="Closing line to the guest"
+              name="inviteLine"
+              value={form.inviteLine}
+              onChange={update}
+              error={errors.inviteLine}
+              maxLength={200}
+              placeholder={form.language === 'si' ? '{name} ඔබට කෙරෙන සුහද ඇරයුමයි මේ.' : 'e.g. We would be delighted to have you with us, {name}.'}
+              hint={
+                form.language === 'si'
+                  ? 'Leave empty to use the line shown. Write {name} where each guest’s name should go; the name is then not repeated at the top.'
+                  : 'Optional. Write {name} where each guest’s name should go. When you use {name}, the “Dear …” greeting is left out.'
+              }
+            />
+            <CeremoniesEditor value={form.ceremonies} templateKey={form.templateKey} onChange={(list) => update('ceremonies', list)} error={errors.ceremonies} />
+          </Section>
+
+          <Section id="design" icon={LayoutTemplate} number={5} title="Design" subtitle="Switch to another template" open={open === 'design'} onToggle={toggle}>
+            <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Template">
+              {templates.map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  role="radio"
+                  aria-checked={form.templateKey === t.key}
+                  onClick={() => update('templateKey', t.key)}
+                  className={`overflow-hidden rounded-lg border-2 text-left transition-colors ${form.templateKey === t.key ? 'border-gold' : 'border-bone hover:border-gold/50'}`}
+                >
+                  <span className="relative block">
+                    <TemplateThumbnail templateKey={t.key} invitation={previewInvitation} height={180} />
+                    <TierBadge tier={t.tier} className="absolute top-2 left-2" />
+                  </span>
+                  <span className="block px-3 py-2 text-body-sm font-semibold text-espresso">{t.name}</span>
+                </button>
+              ))}
+            </div>
+            {errors.templateKey && <p className="text-body-sm text-error">{errors.templateKey}</p>}
+          </Section>
+
+          <Section id="photos" icon={ImageIcon} number={6} title="Photos" subtitle="Cover photo and gallery" open={open === 'photos'} onToggle={toggle}>
+            {freeDesign ? (
+              <PremiumOnly>Photos are shown on the Premium designs. Your free design is a simple card without photos.</PremiumOnly>
+            ) : (
+              <PhotosSection invitationId={id} photos={saved.photos || []} onChange={(photos) => setSaved((prev) => ({ ...prev, photos }))} />
+            )}
+          </Section>
+
+          <Section id="music" icon={Music} number={7} title="Music" subtitle="Optional background music" open={open === 'music'} onToggle={toggle}>
+            {freeDesign ? (
+              <PremiumOnly>Background music plays on the Premium designs. Your free design has no music.</PremiumOnly>
+            ) : (
+              <MusicChooser
+                invitationId={id}
+                templateKey={form.templateKey}
+                value={form.musicTrack}
+                customMusic={saved.customMusic}
+                onChange={update}
+                onInvitation={(inv) => {
+                  setSaved((prev) => ({ ...prev, customMusic: inv.customMusic, musicTrack: inv.musicTrack }))
+                  setForm((f) => ({ ...f, musicTrack: inv.musicTrack }))
+                }}
+              />
+            )}
+          </Section>
+
+          <Section id="rsvp" icon={TicketCheck} number={8} title="RSVP Settings" subtitle="When guests must reply by" open={open === 'rsvp'} onToggle={toggle}>
+            {freeDesign ? (
+              <PremiumOnly>Online RSVP comes with the Premium designs. Guests see your free invitation without a reply form.</PremiumOnly>
+            ) : (
+              <>
+                <Field
+                  label="RSVP deadline"
+                  name="rsvpDeadline"
+                  type="date"
+                  value={form.rsvpDeadline}
+                  onChange={update}
+                  error={errors.rsvpDeadline}
+                  required
+                  min={today}
+                  max={form.eventDate || undefined}
+                  hint="Guests can reply or change their answer until the end of this day."
+                />
+                <p className="rounded-lg bg-surface-container-low px-4 py-3 text-body-sm text-on-surface-variant">
+                  Each guest replies only for themselves. Plus-ones can’t be added.
+                </p>
+              </>
+            )}
+          </Section>
+
+          {/* Publish checklist */}
+          <section className="card p-5" aria-labelledby="ready-heading">
+            <h2 id="ready-heading" className="text-title-md text-espresso">
+              {isLive ? 'Published' : missing.length ? 'Before you can publish' : 'Ready to publish'}
+            </h2>
+            {missing.length ? (
+              <ul className="mt-3 space-y-1.5">
+                {missing.map((f) => (
+                  <li key={f} className="flex items-center gap-2 text-body-sm text-on-surface-variant">
+                    <Circle size={12} aria-hidden="true" /> {FIELD_LABELS[f] || f}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 flex items-center gap-2 text-body-sm text-on-surface-variant">
+                <CheckCircle2 size={16} className="text-gold-text" aria-hidden="true" />
+                {isLive ? 'Guests can open their personal links.' : 'All required details are filled in. Press Publish when you’re happy with it.'}
+              </p>
+            )}
+            <p className="mt-3 text-body-sm text-on-surface-variant">Based on your last saved version.</p>
+          </section>
+        </div>
+
+        {/* Live preview (desktop) */}
+        <div className="hidden lg:block">
+          <div className="sticky top-24">{preview}</div>
+        </div>
+      </div>
+
+      {confirmUnpublish && (
+        <Modal
+          title="Unpublish this invitation?"
+          onClose={() => !publishing && setConfirmUnpublish(false)}
+          footer={
+            <>
+              <button type="button" className="btn-secondary" onClick={() => setConfirmUnpublish(false)} disabled={publishing}>
+                Cancel
+              </button>
+              <button type="button" className="btn-primary" onClick={unpublish} disabled={publishing}>
+                {publishing ? 'Unpublishing…' : 'Unpublish'}
+              </button>
+            </>
+          }
+        >
+          <p className="px-5 py-5 text-body-md text-on-surface-variant">
+            Guests who open their link will see “not available” until you publish again. Their links and replies are kept.
+          </p>
+        </Modal>
+      )}
+
+      {/* Mobile: preview toggle */}
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-bone bg-ivory/95 p-3 backdrop-blur lg:hidden">
+        <button type="button" className="btn-secondary w-full" onClick={() => setShowPreviewMobile(true)}>
+          <Eye size={16} aria-hidden="true" /> Show live preview
+        </button>
+      </div>
+      {showPreviewMobile && (
+        <div className="fixed inset-0 z-40 overflow-y-auto bg-ivory p-3 lg:hidden" role="dialog" aria-modal="true" aria-label="Live preview">
+          <button type="button" className="btn-secondary mb-3" onClick={() => setShowPreviewMobile(false)}>
+            <ArrowLeft size={16} aria-hidden="true" /> Back to editing
+          </button>
+          {preview}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Which accordion section contains a field
+function sectionFor(field) {
+  if (['venueName', 'address', 'mapUrl'].includes(field)) return 'venue'
+  if (['hostLine', 'partnerOneParents', 'partnerTwoParents', 'message', 'inviteLine', 'blessing', 'ceremonies'].includes(field)) return 'wording'
+  if (field === 'templateKey') return 'design'
+  if (field === 'language') return 'language'
+  if (field === 'musicTrack') return 'music'
+  if (field === 'rsvpDeadline') return 'rsvp'
+  return 'details'
+}
+
+// "Replace the words in [brackets]" while the filled-in Sinhala wording still has them
+function bracketHint(value) {
+  return /\[[^\]]+\]/.test(value || '') ? 'Replace the words in [brackets] with the parents’ names.' : ''
+}
+
+// Fills the empty wording boxes with the traditional Sinhala wording, which the couple then edits
+function SinhalaWordingFill({ form, update }) {
+  const [filled, setFilled] = useState(false)
+  const wording = sinhalaWording(form.eventType)
+  const empty = Object.keys(wording).filter((k) => !form[k]?.trim())
+  const fill = () => {
+    empty.forEach((k) => update(k, wording[k]))
+    setFilled(true)
+  }
+  return (
+    <div className="rounded-lg border border-gold/40 bg-blush-tint px-4 py-3">
+      <p className="text-body-sm text-espresso" lang="si">
+        ශ්‍රී සුබ මංගලම් · … ආදරණීය දියණිය · … ආදරණීය පුත් · {wording.message} · ඔබට කෙරෙන සුහද ඇරයුමයි මේ
+      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-3">
+        <button type="button" className="btn-secondary !px-4 !py-2 text-body-sm" onClick={fill} disabled={!empty.length}>
+          Use traditional Sinhala wording
+        </button>
+        <span className="text-body-sm text-on-surface-variant" role="status">
+          {filled ? 'Filled in. Edit any line below.' : empty.length ? 'Fills the empty boxes below. You can edit every line.' : 'All wording boxes already have text.'}
+        </span>
+      </div>
+      <p className="mt-2 text-body-sm text-on-surface-variant">To show each guest’s name in Sinhala, add it as “Name on invitation” on the Guests page.</p>
+    </div>
+  )
+}
+
+// Shown in place of a step a free design doesn't have (photos, music, RSVP)
+function PremiumOnly({ children }) {
+  return (
+    <div className="flex items-start gap-3 rounded-lg border border-bone bg-surface-container-low px-4 py-3">
+      <TierBadge tier="premium" className="mt-0.5 shrink-0" />
+      <p className="text-body-sm text-on-surface-variant">{children} Pick a Premium design in step 5 to use it.</p>
+    </div>
+  )
+}
