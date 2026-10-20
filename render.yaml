@@ -1,0 +1,31 @@
+# Render Blueprint for the EventInvito API (the React app is hosted on Vercel).
+# Render → New → Blueprint → pick this repository. Values marked `sync: false`
+# are asked for when the service is created; they are never stored in the repository.
+services:
+  - type: web
+    name: eventinvito-api
+    runtime: node
+    rootDir: server
+    plan: free
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: "1"
+      - key: CLIENT_URL
+        sync: false # your Vercel address, e.g. https://eventinvito.vercel.app
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false

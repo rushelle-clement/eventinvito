@@ -4,6 +4,10 @@
 
 import { getToken } from './tokenStorage'
 
+// Where the API lives. Empty = the same address as the site (local development, where Vite
+// forwards /api to the Express server). On Vercel, VITE_API_URL is the Render server's address.
+const API_BASE = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '')
+
 export class ApiError extends Error {
   constructor(status, message, fieldErrors = {}) {
     super(message)
@@ -21,7 +25,7 @@ export async function api(path, { method = 'GET', body, auth = true } = {}) {
 
   let response
   try {
-    response = await fetch(`/api${path}`, {
+    response = await fetch(`${API_BASE}/api${path}`, {
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,

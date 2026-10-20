@@ -46,11 +46,13 @@ app.use(
     })
 );
 
-app.use(
-    cors({
-        origin: process.env.CLIENT_URL || "http://localhost:5173",
-    })
-);
+// The site may be on another address than the API (e.g. Vercel + Render): only the site's own
+// address(es) may call the API from a browser. ALLOWED_ORIGINS adds more, comma-separated
+// (e.g. the www. version of a custom domain).
+const allowedOrigins = [process.env.CLIENT_URL || "http://localhost:5173", ...(process.env.ALLOWED_ORIGINS || "").split(",")]
+    .map((o) => o.trim().replace(/\/+$/, ""))
+    .filter(Boolean);
+app.use(cors({ origin: allowedOrigins }));
 
 // 1 MB is enough for a 1,000-row guest import and still blocks oversized requests
 app.use(express.json({ limit: "1mb" }));
