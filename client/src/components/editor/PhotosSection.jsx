@@ -5,9 +5,10 @@ import { ArrowLeft, ArrowRight, ImagePlus, Star, Trash2 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { uploadToCloudinary } from '../../lib/cloudinaryUpload'
 
-const MAX = 6
-
-export default function PhotosSection({ invitationId, photos, onChange }) {
+// The package sets the limit: 6 photos on Premium, 12 on Premium Plus and Signature
+export default function PhotosSection({ invitationId, photos, limits, onChange }) {
+  const MAX = limits?.photos ?? 6
+  const more = MAX < 12 // Premium Plus allows more
   const inputRef = useRef(null)
   const [progress, setProgress] = useState(null) // { done, total, percent }
   const [error, setError] = useState('')
@@ -81,6 +82,21 @@ export default function PhotosSection({ invitationId, photos, onChange }) {
       <p className="text-body-sm text-on-surface-variant">
         Add up to {MAX} photos (JPG, PNG, WebP or HEIC, under 10 MB each). The first one is the cover — Modern Romance opens with it full screen.
       </p>
+      {limits?.planName && (
+        <p className="mt-2 text-body-sm text-on-surface-variant">
+          {limits.planName} includes {MAX} photos.
+          {more && (
+            <>
+              {' '}
+              Premium Plus includes 12 —{' '}
+              <a href="/#pricing" className="font-semibold text-gold-text underline underline-offset-2">
+                see the packages
+              </a>
+              .
+            </>
+          )}
+        </p>
+      )}
 
       {photos.length > 0 && (
         <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -119,6 +135,11 @@ export default function PhotosSection({ invitationId, photos, onChange }) {
         </ul>
       )}
 
+      {photos.length >= MAX && photos.length > 0 && (
+        <p className="mt-4 rounded-lg bg-surface-container-low px-4 py-3 text-body-sm text-on-surface-variant">
+          You’ve added all {MAX} photos{limits?.planName ? ` your ${limits.planName} package includes` : ''}. Remove one to add another.
+        </p>
+      )}
       {photos.length < MAX && (
         <label className={`mt-4 flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-6 text-center transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-gold ${uploading ? 'border-gold bg-blush-tint' : 'border-outline-variant bg-ivory hover:border-gold'}`}>
           <ImagePlus size={24} className="text-gold-text" aria-hidden="true" />

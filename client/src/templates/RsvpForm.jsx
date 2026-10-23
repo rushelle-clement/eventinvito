@@ -109,8 +109,9 @@ export default function RsvpForm({ token, invitation, rsvp, onChange }) {
     <form onSubmit={submit} className="mt-4">
       <fieldset>
         <legend className="sr-only">{t.rsvpPrompt}</legend>
-        {/* Sinhala/Tamil answers are long, so they get a full-width row each instead of wrapping */}
-        <div className={`grid gap-3 ${lang === 'en' ? 'grid-cols-2' : 'grid-cols-1'}`}>
+        {/* Side by side on larger screens; on phones (and for the longer Sinhala/Tamil answers)
+            each gets its own full-width line, so the words never wrap inside a button */}
+        <div className={`grid grid-cols-1 gap-3 ${lang === 'en' ? 'sm:grid-cols-2' : ''}`}>
           {option('attending', t.accept)}
           {option('not_attending', t.decline)}
         </div>

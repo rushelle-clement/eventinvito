@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from 'react'
 import { CalendarDays, Clock, MapPin, Shirt } from 'lucide-react'
 import Reveal from './Reveal'
 import MusicButton from './MusicButton'
-import { ceremonyList, names, numericDate, runTimeline, timeRange } from './shared'
+import { ceremonyList, names, numericDate, runTimeline, timeRange, galleryClass } from './shared'
 import { formatDate } from '../strings'
 import { Parents, InviteLine } from './Wording'
 import { guestNamedInLine, hasParentsLines } from '../wording'
@@ -161,8 +161,8 @@ export default function NoirRouge({ invitation, guestName, rsvp, music, t, lang,
               <Reveal>
                 <h2 className={`nr-eyebrow ${local} text-center`}>{t.ourMoments}</h2>
               </Reveal>
-              <div className={`nr-photos count-${Math.min(photos.length, 4)}`}>
-                {photos.slice(0, 4).map((p, i) => (
+              <div className={`nr-photos ${galleryClass(photos.length, 4)}`}>
+                {photos.map((p, i) => (
                   <Reveal key={p.id} variant="scale" delay={i * 120} className="nr-photo">
                     <img src={p.url} alt="" loading="lazy" />
                   </Reveal>

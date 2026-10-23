@@ -21,12 +21,25 @@ function requireConfigured() {
 }
 
 const photosJSON = (invitation) => invitation.toOwnerJSON().photos;
+const { limitsFor } = require("../utils/packages");
+
+// The package's photo limit (6 for Premium, 12 for Premium Plus and Signature)
+function photoLimit(invitation, user) {
+    const { photos, planName } = limitsFor(invitation, user);
+    return {
+        max: photos,
+        message: photos
+            ? `${planName} includes up to ${photos} photos.${photos < 12 ? " Premium Plus includes up to 12." : ""}`
+            : "Photos are part of the Premium packages.",
+    };
+}
 
 // POST /api/invitations/:id/photos/signature — permission for one upload
 async function photoSignature(req, res) {
     requireConfigured();
     const invitation = await findOwned(req);
-    if (invitation.photos.length >= MAX_PHOTOS) throw new AppError(400, `You can add up to ${MAX_PHOTOS} photos.`);
+    const limit = photoLimit(invitation, req.user);
+    if (invitation.photos.length >= Math.min(MAX_PHOTOS, limit.max)) throw new AppError(403, limit.message, undefined, "photo_limit");
     res.json({ success: true, upload: cloudinary.uploadSignature(folderFor(invitation)) });
 }
 
@@ -45,9 +58,10 @@ async function addPhoto(req, res) {
     if (invitation.photos.some((p) => p.publicId === publicId)) {
         return res.json({ success: true, photos: photosJSON(invitation) });
     }
-    if (invitation.photos.length >= MAX_PHOTOS) {
+    const limit = photoLimit(invitation, req.user);
+    if (invitation.photos.length >= Math.min(MAX_PHOTOS, limit.max)) {
         await cloudinary.deleteImage(publicId).catch(() => {});
-        throw new AppError(400, `You can add up to ${MAX_PHOTOS} photos.`);
+        throw new AppError(403, limit.message, undefined, "photo_limit");
     }
 
     // Check the real file on Cloudinary rather than trusting the browser

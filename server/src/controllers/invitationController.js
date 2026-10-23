@@ -2,13 +2,16 @@ const mongoose = require("mongoose");
 const Invitation = require("../models/Invitation");
 const Template = require("../models/Template");
 const Guest = require("../models/Guest");
+const User = require("../models/User");
 const AppError = require("../utils/AppError");
+const { customDesignWaiting, KEPT_FOR_CUSTOM } = require("../utils/customDesigns");
 
 // Fields a couple may change through the API. Anything else in the request body is ignored,
 // so nobody can change `owner`, `status`, etc. by sending extra fields.
 const EDITABLE = {
     partnerOne: { max: 60 },
     partnerTwo: { max: 60 },
+    celebrant: { max: 60 }, // birthdays
     hostLine: { max: 200 },
     partnerOneParents: { max: 200 },
     partnerTwoParents: { max: 200 },
@@ -24,7 +27,7 @@ const EDITABLE = {
     rsvpDeadline: { pattern: /^\d{4}-\d{2}-\d{2}$/, label: "a date" },
     language: { oneOf: Template.LANGUAGES },
     // Wedding, engagement or homecoming: decides the standard wording
-    eventType: { oneOf: Template.COUPLE_OCCASIONS },
+    eventType: { oneOf: [...Template.COUPLE_OCCASIONS, "birthday"] },
     shareMessage: { max: 500 },
     blessing: { max: 140 },
     musicTrack: { max: 60, pattern: /^[a-z0-9-]+$/, label: "a track id" },
@@ -34,6 +37,30 @@ function isValidDate(s) {
     const d = new Date(`${s}T00:00:00Z`);
     return !Number.isNaN(d.getTime()) && d.toISOString().startsWith(s);
 }
+
+// Uses one of the account's credits ("freeCredits" or "publishCredits"); false if none are left
+// The last Premium invitation of a Signature couple is kept for their custom design
+async function keepForCustom(user, templateKey) {
+    const waiting = await customDesignWaiting(user, templateKey);
+    if (waiting) throw KEPT_FOR_CUSTOM(AppError, waiting);
+}
+
+async function takeCredit(userId, field) {
+    const updated = await User.findOneAndUpdate({ _id: userId, [field]: { $gte: 1 } }, { $inc: { [field]: -1 } }, { returnDocument: "after" });
+    // Accounts from before packages: using a Premium credit makes them Premium (so their package
+    // stays Premium once the credit is used up)
+    if (updated && field === "publishCredits" && !updated.plan) await User.updateOne({ _id: userId, plan: { $exists: false } }, { $set: { plan: "premium" } });
+    return Boolean(updated);
+}
+const NO_CREDIT = () =>
+    new AppError(403, "You've already used your free card. Choose a Premium package to publish another invitation — please contact EventInvito.", undefined, "no_credit");
+const NEEDS_PREMIUM = () =>
+    new AppError(
+        403,
+        "Animated designs are part of the Premium packages. Contact EventInvito to upgrade, or switch to a free design to publish with your free card.",
+        undefined,
+        "needs_premium"
+    );
 
 // Pick and check the editable fields from a request body.
 function readChanges(body = {}, current = {}) {
@@ -56,6 +83,21 @@ function readChanges(body = {}, current = {}) {
         else if (rule.oneOf && !rule.oneOf.includes(value)) errors[field] = `Must be one of: ${rule.oneOf.join(", ")}.`;
         else changes[field] = value;
     }
+
+    // Birthdays: the age they're turning (optional), a whole number from 0 to 120
+    if ("age" in body) {
+        const raw = body.age;
+        if (raw === null || raw === "") changes.age = null;
+        else {
+            const n = typeof raw === "number" ? raw : typeof raw === "string" && /^\d{1,3}$/.test(raw.trim()) ? Number(raw) : NaN;
+            if (!Number.isInteger(n) || n < 0 || n > 120) errors.age = "Must be a whole number from 0 to 120.";
+            else changes.age = n;
+        }
+    }
+
+    // A birthday stays a birthday; couple designs choose between wedding, engagement and homecoming
+    if (current.eventType === "birthday" && "eventType" in changes) delete changes.eventType;
+    else if (changes.eventType === "birthday") errors.eventType = "Choose a birthday design to make a birthday invitation.";
 
     // Ceremonies: a list of { name, date, time, venue, note }
     if ("ceremonies" in body) {
@@ -123,7 +165,7 @@ async function listInvitations(req, res) {
     res.json({
         success: true,
         invitations: invitations.map((i) => ({
-            ...i.toOwnerJSON(),
+            ...i.toOwnerJSON(req.user),
             guestCounts: counts[String(i._id)] || { total: 0, attending: 0, not_attending: 0, pending: 0 },
         })),
     });
@@ -133,9 +175,9 @@ async function listInvitations(req, res) {
 async function createInvitation(req, res) {
     const templateKey = typeof req.body?.templateKey === "string" ? req.body.templateKey : "";
     const template = await Template.findOne({ key: templateKey, status: "published" });
-    if (!template) throw new AppError(400, "Please choose an available template.");
+    if (!template || !template.isVisibleTo(req.user)) throw new AppError(400, "Please choose an available template.");
 
-    const { changes, errors } = readChanges(req.body);
+    const { changes, errors } = readChanges(req.body, { eventType: template.eventType === "birthday" ? "birthday" : "" });
     if (Object.keys(errors).length) throw new AppError(400, "Please fix the highlighted fields.", errors);
     if (changes.language && !template.languageSupport.includes(changes.language)) {
         throw new AppError(400, "This template does not support that language.");
@@ -147,19 +189,23 @@ async function createInvitation(req, res) {
         template: template._id,
         templateKey: template.key,
         templateVersion: template.version,
-        // The couple's chosen occasion; a couple design defaults to a wedding
-        eventType: changes.eventType || (Template.COUPLE_OCCASIONS.includes(template.eventType) ? template.eventType : "wedding"),
+        // Birthday designs make birthday invitations; a couple design uses the chosen occasion
+        // (wedding by default)
+        eventType:
+            template.eventType === "birthday"
+                ? "birthday"
+                : changes.eventType || (Template.COUPLE_OCCASIONS.includes(template.eventType) ? template.eventType : "wedding"),
         status: "draft",
     });
     invitation.template = template;
 
-    res.status(201).json({ success: true, invitation: invitation.toOwnerJSON() });
+    res.status(201).json({ success: true, invitation: invitation.toOwnerJSON(req.user) });
 }
 
 // GET /api/invitations/:id
 async function getInvitation(req, res) {
     const invitation = await findOwned(req);
-    res.json({ success: true, invitation: invitation.toOwnerJSON() });
+    res.json({ success: true, invitation: invitation.toOwnerJSON(req.user) });
 }
 
 // PATCH /api/invitations/:id — save draft changes (FR-021, FR-025, FR-027)
@@ -172,10 +218,19 @@ async function updateInvitation(req, res) {
     let newTemplate = null;
     if (typeof req.body?.templateKey === "string" && req.body.templateKey !== invitation.templateKey) {
         newTemplate = await Template.findOne({ key: req.body.templateKey, status: "published" });
-        if (!newTemplate) errors.templateKey = "That template is not available.";
+        if (!newTemplate || !newTemplate.isVisibleTo(req.user)) errors.templateKey = "That template is not available.";
+        // Birthday and couple invitations have different details, so they keep to their own designs
+        else if ((newTemplate.eventType === "birthday") !== invitation.isBirthday()) {
+            errors.templateKey = invitation.isBirthday() ? "Choose another birthday design." : "Choose a wedding, engagement or homecoming design.";
+        }
     }
 
     if (Object.keys(errors).length) throw new AppError(400, "Please fix the highlighted fields.", errors);
+
+    // A live invitation published as a free card can only switch to an animated design with a premium credit
+    const upgrade = Boolean(newTemplate && newTemplate.tier !== "free" && invitation.status === "published" && invitation.paidKind() === "free");
+    if (upgrade && !((req.user.publishCredits || 0) > 0)) throw NEEDS_PREMIUM(); // checked before anything changes
+    if (upgrade) await keepForCustom(req.user, newTemplate.key);
 
     Object.assign(invitation, changes);
     if (newTemplate) {
@@ -196,8 +251,18 @@ async function updateInvitation(req, res) {
         }
     }
 
-    await invitation.save();
-    res.json({ success: true, invitation: invitation.toOwnerJSON() });
+    if (upgrade) {
+        if (!(await takeCredit(req.user._id, "publishCredits"))) throw NEEDS_PREMIUM();
+        invitation.creditKind = "premium";
+    }
+    try {
+        await invitation.save();
+    } catch (err) {
+        if (upgrade) await User.updateOne({ _id: req.user._id }, { $inc: { publishCredits: 1 } });
+        throw err;
+    }
+    const owner = upgrade ? await User.findById(req.user._id) : null;
+    res.json({ success: true, invitation: invitation.toOwnerJSON(owner || req.user), ...(owner && { user: owner.toPublicJSON() }) });
 }
 
 // POST /api/invitations/:id/publish (FR-026, BR-002)
@@ -211,16 +276,50 @@ async function publishInvitation(req, res) {
             Object.fromEntries(missing.map((f) => [f, "Required to publish."]))
         );
     }
+    if (invitation.hasEnded()) {
+        throw new AppError(400, "This event has already taken place, so the invitation can't be published. Change the event date if it has moved.", {
+            eventDate: "The event is over.",
+        });
+    }
     const today = new Date().toISOString().slice(0, 10);
     if (!invitation.isFreeDesign() && invitation.rsvpDeadline < today) {
         throw new AppError(400, "The RSVP deadline has already passed. Choose a later date before publishing.", {
             rsvpDeadline: "Must be today or later.",
         });
     }
+
+    // Publishing a new invitation uses one of the account's allowances (one payment = one card):
+    //  • a free design uses the free card (or, if that's gone, a premium credit);
+    //  • an animated design always needs a premium credit.
+    // A paid invitation can be unpublished and published again for free. One published as a free
+    // card that has since switched to an animated design needs a premium credit to go live.
+    const kind = invitation.paidKind();
+    const needsPremium = (!kind && !(invitation.isFreeDesign() && req.user.freeCredits > 0)) || (kind === "free" && !invitation.isFreeDesign());
+    if (needsPremium) await keepForCustom(req.user, invitation.templateKey);
+    let charged = null;
+    if (!kind) {
+        if (invitation.isFreeDesign()) charged = (await takeCredit(req.user._id, "freeCredits")) ? "free" : null;
+        if (!charged) charged = (await takeCredit(req.user._id, "publishCredits")) ? "premium" : null;
+        if (!charged) throw invitation.isFreeDesign() ? NO_CREDIT() : NEEDS_PREMIUM();
+    } else if (kind === "free" && !invitation.isFreeDesign()) {
+        charged = (await takeCredit(req.user._id, "publishCredits")) ? "premium" : null;
+        if (!charged) throw NEEDS_PREMIUM();
+    }
+    if (charged) {
+        invitation.creditUsed = true;
+        invitation.creditKind = charged;
+    }
     invitation.status = "published";
     invitation.publishedAt ??= new Date();
-    await invitation.save();
-    res.json({ success: true, invitation: invitation.toOwnerJSON() });
+    try {
+        await invitation.save();
+    } catch (err) {
+        // Give the credit back if the invitation couldn't be saved
+        if (charged) await User.updateOne({ _id: req.user._id }, { $inc: { [charged === "free" ? "freeCredits" : "publishCredits"]: 1 } });
+        throw err;
+    }
+    const owner = await User.findById(req.user._id);
+    res.json({ success: true, invitation: invitation.toOwnerJSON(owner || req.user), user: owner?.toPublicJSON() });
 }
 
 // POST /api/invitations/:id/unpublish — guest links stop working until it's published again
@@ -230,7 +329,7 @@ async function unpublishInvitation(req, res) {
         invitation.status = "unpublished";
         await invitation.save();
     }
-    res.json({ success: true, invitation: invitation.toOwnerJSON() });
+    res.json({ success: true, invitation: invitation.toOwnerJSON(req.user) });
 }
 
 // DELETE /api/invitations/:id — archives rather than erasing, so it can be recovered

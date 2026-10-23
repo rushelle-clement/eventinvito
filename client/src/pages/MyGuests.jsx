@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
+import { invitationTitle } from '../templates/strings'
 import { ChevronRight, Users } from 'lucide-react'
 import { api } from '../lib/api'
 import FormAlert from '../components/FormAlert'
@@ -49,7 +50,7 @@ export default function MyGuests() {
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-serif text-headline-sm text-espresso">
-                    {inv.partnerOne || inv.partnerTwo ? `${inv.partnerOne || '…'} & ${inv.partnerTwo || '…'}` : 'Untitled invitation'}
+                    {inv.partnerOne || inv.partnerTwo || inv.celebrant ? invitationTitle(inv) : 'Untitled invitation'}
                   </span>
                   <span className="text-body-sm text-on-surface-variant">
                     {inv.guestCounts.total} guest{inv.guestCounts.total === 1 ? '' : 's'} · {inv.status}

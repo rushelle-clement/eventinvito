@@ -12,7 +12,7 @@ import Reveal from './Reveal'
 import MusicButton from './MusicButton'
 import Petals from './Petals'
 import { ArchTop, Finial, Mandala, OrnamentDivider, Paisley } from './ornaments'
-import { ceremonyList, names, runTimeline, timeRange } from './shared'
+import { ceremonyList, names, runTimeline, timeRange, galleryClass } from './shared'
 import { formatDate } from '../strings'
 import { Parents, InviteLine } from './Wording'
 import { guestNamedInLine, hasParentsLines } from '../wording'
@@ -196,8 +196,8 @@ export default function RoyalIndian({ invitation, guestName, rsvp, music, t, lan
 
           {photos.length > 0 && (
             <section className="ri-section pb-8" aria-label={t.ourMoments}>
-              <div className={`ri-photos count-${Math.min(photos.length, 3)}`}>
-                {photos.slice(0, 3).map((p, i) => (
+              <div className={`ri-photos ${galleryClass(photos.length, 3)}`}>
+                {photos.map((p, i) => (
                   <Reveal key={p.id} variant="scale" delay={i * 150} className="ri-photo">
                     <img src={p.url} alt="" loading="lazy" />
                   </Reveal>

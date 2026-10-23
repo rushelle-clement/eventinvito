@@ -26,10 +26,23 @@ export const MUSIC_TRACKS = [
     src: '/music/santoor-evening.mp3',
     credit: 'Evening raag: original EventInvito composition and recording, in the style of Raag Yaman.',
   },
+  {
+    id: 'happy-birthday-music-box',
+    title: 'Happy Birthday — music box',
+    mood: 'Cheerful, for birthdays',
+    src: '/music/happy-birthday-music-box.mp3',
+    credit: 'Happy Birthday: melody from “Good Morning to All” by Mildred J. Hill (1893, public domain), original EventInvito recording.',
+  },
 ]
 
 // The track that suits each design best (used in gallery previews and suggested in the editor)
 export const SUGGESTED_TRACK = {
+  'golden-vow': 'piano-romance',
+  'balloon-bash': 'happy-birthday-music-box',
+  'ocean-adventure': 'happy-birthday-music-box',
+  'fairy-garden': 'happy-birthday-music-box',
+  'midnight-gala': 'happy-birthday-music-box',
+  'rose-wish': 'happy-birthday-music-box',
   'pure-elegance': 'canon-music-box',
   'modern-romance': 'piano-romance',
   'royal-red': 'santoor-evening',

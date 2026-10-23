@@ -1,13 +1,16 @@
 // Helpers for sharing a guest's personal link (FR-031 – FR-035).
 // WhatsApp is only *opened* with the text filled in; the couple presses Send themselves (BR-011).
 
-import { stringsFor } from '../templates/strings'
+import { invitationTitle, isBirthday, stringsFor } from '../templates/strings'
 
 // The message that goes with the link. {name} and {couple} are filled in.
 export function buildShareText(invitation, guest) {
   const t = stringsFor(invitation.language, invitation.eventType)
   const template = invitation.shareMessage?.trim() || t.shareDefault
-  const couple = [invitation.partnerOne, invitation.partnerTwo].filter(Boolean).join(` ${t.and} `)
+  // {couple}: the couple's names, or for a birthday "Kavindi's 5th birthday"
+  const couple = isBirthday(invitation)
+    ? invitationTitle(invitation, invitation.language)
+    : [invitation.partnerOne, invitation.partnerTwo].filter(Boolean).join(` ${t.and} `)
   const text = template.replaceAll('{name}', guest.displayName || guest.name).replaceAll('{couple}', couple)
   return `${text}\n${guest.link}`
 }

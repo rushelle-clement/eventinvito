@@ -7,6 +7,7 @@ import { NavLink, Outlet, Link } from 'react-router-dom'
 import { Menu, Plus, X } from 'lucide-react'
 import Logo from './Logo'
 import UserMenu from './UserMenu'
+import { useSiteConfig } from '../lib/siteConfig'
 import { useAuth } from '../context/AuthContext'
 import SiteFooter from './SiteFooter'
 
@@ -19,6 +20,7 @@ const GUEST_NAV = [
   { to: '/', label: 'Home', end: true },
   { to: '/templates', label: 'Explore Invitations' },
   { to: '/#how-it-works', label: 'How It Works', hash: true },
+  { to: '/#pricing', label: 'Pricing', hash: true },
 ]
 
 function navClass({ isActive }) {
@@ -28,7 +30,8 @@ function navClass({ isActive }) {
 export default function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const { user } = useAuth()
-  const NAV = user ? MEMBER_NAV : GUEST_NAV
+  const { signupOpen } = useSiteConfig()
+  const NAV = user ? (user.role === 'admin' ? [...MEMBER_NAV, { to: '/admin', label: 'Admin' }] : MEMBER_NAV) : GUEST_NAV
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -37,7 +40,7 @@ export default function AppLayout() {
       </a>
 
       <header className="sticky top-0 z-30 border-b border-bone/70 bg-ivory/90 backdrop-blur">
-        <div className="mx-auto flex h-18 max-w-[1200px] items-center justify-between gap-6 px-margin-mobile md:px-margin">
+        <div className="mx-auto flex h-18 max-w-[1200px] items-center justify-between gap-3 px-margin-mobile sm:gap-6 md:px-margin">
           <div className="flex items-center gap-10">
             <Logo className="text-[24px]" />
             <nav aria-label="Main" className="hidden items-center gap-7 md:flex">
@@ -49,7 +52,7 @@ export default function AppLayout() {
             </nav>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             {user ? (
               <>
                 <Link to="/templates" className="btn-primary hidden px-5 py-2 text-body-sm sm:inline-flex">
@@ -59,12 +62,22 @@ export default function AppLayout() {
               </>
             ) : (
               <>
-                <Link to="/signin" className="hidden text-body-md text-espresso hover:text-gold-text sm:inline">
-                  Sign In
-                </Link>
-                <Link to="/signup" className="btn-primary px-5 py-2 text-body-sm">
-                  Create Account
-                </Link>
+                {signupOpen ? (
+                  <>
+                    <Link to="/signin" className="hidden text-body-md text-espresso hover:text-gold-text sm:inline">
+                      Sign In
+                    </Link>
+                    <Link to="/signup" className="btn-primary px-4 py-2 text-body-sm sm:px-5">
+                      <span className="min-[380px]:hidden">Sign up</span>
+                      <span className="hidden min-[380px]:inline">Create Account</span>
+                    </Link>
+                  </>
+                ) : (
+                  // Accounts are made by EventInvito for now: just Sign In
+                  <Link to="/signin" className="btn-primary px-5 py-2 text-body-sm">
+                    Sign In
+                  </Link>
+                )}
               </>
             )}
             <button

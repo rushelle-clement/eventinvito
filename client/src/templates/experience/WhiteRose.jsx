@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from 'react'
 import { CalendarDays, Clock, MapPin, Shirt } from 'lucide-react'
 import Reveal from './Reveal'
 import MusicButton from './MusicButton'
-import { ceremonyList, names, prefersReducedMotion, timeRange } from './shared'
+import { ceremonyList, names, prefersReducedMotion, timeRange, galleryClass } from './shared'
 import { formatDate } from '../strings'
 import './whiteRose.css'
 import { Parents, InviteLine } from './Wording'
@@ -313,8 +313,8 @@ export default function WhiteRose({ invitation, guestName, rsvp, music, t, lang,
               <Reveal>
                 <h2 className={`${eyebrow} text-center`}>{t.ourMoments}</h2>
               </Reveal>
-              <div className={`wr-photos count-${Math.min(photos.length, 6)}`}>
-                {photos.slice(0, 6).map((p, i) => (
+              <div className={`wr-photos ${galleryClass(photos.length, 6)}`}>
+                {photos.map((p, i) => (
                   <Reveal key={p.id} variant="scale" delay={i * 100} className="wr-photo">
                     <img src={p.url} alt="" loading="lazy" />
                   </Reveal>

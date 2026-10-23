@@ -7,6 +7,23 @@ import { SINHALA_WORDING, sinhalaWording } from './wording'
 const SI_TA = '"Noto Serif Sinhala", "Noto Serif Tamil"'
 
 export const THEMES = {
+  'golden-vow': {
+    // Golden Vow: modern gold, ivory and white, built around the couple's photos
+    layout: 'classic',
+    page: '#faf6ee',
+    card: '#ffffff',
+    text: '#2b2620',
+    muted: '#7a6f60',
+    accent: '#b8964f',
+    accentText: '#9a7a37',
+    onAccent: '#ffffff',
+    soft: '#f6efe0',
+    border: '#ebdfc6',
+    headingFont: `"Cormorant Garamond", "Playfair Display", ${SI_TA}, serif`,
+    namesFont: `"Cormorant Garamond", ${SI_TA}, serif`,
+    namesStyle: 'normal',
+    bodyFont: `"Plus Jakarta Sans", "Noto Sans Sinhala", "Noto Sans Tamil", sans-serif`,
+  },
   'ran-pahana': {
     // Ran Pahana: red brocade, gold liyawel and the traditional oil lamp
     layout: 'regal',
@@ -369,6 +386,277 @@ export const THEMES = {
   },
 }
 
+// ---- Birthdays (free static cards): drawn artwork, one person and their age ----
+const KIDS_FONT = `"Fredoka", "Plus Jakarta Sans", "Noto Sans Sinhala", "Noto Sans Tamil", sans-serif`
+const BODY_FONT = `"Plus Jakarta Sans", "Noto Sans Sinhala", "Noto Sans Tamil", sans-serif`
+Object.assign(THEMES, {
+  'confetti-pop': {
+    // Confetti Pop: kids' party, yellow, teal and coral confetti
+    free: true,
+    birthday: true,
+    layout: 'classic',
+    page: '#ffe7a3',
+    card: '#fffaf0',
+    text: '#2a3a4a',
+    muted: '#5c6b78',
+    accent: '#1fa6a0',
+    accentText: '#13827d',
+    soft: '#fff2cf',
+    border: '#f3dfa9',
+    headingFont: KIDS_FONT,
+    namesFont: KIDS_FONT,
+    namesStyle: 'normal',
+    bodyFont: KIDS_FONT,
+  },
+  'little-star': {
+    // Little Star: a little boy's birthday, baby blue, a gold crown and stars
+    free: true,
+    birthday: true,
+    layout: 'classic',
+    page: '#d6e9f6',
+    card: '#f6fbff',
+    text: '#22406a',
+    muted: '#5a7190',
+    accent: '#c9a24a',
+    accentText: '#9c7a2c',
+    soft: '#e8f3fb',
+    border: '#c9def0',
+    headingFont: KIDS_FONT,
+    namesFont: KIDS_FONT,
+    namesStyle: 'normal',
+    bodyFont: KIDS_FONT,
+  },
+  'blush-bloom': {
+    // Blush Bloom: a little girl's birthday, blush balloons and flowers
+    free: true,
+    birthday: true,
+    layout: 'classic',
+    page: '#f9dde3',
+    card: '#fff8f9',
+    text: '#5a2a3a',
+    muted: '#8a5b68',
+    accent: '#d9738f',
+    accentText: '#b04f6b',
+    soft: '#fdecef',
+    border: '#f3cdd6',
+    headingFont: `"Dancing Script", "Cormorant Garamond", ${SI_TA}, serif`,
+    namesFont: `"Dancing Script", "Cormorant Garamond", ${SI_TA}, serif`,
+    namesStyle: 'normal',
+    bodyFont: KIDS_FONT,
+  },
+  'black-gold': {
+    // Black & Gold: an adult milestone, modern and minimal, a huge gold number
+    free: true,
+    birthday: true,
+    layout: 'regal',
+    page: '#070707',
+    card: '#121212',
+    text: '#f5efe2',
+    muted: '#bdb3a0',
+    accent: '#d4af5a',
+    accentText: '#e3c37a',
+    onAccent: '#121212',
+    soft: '#1c1a16',
+    border: '#3a3326',
+    headingFont: BODY_FONT,
+    namesFont: BODY_FONT,
+    namesStyle: 'normal',
+    bodyFont: BODY_FONT,
+  },
+  'rose-bubbles': {
+    // Rosé Bubbles: her birthday, rose gold and champagne bubbles
+    free: true,
+    birthday: true,
+    layout: 'classic',
+    page: '#f3d9d2',
+    card: '#fffaf8',
+    text: '#4e2c2b',
+    muted: '#86615c',
+    accent: '#b9786a',
+    accentText: '#9b5c50',
+    soft: '#fbeeea',
+    border: '#efd6cf',
+    headingFont: `"Cormorant Garamond", "Playfair Display", ${SI_TA}, serif`,
+    namesFont: `"Great Vibes", "Cormorant Garamond", ${SI_TA}, serif`,
+    namesStyle: 'normal',
+    bodyFont: BODY_FONT,
+  },
+})
+
+// ---- Birthdays (Premium, animated): AI illustrations in /public/<key>/ ----
+Object.assign(THEMES, {
+  'balloon-bash': {
+    // Balloon Bash: kids' party; the balloons float away with the name tag
+    birthday: true,
+    layout: 'classic',
+    page: '#fff8ee',
+    card: '#ffffff',
+    text: '#2a3a4a',
+    muted: '#5c6b78',
+    accent: '#f2786b',
+    accentText: '#d9574a',
+    onAccent: '#ffffff',
+    soft: '#fff1e2',
+    border: '#f3dfc9',
+    headingFont: KIDS_FONT,
+    namesFont: KIDS_FONT,
+    namesStyle: 'normal',
+    bodyFont: KIDS_FONT,
+  },
+  'ocean-adventure': {
+    // Ocean Adventure: a boy's party under the sea; the treasure chest opens
+    birthday: true,
+    layout: 'classic',
+    page: '#e6f7f8',
+    card: '#ffffff',
+    text: '#10405a',
+    muted: '#47697c',
+    accent: '#1593a6',
+    accentText: '#0f7f90',
+    onAccent: '#ffffff',
+    soft: '#d6f1f3',
+    border: '#bfe9ee',
+    headingFont: KIDS_FONT,
+    namesFont: KIDS_FONT,
+    namesStyle: 'normal',
+    bodyFont: KIDS_FONT,
+  },
+  'fairy-garden': {
+    // Fairy Garden: a girl's party; the flowered gate opens and butterflies fly out
+    birthday: true,
+    layout: 'classic',
+    page: '#f8f2fc',
+    card: '#ffffff',
+    text: '#4b2f63',
+    muted: '#7b6390',
+    accent: '#a674cf',
+    accentText: '#8c4fb9',
+    onAccent: '#ffffff',
+    soft: '#f1e6f9',
+    border: '#ead9f6',
+    headingFont: KIDS_FONT,
+    namesFont: `"Dancing Script", "Cormorant Garamond", ${SI_TA}, serif`,
+    namesStyle: 'normal',
+    bodyFont: KIDS_FONT,
+  },
+  'midnight-gala': {
+    // Midnight Gala: his birthday in navy and gold; the gift's lid lifts off
+    birthday: true,
+    layout: 'regal',
+    page: '#0a1330',
+    card: '#101c42',
+    text: '#f6efdc',
+    muted: '#b7b3c4',
+    accent: '#d9b768',
+    accentText: '#e8cd8a',
+    onAccent: '#0a1330',
+    soft: '#13204a',
+    border: '#2a3664',
+    headingFont: BODY_FONT,
+    namesFont: BODY_FONT,
+    namesStyle: 'normal',
+    bodyFont: BODY_FONT,
+  },
+})
+
+Object.assign(THEMES, {
+  'rose-wish': {
+    // Rosé Wish: her birthday, blush and rose gold; "Make a wish" blows the candles out
+    birthday: true,
+    layout: 'classic',
+    page: '#fbf1ee',
+    card: '#ffffff',
+    text: '#4e2c2b',
+    muted: '#86615c',
+    accent: '#b9786a',
+    accentText: '#9b5c50',
+    onAccent: '#ffffff',
+    soft: '#f8e6e1',
+    border: '#efd6cf',
+    headingFont: `"Cormorant Garamond", "Playfair Display", ${SI_TA}, serif`,
+    namesFont: `"Great Vibes", "Cormorant Garamond", ${SI_TA}, serif`,
+    namesStyle: 'normal',
+    bodyFont: BODY_FONT,
+  },
+})
+
+// Gallery samples for the birthday designs
+const BIRTHDAY_SAMPLES = {
+  'confetti-pop': { celebrant: 'Sanuli', age: 5, venueName: 'Sunshine Play Park', address: '24 Lake Drive, Colombo 05', dressCode: 'Bright colours', eventTime: '15:30', endTime: '18:30' },
+  'little-star': {
+    celebrant: 'Kavin',
+    age: 1,
+    hostLine: 'Mr. & Mrs. Fernando invite you to celebrate their little star',
+    venueName: 'Cinnamon Lakeside',
+    address: '115 Sir Chittampalam A. Gardiner Mawatha, Colombo 02',
+    dressCode: 'Smart casual',
+    eventTime: '11:00',
+    endTime: '14:00',
+  },
+  'blush-bloom': { celebrant: 'Amaya', age: 7, venueName: 'The Garden Café', address: '32 Flower Road, Colombo 07', dressCode: 'Pastels', eventTime: '16:00', endTime: '19:00' },
+  'black-gold': {
+    celebrant: 'Ravindu',
+    age: 30,
+    message: 'Join us for drinks, dinner and dancing as we celebrate thirty years.',
+    venueName: 'The Kingsbury Rooftop',
+    address: '48 Janadhipathi Mawatha, Colombo 01',
+    dressCode: 'Black & gold',
+    eventTime: '19:30',
+    endTime: '23:30',
+  },
+  'balloon-bash': { celebrant: 'Sanuli', age: 5, venueName: 'Sunshine Play Park', address: '24 Lake Drive, Colombo 05', dressCode: 'Bright colours', eventTime: '15:30', endTime: '18:30' },
+  'ocean-adventure': {
+    celebrant: 'Kavin',
+    age: 6,
+    message: 'Dive in for games, treasure hunts and cake — come and celebrate with us!',
+    venueName: 'Blue Lagoon Pool Club',
+    address: '9 Marine Drive, Colombo 03',
+    dressCode: 'Pirates & sea creatures',
+    eventTime: '10:30',
+    endTime: '13:30',
+  },
+  'fairy-garden': {
+    celebrant: 'Amaya',
+    age: 4,
+    hostLine: 'Mr. & Mrs. Silva invite you to celebrate their little fairy',
+    venueName: 'The Garden Café',
+    address: '32 Flower Road, Colombo 07',
+    dressCode: 'Fairy wings welcome',
+    eventTime: '16:00',
+    endTime: '19:00',
+  },
+  'midnight-gala': {
+    celebrant: 'Dinesh',
+    age: 40,
+    message: 'An evening of good food, music and the people who matter most.',
+    venueName: 'The Kingsbury Ballroom',
+    address: '48 Janadhipathi Mawatha, Colombo 01',
+    dressCode: 'Navy, black & gold',
+    eventTime: '19:30',
+    endTime: '23:30',
+  },
+  'rose-wish': {
+    celebrant: 'Nadeesha',
+    age: 30,
+    message: 'Join us for an evening of cake, champagne and the people she loves most.',
+    venueName: 'Shangri-La Colombo',
+    address: '1 Galle Face, Colombo 02',
+    dressCode: 'Blush, rose & cocktail',
+    eventTime: '19:00',
+    endTime: '23:00',
+  },
+  'rose-bubbles': {
+    celebrant: 'Nadeesha',
+    age: 40,
+    message: 'An evening of champagne, cake and the people she loves most.',
+    venueName: 'Shangri-La Colombo',
+    address: '1 Galle Face, Colombo 02',
+    dressCode: 'Cocktail',
+    eventTime: '19:00',
+    endTime: '23:00',
+  },
+}
+
 export function getTheme(key) {
   return THEMES[key] || THEMES['pure-elegance']
 }
@@ -397,12 +685,34 @@ const SAMPLE_MESSAGE = {
   homecoming: 'at the homecoming celebration of their children',
 }
 
+// Sample couple photos for the gallery and demos (/public/samples/couple). The first is the cover.
+// Six, like the Premium package. Only the Premium couple designs show photos; real invitations show the couple’s own.
+export const SAMPLE_PHOTOS = Array.from({ length: 6 }, (_, i) => {
+  const url = `${import.meta.env.BASE_URL}samples/couple/couple-${i + 1}.webp`
+  return { id: `sample-${i + 1}`, url, thumb: url }
+})
+
 // The full sample for a design and occasion (gallery thumbnails and demos)
 export function sampleInvitation(templateKey, occasion = 'wedding') {
+  if (THEMES[templateKey]?.birthday) {
+    return {
+      ...SAMPLE_INVITATION,
+      partnerOne: '',
+      partnerTwo: '',
+      hostLine: '',
+      message: '',
+      ...BIRTHDAY_SAMPLES[templateKey],
+      templateKey,
+      eventType: 'birthday',
+      eventDate: '2026-12-19',
+      rsvpDeadline: '2026-12-10',
+    }
+  }
   const eventType = SAMPLE_MESSAGE[occasion] ? occasion : 'wedding'
+  const photos = THEMES[templateKey]?.free ? [] : SAMPLE_PHOTOS
   const extras = SAMPLE_EXTRAS[templateKey]
   const message = extras?.language === 'si' ? sinhalaWording(eventType).message : SAMPLE_MESSAGE[eventType]
-  return { ...SAMPLE_INVITATION, ...extras, templateKey, eventType, message }
+  return { ...SAMPLE_INVITATION, photos, ...extras, templateKey, eventType, message }
 }
 
 // Extra sample content for the gallery demos, so each design shows what it can do.

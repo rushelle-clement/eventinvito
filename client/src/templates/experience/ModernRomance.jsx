@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ArrowDown, MapPin, Shirt } from 'lucide-react'
 import Reveal from './Reveal'
 import MusicButton from './MusicButton'
-import { ceremonyList, initials, names, numericDate, runTimeline, timeRange } from './shared'
+import { ceremonyList, galleryClass, initials, names, numericDate, runTimeline, timeRange } from './shared'
 import { formatDate } from '../strings'
 import { Parents, InviteLine } from './Wording'
 import { guestNamedInLine, hasParentsLines } from '../wording'
@@ -42,7 +42,8 @@ export default function ModernRomance({ invitation, guestName, rsvp, music, t, l
   const { one, two } = names(invitation)
   const photos = invitation.photos || []
   const cover = photos[0]?.url
-  const gallery = photos.slice(1, 6)
+  // The first photo is the cover; with more than one photo, the gallery shows them all (cover included)
+  const gallery = photos.length > 1 ? photos : []
 
   useEffect(() => () => timers.current.forEach(clearTimeout), [])
   useEffect(() => {
@@ -167,7 +168,7 @@ export default function ModernRomance({ invitation, guestName, rsvp, music, t, l
               <Reveal>
                 <p className={eyebrow}>{t.ourMoments}</p>
               </Reveal>
-              <div className={`mr-gallery count-${gallery.length}`}>
+              <div className={`mr-gallery ${galleryClass(gallery.length, 6)}`}>
                 {gallery.map((p, i) => (
                   <Reveal key={p.id} variant="up" delay={i * 120} className="mr-gallery-item">
                     <img src={p.url} alt="" loading="lazy" />

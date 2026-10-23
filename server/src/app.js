@@ -8,6 +8,7 @@ const authRoutes = require("./routes/authRoutes");
 const templateRoutes = require("./routes/templateRoutes");
 const invitationRoutes = require("./routes/invitationRoutes");
 const publicInviteRoutes = require("./routes/publicInviteRoutes");
+const adminRoutes = require("./routes/adminRoutes");
 const { notFound, errorHandler } = require("./middleware/errorHandler");
 
 const app = express();
@@ -64,7 +65,17 @@ app.get("/api/health", (req, res) => {
     });
 });
 
+// What the site needs to know before anyone signs in
+app.get("/api/config", (req, res) => {
+    res.json({
+        success: true,
+        signupOpen: process.env.ALLOW_SIGNUP !== "false",
+        contact: { email: process.env.CONTACT_EMAIL || "", phone: process.env.CONTACT_PHONE || "" },
+    });
+});
+
 app.use("/api/auth", authRoutes);
+app.use("/api/admin", adminRoutes);
 app.use("/api/templates", templateRoutes);
 app.use("/api/invitations", invitationRoutes);
 app.use("/api/invite", publicInviteRoutes);

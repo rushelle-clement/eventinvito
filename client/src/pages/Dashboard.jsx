@@ -8,7 +8,7 @@ import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import FormAlert from '../components/FormAlert'
 import Modal from '../components/Modal'
-import { occasionLabel } from '../templates/strings'
+import { invitationTitle, occasionLabel } from '../templates/strings'
 import TemplateThumbnail from '../templates/TemplateThumbnail'
 import { formatDate } from '../templates/strings'
 
@@ -16,6 +16,7 @@ const STATUS_STYLES = {
   draft: 'bg-surface-container text-on-surface-variant',
   published: 'bg-[#e3f4e8] text-[#1e6b3a]',
   unpublished: 'bg-blush-tint text-on-tertiary-fixed-variant',
+  ended: 'bg-surface-container-high text-on-surface-variant',
 }
 
 export default function Dashboard() {
@@ -66,6 +67,12 @@ export default function Dashboard() {
           <p className="mt-2 max-w-xl text-body-md text-on-surface-variant">
             Welcome back{firstName && `, ${firstName}`}. Create invitations, manage your guests, and follow RSVPs in one place.
           </p>
+          {user?.role !== 'admin' && (
+            <p className="mt-2 text-body-sm text-gold-text">
+              Free card: {user?.freeCredits || 0} left · Premium invitations: {user?.publishCredits || 0} left · Drafts are free
+              {!(user?.freeCredits || user?.publishCredits) && ' · Contact us to upgrade'}
+            </p>
+          )}
         </div>
         <Link to="/templates" className="btn-primary self-start md:self-auto">
           <Plus size={18} aria-hidden="true" /> Create New Invitation
@@ -115,7 +122,8 @@ export default function Dashboard() {
       {list.length > 0 && (
         <ul className="mt-8 grid gap-6 md:grid-cols-2">
           {list.map((inv) => {
-            const names = inv.partnerOne || inv.partnerTwo ? `${inv.partnerOne || '…'} & ${inv.partnerTwo || '…'}` : 'Untitled invitation'
+            const status = inv.status === 'published' && inv.ended ? 'ended' : inv.status
+            const names = inv.partnerOne || inv.partnerTwo || inv.celebrant ? invitationTitle(inv) : 'Untitled invitation'
             return (
               <li key={inv.id} className="card flex flex-col overflow-hidden">
                 <div className="flex gap-4 p-5">
@@ -124,7 +132,7 @@ export default function Dashboard() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="flex flex-wrap items-center gap-2">
-                      <span className={`rounded-full px-2.5 py-0.5 text-label-sm uppercase ${STATUS_STYLES[inv.status] || ''}`}>{inv.status}</span>
+                      <span className={`rounded-full px-2.5 py-0.5 text-label-sm uppercase ${STATUS_STYLES[status] || ''}`}>{status}</span>
                       <span className="text-body-sm text-on-surface-variant">{occasionLabel(inv.eventType)} · {inv.templateName}</span>
                       {inv.tier === 'free' && <span className="rounded-full border border-bone px-2 py-0.5 text-label-sm text-on-surface-variant uppercase">Free</span>}
                     </p>
@@ -154,6 +162,11 @@ export default function Dashboard() {
                           <div className="h-full bg-gold" style={{ width: `${(inv.guestCounts.attending / inv.guestCounts.total) * 100}%` }} />
                         </div>
                       </div>
+                    )}
+                    {inv.status === 'published' && inv.onlineUntil && (
+                      <p className="mt-2 text-body-sm text-on-surface-variant">
+                        {inv.ended ? `Ended on ${formatDate(inv.onlineUntil, 'en')}` : `Online until ${formatDate(inv.onlineUntil, 'en')}`}
+                      </p>
                     )}
                     {inv.status === 'draft' && (
                       <p className="mt-2 text-body-sm text-gold-text">

@@ -13,7 +13,7 @@ import { useEffect, useRef, useState } from 'react'
 import { CalendarDays, Clock, MapPin, Shirt } from 'lucide-react'
 import Reveal from './Reveal'
 import MusicButton from './MusicButton'
-import { ceremonyList, names, prefersReducedMotion, timeRange } from './shared'
+import { ceremonyList, names, prefersReducedMotion, timeRange, galleryClass } from './shared'
 import { formatDate } from '../strings'
 import { DriftingPieces, Flyer, Resting } from './floralParts'
 import './pinkFloral.css'
@@ -263,8 +263,8 @@ export default function PinkFloral({ invitation, guestName, rsvp, music, t, lang
               <Reveal>
                 <h2 className={`pf-eyebrow ${local} text-center`}>{t.ourMoments}</h2>
               </Reveal>
-              <div className={`pf-photos count-${Math.min(photos.length, 6)}`}>
-                {photos.slice(0, 6).map((p, i) => (
+              <div className={`pf-photos ${galleryClass(photos.length, 6)}`}>
+                {photos.map((p, i) => (
                   <Reveal key={p.id} variant="scale" delay={i * 100} className="pf-photo">
                     <img src={p.url} alt="" loading="lazy" />
                   </Reveal>

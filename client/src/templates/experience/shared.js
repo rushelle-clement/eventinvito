@@ -50,3 +50,10 @@ export function runTimeline(setPhase, revealAt, doneAt) {
   setPhase('opening')
   return [setTimeout(() => setPhase('revealing'), revealAt), setTimeout(() => setPhase('open'), doneAt)]
 }
+
+// Photo galleries: each design lays out up to `designed` photos its own way (count-1 … count-N).
+// Premium Plus and Signature allow 12, so more photos than that switch to a shared layout:
+// three to a row (two on phones), with a shorter last row centred (see experience.css).
+export function galleryClass(count, designed) {
+  return count > designed ? 'count-many ei-gallery-many' : `count-${count}`
+}

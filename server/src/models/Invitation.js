@@ -13,7 +13,7 @@ function photoJSON(p) {
 }
 
 const INVITATION_STATUSES = ["draft", "published", "unpublished", "archived"];
-const MAX_PHOTOS = 6;
+const MAX_PHOTOS = 12; // the most any package allows (utils/packages.js sets each package's limit)
 const MAX_CEREMONIES = 8;
 
 const ceremonySchema = new mongoose.Schema(
@@ -54,6 +54,9 @@ const invitationSchema = new mongoose.Schema(
         // Content the couple edits. Not required in a draft — checked before publishing (BR-002).
         partnerOne: { type: String, trim: true, maxlength: 60, default: "" },
         partnerTwo: { type: String, trim: true, maxlength: 60, default: "" },
+        // Birthdays: the person celebrating and (optionally) the age they're turning
+        celebrant: { type: String, trim: true, maxlength: 60, default: "" },
+        age: { type: Number, min: 0, max: 120, default: null },
         hostLine: { type: String, trim: true, maxlength: 200, default: "" },
         // Optional line above each name, e.g. "... මහතා සහ ... මැතිනියගේ ආදරණීය දියණිය"
         partnerOneParents: { type: String, trim: true, maxlength: 200, default: "" },
@@ -120,6 +123,10 @@ const invitationSchema = new mongoose.Schema(
         },
 
         publishedAt: { type: Date },
+        // A publish credit was used for this invitation (it may be unpublished and published again freely)
+        creditUsed: { type: Boolean, default: false },
+        // Which allowance paid for it: a free card (free designs only) or a premium credit
+        creditKind: { type: String, enum: ["free", "premium"] },
     },
     { timestamps: true }
 );
@@ -130,11 +137,35 @@ invitationSchema.methods.isFreeDesign = function () {
     return this.template?.tier === "free";
 };
 
+// Birthday invitations are for one person (celebrant + age) instead of a couple
+invitationSchema.methods.isBirthday = function () {
+    return this.eventType === "birthday";
+};
+
+// "Amaya & Nuwan", or "Kavindi's 1st birthday" (for lists, the admin page and emails)
+invitationSchema.methods.title = function () {
+    if (this.isBirthday()) {
+        if (!this.celebrant) return "Untitled birthday";
+        return this.age != null ? `${this.celebrant}'s ${ordinal(this.age)} birthday` : `${this.celebrant}'s birthday`;
+    }
+    return [this.partnerOne, this.partnerTwo].filter(Boolean).join(" & ") || "Untitled invitation";
+};
+
+function ordinal(n) {
+    const s = ["th", "st", "nd", "rd"];
+    const v = n % 100;
+    return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`;
+}
+
 // Fields a couple must fill before publishing. Free designs have no RSVP, so no deadline.
 invitationSchema.methods.missingForPublish = function () {
     const missing = [];
-    if (!this.partnerOne) missing.push("partnerOne");
-    if (!this.partnerTwo) missing.push("partnerTwo");
+    if (this.isBirthday()) {
+        if (!this.celebrant) missing.push("celebrant");
+    } else {
+        if (!this.partnerOne) missing.push("partnerOne");
+        if (!this.partnerTwo) missing.push("partnerTwo");
+    }
     if (!this.eventDate) missing.push("eventDate");
     if (!this.eventTime) missing.push("eventTime");
     if (!this.venueName) missing.push("venueName");
@@ -143,8 +174,10 @@ invitationSchema.methods.missingForPublish = function () {
     return missing;
 };
 
-invitationSchema.methods.toOwnerJSON = function () {
+// `owner` (the signed-in couple) adds the package and its limits for this invitation
+invitationSchema.methods.toOwnerJSON = function (owner) {
     return {
+        ...(owner && { limits: require("../utils/packages").limitsFor(this, owner) }),
         id: this._id.toString(),
         templateKey: this.templateKey,
         templateVersion: this.templateVersion,
@@ -155,6 +188,8 @@ invitationSchema.methods.toOwnerJSON = function () {
         status: this.status,
         partnerOne: this.partnerOne,
         partnerTwo: this.partnerTwo,
+        celebrant: this.celebrant,
+        age: this.age ?? null,
         hostLine: this.hostLine,
         partnerOneParents: this.partnerOneParents,
         partnerTwoParents: this.partnerTwoParents,
@@ -178,6 +213,10 @@ invitationSchema.methods.toOwnerJSON = function () {
             : null,
         photos: (this.photos || []).map(photoJSON),
         missingForPublish: this.missingForPublish(),
+        paid: this.isPaid(), // publishing it again uses no credit
+        paidKind: this.paidKind(),
+        onlineUntil: this.onlineUntil(), // guests can open it until the end of this day
+        ended: this.hasEnded(),
         publishedAt: this.publishedAt,
         createdAt: this.createdAt,
         updatedAt: this.updatedAt,
@@ -192,6 +231,39 @@ function todayIn(timeZone) {
         return new Date().toISOString().slice(0, 10);
     }
 }
+
+function addDays(isoDate, days) {
+    const d = new Date(`${isoDate}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + days);
+    return d.toISOString().slice(0, 10);
+}
+
+// How long an invitation stays online: guests can open it until the end of the day after
+// the last event (the main date or any ceremony in the programme, whichever is later).
+// After that their link shows a short "this invitation has ended" note instead.
+invitationSchema.methods.lastEventDate = function () {
+    return [this.eventDate, ...(this.ceremonies || []).map((c) => c.date)].filter(Boolean).sort().pop() || "";
+};
+invitationSchema.methods.onlineUntil = function () {
+    const last = this.lastEventDate();
+    return last ? addDays(last, 1) : "";
+};
+invitationSchema.methods.hasEnded = function () {
+    const until = this.onlineUntil();
+    return Boolean(until) && todayIn(this.timeZone || "Asia/Colombo") > until;
+};
+
+// Paid for: a credit was used, or it was published before credits existed
+invitationSchema.methods.isPaid = function () {
+    return Boolean(this.creditUsed || this.publishedAt);
+};
+
+// "free" (published with a free card) or "premium"; invitations published before free cards
+// existed count as premium. null = not paid for yet.
+invitationSchema.methods.paidKind = function () {
+    if (!this.isPaid()) return null;
+    return this.creditKind || "premium";
+};
 
 // Guests may reply up to and including the deadline day (FR-052, BR-009)
 invitationSchema.methods.isRsvpOpen = function () {
@@ -209,6 +281,8 @@ invitationSchema.methods.toGuestJSON = function () {
         language: this.language,
         partnerOne: this.partnerOne,
         partnerTwo: this.partnerTwo,
+        celebrant: this.celebrant,
+        age: this.age ?? null,
         hostLine: this.hostLine,
         partnerOneParents: this.partnerOneParents,
         partnerTwoParents: this.partnerTwoParents,

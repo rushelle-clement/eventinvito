@@ -59,6 +59,38 @@
   background: color-mix(in srgb, var(--ei-card) 70%, transparent);
 }
 
+/* Galleries with more photos than a design lays out itself (Premium Plus and Signature allow 12):
+   two to a row on phones, three from tablets up; a shorter last row is centred. Each design's own
+   photo frame (shape, border, shadow, aspect ratio) still applies. */
+.ei-gallery-many.ei-gallery-many { display: flex; flex-wrap: wrap; justify-content: center; }
+.ei-gallery-many.ei-gallery-many > * { flex: 0 0 calc(50% - 8px); max-width: calc(50% - 8px); min-width: 0; grid-column: auto; margin: 0; }
+@media (min-width: 640px) {
+  .ei-gallery-many.ei-gallery-many > * { flex-basis: calc(33.333% - 10px); max-width: calc(33.333% - 10px); }
+}
+
+/* ---------- "Made with ♥ on EventInvito" at the bottom of every invitation ---------- */
+.ei-brand {
+  position: relative;
+  z-index: 1;
+  padding: 22px 64px calc(24px + env(safe-area-inset-bottom));
+  background: var(--ei-page);
+  text-align: center;
+  font-family: 'Plus Jakarta Sans', 'Noto Sans Sinhala', sans-serif;
+  font-size: 12px;
+  line-height: 1.6;
+  letter-spacing: 0.02em;
+  color: var(--ei-muted);
+}
+.ei-brand a { color: inherit; text-decoration: none; opacity: 0.88; transition: opacity 0.2s ease; }
+.ei-brand a:hover { opacity: 1; }
+.ei-brand a:hover strong { text-decoration: underline; text-underline-offset: 3px; }
+.ei-brand a:focus-visible { outline: 1px solid var(--ei-accent); outline-offset: 4px; }
+.ei-brand strong { font-weight: 600; color: var(--ei-text); }
+.ei-brand-heart { color: var(--ei-accent); }
+.ei-brand a { display: inline-flex; flex-direction: column; align-items: center; }
+.ei-brand-line { white-space: nowrap; font-size: 12.5px; }
+.ei-brand-url { white-space: nowrap; font-size: 11px; letter-spacing: 0.08em; opacity: 0.8; }
+
 /* ---------- thumbnails (poster mode): the opening screen as a still ---------- */
 .ei-root.is-poster { min-height: 100%; height: 100%; padding-top: 0; overflow: hidden; }
 .is-poster .ri-opening,

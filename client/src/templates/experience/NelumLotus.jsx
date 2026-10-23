@@ -15,7 +15,7 @@ import { useEffect, useRef, useState } from 'react'
 import { CalendarDays, Clock, MapPin, Shirt } from 'lucide-react'
 import Reveal from './Reveal'
 import MusicButton from './MusicButton'
-import { ceremonyList, names, prefersReducedMotion, timeRange } from './shared'
+import { ceremonyList, names, prefersReducedMotion, timeRange, galleryClass } from './shared'
 import { formatDate } from '../strings'
 import { LiyawelBorder, LiyawelDivider, LotusMark } from './kandyanArt'
 import './nelumLotus.css'
@@ -270,8 +270,8 @@ export default function NelumLotus({ invitation, guestName, rsvp, music, t, lang
                 <h2 className={`nl-eyebrow ${local} text-center`}>{t.ourMoments}</h2>
                 <LiyawelDivider />
               </Reveal>
-              <div className={`nl-photos count-${Math.min(photos.length, 6)}`}>
-                {photos.slice(0, 6).map((p, i) => (
+              <div className={`nl-photos ${galleryClass(photos.length, 6)}`}>
+                {photos.map((p, i) => (
                   <Reveal key={p.id} variant="scale" delay={i * 100} className="nl-photo">
                     <img src={p.url} alt="" loading="lazy" />
                   </Reveal>

@@ -114,4 +114,36 @@ describe("RSVP", () => {
         assert.equal(res.status, 403);
         assert.equal((await models.Guest.findById(g.id)).rsvpStatus, "pending");
     });
+    it("keeps the invitation online until the day after the last event, then shows only a short note", async () => {
+        const id = await createPublishedInvitation(owner.token, {
+            ceremonies: [
+                { name: "Poruwa ceremony", date: colomboDay(60), time: "09:00", venue: "", note: "" },
+                { name: "Homecoming", date: colomboDay(65), time: "18:00", venue: "", note: "" },
+            ],
+        });
+        const own = await api().get(`/api/invitations/${id}`).set(auth(owner.token));
+        assert.equal(own.body.invitation.onlineUntil, colomboDay(66), "the day after the last ceremony");
+        assert.equal(own.body.invitation.ended, false);
+
+        const g = await addGuest(owner.token, id);
+        assert.equal((await api().get(`/api/invite/${g.token}`)).status, 200);
+
+        // The day after the last event is still open...
+        await models.Invitation.updateOne({ _id: id }, { $set: { eventDate: colomboDay(-1), rsvpDeadline: colomboDay(-3), ceremonies: [] } });
+        assert.equal((await api().get(`/api/invite/${g.token}`)).status, 200);
+
+        // ...the day after that, the link shows that it has ended, with no details
+        await models.Invitation.updateOne({ _id: id }, { $set: { eventDate: colomboDay(-2) } });
+        const ended = await api().get(`/api/invite/${g.token}`);
+        assert.equal(ended.status, 410);
+        assert.equal(ended.body.code, "ended");
+        assert.equal(ended.body.ended.partnerOne, "Amaya");
+        assert.ok(!("venueName" in ended.body.ended) && !ended.body.invitation, "no event details once it has ended");
+        assert.equal((await rsvp(g.token, "attending")).status, 410);
+
+        const after = await api().get(`/api/invitations/${id}`).set(auth(owner.token));
+        assert.equal(after.body.invitation.ended, true);
+        const republish = await api().post(`/api/invitations/${id}/publish`).set(auth(owner.token));
+        assert.equal(republish.status, 400);
+    });
 });

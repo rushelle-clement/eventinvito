@@ -21,7 +21,8 @@ const mongoose = require("mongoose");
 const Guest = require("../models/Guest");
 const AppError = require("../utils/AppError");
 const { findOwned } = require("./invitationController");
-const { readGuest, MAX_GUESTS_PER_INVITATION } = require("./guestController");
+const { readGuest, MAX_GUESTS_PER_INVITATION, guestLimitMessage } = require("./guestController");
+const { limitsFor } = require("../utils/packages");
 const { newGuestToken } = require("../utils/guestToken");
 
 const MAX_ROWS = 1000;
@@ -135,10 +136,14 @@ async function importGuests(req, res) {
     const analysed = analyse(rows, existing);
     const summary = summarise(analysed);
 
-    if (existing.length + summary.add > MAX_GUESTS_PER_INVITATION) {
+    const { guests: planLimit, planName } = limitsFor(invitation, req.user);
+    const limit = Math.min(planLimit, MAX_GUESTS_PER_INVITATION);
+    if (existing.length + summary.add > limit) {
         throw new AppError(
-            400,
-            `This would bring your list to ${existing.length + summary.add} guests. An invitation can have up to ${MAX_GUESTS_PER_INVITATION}.`
+            403,
+            `This would bring your list to ${existing.length + summary.add} guests. ${guestLimitMessage(planName, limit)}`,
+            undefined,
+            "guest_limit"
         );
     }
 

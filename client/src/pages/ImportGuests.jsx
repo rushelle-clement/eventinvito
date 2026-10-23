@@ -4,6 +4,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { invitationTitle } from '../templates/strings'
 import {
   AlertTriangle,
   ArrowLeft,
@@ -300,7 +301,7 @@ export default function ImportGuests() {
     )
   }
 
-  const names = `${invitation.partnerOne || '…'} & ${invitation.partnerTwo || '…'}`
+  const names = invitationTitle(invitation)
   const guestsUrl = `/invitations/${id}/guests`
 
   return (

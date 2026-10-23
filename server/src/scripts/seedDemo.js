@@ -185,7 +185,7 @@ async function main() {
     // Accounts
     const passwordHash = await bcrypt.hash(PASSWORD, 12);
     const users = {};
-    for (const u of DEMO_USERS) users[u.key] = await User.create({ name: u.name, email: u.email, passwordHash });
+    for (const u of DEMO_USERS) users[u.key] = await User.create({ name: u.name, email: u.email, passwordHash, publishCredits: 10 });
 
     // Invitations + guests
     const report = [];

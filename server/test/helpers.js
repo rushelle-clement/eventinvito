@@ -7,6 +7,10 @@
 process.env.NODE_ENV = "test";
 process.env.JWT_SECRET = process.env.JWT_SECRET_TEST || "test-secret-only-for-automated-tests-0123456789";
 process.env.CLIENT_URL = "http://localhost:5173";
+// Most tests sign up through the API and publish several invitations: open sign-up with plenty of
+// credits here. accounts.test.js checks the real rules (sign-up closed, one credit per invitation).
+process.env.ALLOW_SIGNUP = "true";
+process.env.SIGNUP_CREDITS = "50";
 
 const mongoose = require("mongoose");
 const request = require("supertest");
@@ -50,12 +54,15 @@ async function stopDb() {
 const api = () => request(app);
 
 let counter = 0;
-async function registerUser(name = "Test User") {
+// Accounts get the Signature package by default so the other tests aren't limited by packages;
+// packages.test.js passes { plan } to check each package's limits.
+async function registerUser(name = "Test User", { plan = "signature" } = {}) {
     counter += 1;
     const email = `user${counter}-${Date.now()}@test.local`;
     const res = await api().post("/api/auth/register").send({ name, email, password: "Password123" });
     if (res.status !== 201) throw new Error(`register failed: ${res.status} ${JSON.stringify(res.body)}`);
-    return { token: res.body.token, user: res.body.user, email, password: "Password123" };
+    if (plan) await User.updateOne({ email }, { $set: { plan } });
+    return { token: res.body.token, user: { ...res.body.user, ...(plan && { plan }) }, email, password: "Password123" };
 }
 
 const auth = (token) => ({ Authorization: `Bearer ${token}` });

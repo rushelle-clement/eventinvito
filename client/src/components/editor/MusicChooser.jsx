@@ -12,7 +12,9 @@ function duration(seconds) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 
-export default function MusicChooser({ invitationId, templateKey, value, customMusic, onChange, onInvitation }) {
+// Their own song is part of Premium Plus and Signature (`ownMusic`). A song uploaded before
+// stays selectable either way.
+export default function MusicChooser({ invitationId, templateKey, value, customMusic, ownMusic = true, planName, onChange, onInvitation }) {
   const audioRef = useRef(null)
   const inputRef = useRef(null)
   const [listening, setListening] = useState('')
@@ -142,42 +144,55 @@ export default function MusicChooser({ invitationId, templateKey, value, customM
           )}
       </div>
 
-      {/* Upload your own */}
-      <div className="mt-4 rounded-lg border border-bone bg-surface-container-low p-4">
-        <p className="text-title-md text-espresso">{customMusic ? 'Replace your music' : 'Use your own music'}</p>
-        <p className="mt-1 text-body-sm text-on-surface-variant">MP3, M4A, WAV, OGG or FLAC · under 15 MB · up to 10 minutes. Guests hear it as a 128 kbps MP3.</p>
-        <label htmlFor="music-title" className="mt-3 block text-label-md text-espresso uppercase">
-          Song title (optional)
-        </label>
-        <input
-          id="music-title"
-          value={title}
-          maxLength={120}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="e.g. Our first dance"
-          className="mt-1 w-full rounded-lg border border-bone bg-white px-3 py-2 text-body-md outline-none focus:border-gold"
-        />
-        <label className="mt-3 flex items-start gap-2 text-body-sm text-espresso">
-          <input type="checkbox" checked={rights} onChange={(e) => setRights(e.target.checked)} className="mt-0.5 accent-espresso" />
-          I have the right to use this music on my invitation (for example, I own it, it’s royalty-free, or I have a licence).
-        </label>
-        <label className={`btn-secondary mt-3 ${rights && progress === null ? 'cursor-pointer' : 'pointer-events-none opacity-50'}`}>
-          <Upload size={16} aria-hidden="true" /> {progress !== null ? `Uploading… ${progress}%` : 'Choose music file'}
+      {/* Upload your own (Premium Plus and Signature) */}
+      {ownMusic ? (
+        <div className="mt-4 rounded-lg border border-bone bg-surface-container-low p-4">
+          <p className="text-title-md text-espresso">{customMusic ? 'Replace your music' : 'Use your own music'}</p>
+          <p className="mt-1 text-body-sm text-on-surface-variant">MP3, M4A, WAV, OGG or FLAC · under 15 MB · up to 10 minutes. Guests hear it as a 128 kbps MP3.</p>
+          <label htmlFor="music-title" className="mt-3 block text-label-md text-espresso uppercase">
+            Song title (optional)
+          </label>
           <input
-            ref={inputRef}
-            type="file"
-            accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.flac"
-            className="sr-only"
-            disabled={!rights || progress !== null}
-            onChange={(e) => uploadFile(e.target.files?.[0])}
+            id="music-title"
+            value={title}
+            maxLength={120}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="e.g. Our first dance"
+            className="mt-1 w-full rounded-lg border border-bone bg-white px-3 py-2 text-body-md outline-none focus:border-gold"
           />
-        </label>
-        {error && (
-          <p className="mt-2 text-body-sm text-error" role="alert">
-            {error}
+          <label className="mt-3 flex items-start gap-2 text-body-sm text-espresso">
+            <input type="checkbox" checked={rights} onChange={(e) => setRights(e.target.checked)} className="mt-0.5 accent-espresso" />
+            I have the right to use this music on my invitation (for example, I own it, it’s royalty-free, or I have a licence).
+          </label>
+          <label className={`btn-secondary mt-3 ${rights && progress === null ? 'cursor-pointer' : 'pointer-events-none opacity-50'}`}>
+            <Upload size={16} aria-hidden="true" /> {progress !== null ? `Uploading… ${progress}%` : 'Choose music file'}
+            <input
+              ref={inputRef}
+              type="file"
+              accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.flac"
+              className="sr-only"
+              disabled={!rights || progress !== null}
+              onChange={(e) => uploadFile(e.target.files?.[0])}
+            />
+          </label>
+          {error && (
+            <p className="mt-2 text-body-sm text-error" role="alert">
+              {error}
+            </p>
+          )}
+        </div>
+      ) : (
+        <div className="mt-4 rounded-lg border border-bone bg-surface-container-low p-4">
+          <p className="text-title-md text-espresso">Use your own song</p>
+          <p className="mt-1 text-body-sm text-on-surface-variant">
+            Your own song is part of Premium Plus and Signature{planName ? ` — your package is ${planName}` : ''}. Choose one of our songs above, or{' '}
+            <a href="/#pricing" className="font-semibold text-gold-text underline underline-offset-2">
+              see the packages
+            </a>
+            .
           </p>
-        )}
-      </div>
+        </div>
+      )}
 
       <p className="mt-3 text-body-sm text-on-surface-variant">{MUSIC_TRACKS.map((t) => t.credit).join(' ')}</p>
     </fieldset>

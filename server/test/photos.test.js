@@ -106,13 +106,17 @@ describe("Invitation photos", () => {
         assert.equal((await attach(id, pdf)).status, 400);
     });
 
-    it("allows up to 6 photos, reorders them, and deletes from Cloudinary on removal", async () => {
+    it("allows up to 12 photos on Signature, reorders them, and deletes from Cloudinary on removal", async () => {
         const id = await createInvitation(owner.token);
         const folder = (await sig(id)).body.upload.params.folder;
         let photos;
-        for (let i = 0; i < 6; i += 1) photos = (await attach(id, fakeCloud.upload(`${folder}/p${i}`))).body.photos;
-        assert.equal(photos.length, 6);
-        assert.equal((await sig(id)).status, 400, "no 7th upload permission");
+        for (let i = 0; i < 12; i += 1) photos = (await attach(id, fakeCloud.upload(`${folder}/p${i}`))).body.photos;
+        assert.equal(photos.length, 12);
+        const thirteenth = await sig(id);
+        assert.equal(thirteenth.status, 403, "no 13th upload permission");
+        assert.equal(thirteenth.body.code, "photo_limit");
+        assert.equal((await attach(id, fakeCloud.upload(`${folder}/extra`))).status, 403);
+        assert.ok(fakeCloud.deleted.includes(`${folder}/extra`), "an upload over the limit is removed from Cloudinary");
 
         const reversed = photos.map((p) => p.id).reverse();
         const re = await api().put(`/api/invitations/${id}/photos/order`).set(auth(owner.token)).send({ ids: reversed });
@@ -121,9 +125,23 @@ describe("Invitation photos", () => {
         assert.equal(bad.status, 400);
 
         const del = await api().delete(`/api/invitations/${id}/photos/${reversed[0]}`).set(auth(owner.token));
-        assert.equal(del.body.photos.length, 5);
-        assert.ok(fakeCloud.deleted.includes(`${folder}/p5`));
+        assert.equal(del.body.photos.length, 11);
+        assert.ok(fakeCloud.deleted.includes(`${folder}/p11`));
         assert.equal((await api().delete(`/api/invitations/${id}/photos/${reversed[1]}`).set(auth(other.token))).status, 404);
+    });
+
+    it("allows 6 photos on Premium and none on a free card", async () => {
+        const premium = await registerUser("Premium couple", { plan: "premium" });
+        const id = await createInvitation(premium.token);
+        const folder = (await sig(id, premium.token)).body.upload.params.folder;
+        for (let i = 0; i < 6; i += 1) assert.equal((await attach(id, fakeCloud.upload(`${folder}/q${i}`), premium.token)).status, 201);
+        const seventh = await sig(id, premium.token);
+        assert.equal(seventh.status, 403);
+        assert.match(seventh.body.message, /Premium includes up to 6 photos.*Premium Plus includes up to 12/);
+
+        const free = await registerUser("Free couple", { plan: "free" });
+        const card = await createInvitation(free.token, {}, "ivory-classic");
+        assert.equal((await sig(card, free.token)).status, 403);
     });
 
     it("shows the photos to guests (links only, no storage details)", async () => {

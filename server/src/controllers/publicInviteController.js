@@ -9,6 +9,7 @@ const { hashToken, looksLikeToken } = require("../utils/guestToken");
 
 const INVALID = "This invitation link is not valid. It may have been mistyped, replaced, or removed. Please contact the couple for a new link.";
 const UNAVAILABLE = "This invitation isn't available right now. Please check back later or contact the couple.";
+const ENDED = "This invitation has ended. Thank you for celebrating with the couple.";
 
 // Shared by the view and RSVP routes
 async function loadByToken(token) {
@@ -20,6 +21,19 @@ async function loadByToken(token) {
     const invitation = await Invitation.findById(guest.invitation).populate("template", "tier");
     if (!invitation || invitation.status === "archived") throw new AppError(404, INVALID, undefined, "invalid_link");
     if (invitation.status !== "published") throw new AppError(403, UNAVAILABLE, undefined, "not_published");
+    // The day after the last event has passed: only the couple's names, for a polite note
+    if (invitation.hasEnded()) {
+        throw new AppError(410, ENDED, undefined, "ended", {
+            ended: {
+                partnerOne: invitation.partnerOne,
+                partnerTwo: invitation.partnerTwo,
+                celebrant: invitation.celebrant,
+                age: invitation.age ?? null,
+                eventType: invitation.eventType,
+                language: invitation.language,
+            },
+        });
+    }
 
     return { guest, invitation };
 }

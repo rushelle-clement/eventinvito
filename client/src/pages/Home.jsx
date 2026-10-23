@@ -27,6 +27,8 @@ import {
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import TemplateThumbnail from '../templates/TemplateThumbnail'
+import { useSiteConfig } from '../lib/siteConfig'
+import Packages from '../components/Packages'
 
 const FALLBACK_TEMPLATES = [
   { key: 'pure-elegance', name: 'Pure Elegance', description: 'Ivory and white with champagne gold, delicate florals and classic serif lettering.', styleTags: ['Classic', 'Gold foil'] },
@@ -39,7 +41,7 @@ const OCCASIONS = [
   { icon: Heart, title: 'Weddings', text: 'Ceremonies and receptions, with a personal link for every guest.', available: 'wedding' },
   { icon: Gem, title: 'Engagements', text: 'Announce the engagement and invite family and friends.', available: 'engagement' },
   { icon: House, title: 'Homecomings', text: 'Welcome guests to the homecoming after the wedding.', available: 'homecoming' },
-  { icon: Cake, title: 'Birthdays', text: 'Milestone birthdays and themed celebrations.' },
+  { icon: Cake, title: 'Birthdays', text: 'Kids’ parties and milestone birthdays, with the age on the invitation.', available: 'birthday' },
   { icon: Wine, title: 'Anniversaries', text: 'Vow renewals and silver or golden jubilees.' },
   { icon: PartyPopper, title: 'Parties', text: 'Seasonal gatherings and evening soirées.' },
   { icon: Building2, title: 'Corporate Events', text: 'Launches, galas and client dinners.' },
@@ -56,7 +58,7 @@ const FEATURES = [
   { icon: ListChecks, title: 'RSVP tracking', text: 'See who is attending, who has declined and who hasn’t replied yet, with the time of each reply.' },
   { icon: MessageCircle, title: 'WhatsApp sharing', text: 'Open WhatsApp with your message and the guest’s link ready to go. You review it and press Send.' },
   { icon: Languages, title: 'English & Sinhala', text: 'Choose the language for each invitation. The wording, dates and RSVP form follow it. Tamil is coming soon.' },
-  { icon: CalendarClock, title: 'RSVP deadline', text: 'Guests can change their answer until your deadline. After that, replies close automatically.' },
+  { icon: CalendarClock, title: 'RSVP deadline', text: 'Guests can change their answer until your deadline, then replies close automatically. The invitation stays online until the day after your event.' },
   { icon: MapPin, title: 'Venue & map link', text: 'Show the venue, address and dress code, with a map link so guests find their way.' },
 ]
 
@@ -88,7 +90,9 @@ export default function Home() {
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [location.hash])
 
-  const startHref = user ? '/templates' : '/signup'
+  const { signupOpen } = useSiteConfig()
+  // While accounts are made by EventInvito, visitors start by browsing the designs
+  const startHref = user || !signupOpen ? '/templates' : '/signup'
 
   return (
     <div className="overflow-x-clip">
@@ -182,7 +186,7 @@ export default function Home() {
       {/* ---------- Occasions ---------- */}
       <section className="py-20">
         <div className="mx-auto max-w-[1200px] px-margin-mobile md:px-margin">
-          <SectionHeading eyebrow="Milestone celebrations" title="Designed for Life’s Greatest Milestones" text="Every design works for weddings, engagements and homecomings. More occasions are on the way." />
+          <SectionHeading eyebrow="Milestone celebrations" title="Designed for Life’s Greatest Milestones" text="Every couple design works for weddings, engagements and homecomings, and birthdays have designs of their own. More occasions are on the way." />
           <ul className="mt-12 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
             {OCCASIONS.map(({ icon: Icon, title, text, available }) => (
               <li key={title} className={`card flex flex-col p-5 ${available ? 'border-gold/50' : ''}`}>
@@ -241,6 +245,21 @@ export default function Home() {
               </li>
             ))}
           </ul>
+        </div>
+      </section>
+
+      {/* ---------- Packages ---------- */}
+      <section id="pricing" className="scroll-mt-24 border-y border-bone bg-surface-container-low py-20">
+        <div className="mx-auto max-w-[1200px] px-margin-mobile md:px-margin">
+          <SectionHeading
+            eyebrow="Packages"
+            title="Choose the Right Package for Your Celebration"
+            text="Start free and upgrade when you want animation, music, photos and online replies. You pay once per package — no monthly fees."
+          />
+          <Packages />
+          <p className="mt-8 text-center text-body-sm text-on-surface-variant">
+            Every package: designs for weddings, engagements and homecomings · English or Sinhala · works on any phone · drafts are always free.
+          </p>
         </div>
       </section>
 

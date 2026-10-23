@@ -139,7 +139,7 @@
 .ri-toran { display: block; max-width: none; pointer-events: none; filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35)); }
 .ri-gateway .ri-toran { position: absolute; z-index: 4; top: -2px; left: 50%; width: min(100vw, calc(var(--gw) * 0.72)); transform: translateX(-50%); }
 .ri-toran.is-hero { position: relative; z-index: 2; width: min(100%, 760px); margin: 0 auto -38px; }
-@media (max-width: 640px) { .ri-toran.is-hero { width: 112%; margin-left: -6%; margin-bottom: -22px; } }
+@media (max-width: 640px) { .ri-toran.is-hero { width: 100%; margin-bottom: -22px; } }
 
 .ri-open-btn {
   flex-shrink: 0;
@@ -167,7 +167,7 @@
 @keyframes ri-enter { from { opacity: 0; transform: scale(1.04); filter: brightness(1.4); } to { opacity: 1; transform: none; filter: none; } }
 
 .ri-section { position: relative; max-width: 680px; margin: 0 auto; padding-inline: 18px; } /* sides only, so section spacing (pb-*) applies */
-.ri-hero { padding-top: 48px; padding-bottom: 40px; }
+.ri-hero { padding-top: 48px; padding-bottom: 40px; overflow-x: clip; }
 .ri-hero-petals { z-index: 0; }
 
 .ri-arch-card { position: relative; z-index: 1; }
@@ -446,6 +446,8 @@
 .cl-venue-line { margin-top: 4px; font-size: 15px; color: var(--ei-muted); }
 
 .cl-section { max-width: 720px; margin: 0 auto; padding: 0 20px 56px; }
+/* breathing room between the bouquet and the first cards */
+.cl-hero + .cl-section { padding-top: clamp(36px, 7vw, 56px); }
 .cl-section-title { text-align: center; margin-bottom: 22px; font-family: var(--ei-heading-font); font-style: italic; font-size: 28px; color: var(--ei-accent); }
 .cl-photos { display: grid; gap: 12px; grid-template-columns: repeat(2, 1fr); }
 .cl-photos.count-1 { grid-template-columns: 1fr; }
@@ -577,6 +579,7 @@
 .mr-invite.is-entering { animation: mr-in 1s ease both; }
 .mr-hero {
   position: relative;
+  overflow-x: clip;
   min-height: calc(100svh - var(--ei-top, 0px));
   display: grid;
   align-items: center;

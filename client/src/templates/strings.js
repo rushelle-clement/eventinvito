@@ -63,6 +63,8 @@ export const STRINGS = {
     celebration: 'The celebration',
     kindlyReply: 'Kindly reply',
     scrollDown: 'Scroll down',
+    endedTitle: 'This invitation has ended',
+    endedMessage: (couple) => `Thank you for celebrating with ${couple}. This invitation is no longer available.`,
     shareDefault: 'Dear {name}, with great joy we invite you to the wedding of {couple}. Please open your personal invitation and let us know if you can attend:',
   },
   si: {
@@ -115,6 +117,8 @@ export const STRINGS = {
     celebration: 'උත්සවය',
     kindlyReply: 'කරුණාකර පිළිතුරු දෙන්න',
     scrollDown: 'පහළට යන්න',
+    endedTitle: 'මෙම ආරාධනය අවසන් වී ඇත',
+    endedMessage: (couple) => `${couple} සමඟ සැමරීමට සහභාගී වූවාට ස්තූතියි. මෙම ආරාධනය තවදුරටත් ලබා ගත නොහැක.`,
     shareDefault: 'ආදරණීය {name}, {couple} ගේ විවාහ මංගල්‍යයට ඔබට සතුටින් ආරාධනා කරමු. කරුණාකර ඔබගේ ආරාධනා පත්‍රය විවෘත කර ඔබගේ පැමිණීම දන්වන්න:',
   },
   ta: {
@@ -167,6 +171,8 @@ export const STRINGS = {
     celebration: 'விழா',
     kindlyReply: 'தயவுசெய்து பதிலளிக்கவும்',
     scrollDown: 'கீழே செல்லவும்',
+    endedTitle: 'இந்த அழைப்பிதழ் நிறைவடைந்தது',
+    endedMessage: (couple) => `${couple} அவர்களுடன் கொண்டாடியதற்கு நன்றி. இந்த அழைப்பிதழ் இனி கிடைக்காது.`,
     shareDefault: 'அன்புள்ள {name}, {couple} அவர்களின் திருமண விழாவிற்கு உங்களை மகிழ்ச்சியுடன் அழைக்கிறோம். உங்கள் அழைப்பிதழைத் திறந்து உங்கள் வருகையைத் தெரிவிக்கவும்:',
   },
 }
@@ -216,6 +222,108 @@ const OCCASION_STRINGS = {
   },
 }
 
+// Birthdays: one person and their age. Couple wording that doesn't fit is replaced too
+// ("contact the couple" → "contact the hosts"). Sinhala and Tamil are drafts to be checked.
+OCCASION_STRINGS.birthday = {
+  en: {
+    bdayJoin: 'Join us to celebrate',
+    bdayAge: (age) => (age != null ? `${ordinalEn(age)} Birthday` : 'Birthday'),
+    bdayParty: 'Birthday party',
+    // Under the big number: "5" + "th" + "Birthday"
+    bdayNumCaption: 'Birthday',
+    bdaySuffix: (age) => ordinalEn(age).replace(String(age), ''),
+    // the animated birthday designs' opening buttons
+    openBalloons: 'Let the balloons go',
+    openTreasure: 'Open the treasure chest',
+    openGate: 'Open the garden gate',
+    openGift: 'Open your gift',
+    openWish: 'Make a wish',
+    bdaySignoff: 'See you at the party!',
+    defaultInvite: 'Come and celebrate with cake, laughter and lots of fun!',
+    theWeddingOf: 'The birthday of',
+    together: 'You are invited',
+    thanksYes: 'Thank you! We can’t wait to celebrate with you.',
+    thanksNo: 'Thank you for letting us know. We’ll miss you at the party.',
+    closed: 'Replies have closed. Please contact the hosts directly if anything has changed.',
+    noReplyClosed: 'Replies have closed and we didn’t receive an answer from you. Please contact the hosts directly.',
+    accept: 'Yes, I’ll be there',
+    decline: 'Sorry, I can’t come',
+    ourMoments: 'Moments',
+    shareDefault: 'Dear {name}, you’re invited to {couple}! Please open your personal invitation and let us know if you can come:',
+  },
+  si: {
+    bdayJoin: 'සමරන්නට අප හා එක්වන්න',
+    bdayAge: (age) => (age != null ? `${age} වන උපන්දිනය` : 'උපන්දිනය'),
+    bdayParty: 'උපන්දින සාදය',
+    bdayNumCaption: 'වන උපන්දිනය',
+    bdaySuffix: () => '',
+    openBalloons: 'බැලූන් නිදහස් කරන්න',
+    openTreasure: 'නිධන් පෙට්ටිය විවෘත කරන්න',
+    openGate: 'උයනේ දොරටුව විවෘත කරන්න',
+    openGift: 'ඔබගේ තෑග්ග විවෘත කරන්න',
+    openWish: 'පැතුමක් පතන්න',
+    bdaySignoff: 'සාදයේදී හමුවෙමු!',
+    defaultInvite: 'කේක්, සිනහව සහ සතුටින් පිරි මේ සැමරුමට ඔබටත් ආදරයෙන් ආරාධනා කරමු',
+    theWeddingOf: 'උපන්දින සැමරුම',
+    together: 'ඔබට ආරාධනා කරමු',
+    thanksYes: 'ස්තූතියි! ඔබ සමඟ සැමරීමට අපි මහත් ආශාවෙන් සිටිමු.',
+    thanksNo: 'දැනුම් දීම ගැන ස්තූතියි. සාදයේදී අපට ඔබව මග හැරෙනු ඇත.',
+    closed: 'පිළිතුරු ලබා ගැනීම අවසන්. කිසියම් වෙනසක් ඇත්නම් කරුණාකර ආරාධනා කළ අය හා කෙලින්ම සම්බන්ධ වන්න.',
+    noReplyClosed: 'පිළිතුරු ලබා ගැනීම අවසන් අතර ඔබගෙන් පිළිතුරක් ලැබී නැත. කරුණාකර ආරාධනා කළ අය හා කෙලින්ම සම්බන්ධ වන්න.',
+    ourMoments: 'මතකයන්',
+    shareDefault: 'ආදරණීය {name}, {couple} සැමරීමට ඔබට සතුටින් ආරාධනා කරමු. කරුණාකර ඔබගේ ආරාධනා පත්‍රය විවෘත කර ඔබගේ පැමිණීම දන්වන්න:',
+  },
+  ta: {
+    bdayJoin: 'எங்களுடன் கொண்டாட வாருங்கள்',
+    bdayAge: (age) => (age != null ? `${age}வது பிறந்தநாள்` : 'பிறந்தநாள்'),
+    bdayParty: 'பிறந்தநாள் விழா',
+    bdayNumCaption: 'வது பிறந்தநாள்',
+    bdaySuffix: () => '',
+    openBalloons: 'பலூன்களைப் பறக்க விடுங்கள்',
+    openTreasure: 'புதையல் பெட்டியைத் திறக்கவும்',
+    openGate: 'தோட்ட வாயிலைத் திறக்கவும்',
+    openGift: 'உங்கள் பரிசைத் திறக்கவும்',
+    openWish: 'ஒரு வேண்டுதல் செய்யுங்கள்',
+    bdaySignoff: 'விழாவில் சந்திப்போம்!',
+    defaultInvite: 'கேக், சிரிப்பு மற்றும் மகிழ்ச்சி நிறைந்த இந்தக் கொண்டாட்டத்தில் கலந்துகொள்ள அன்புடன் அழைக்கிறோம்',
+    theWeddingOf: 'பிறந்தநாள் விழா',
+    together: 'உங்களை அன்புடன் அழைக்கிறோம்',
+    thanksYes: 'நன்றி! உங்களுடன் கொண்டாட ஆவலுடன் காத்திருக்கிறோம்.',
+    thanksNo: 'தெரிவித்தமைக்கு நன்றி. விழாவில் உங்களை நாங்கள் மிஸ் செய்வோம்.',
+    closed: 'பதில் அளிக்கும் காலம் முடிந்துவிட்டது. ஏதேனும் மாற்றம் இருந்தால் அழைத்தவர்களை நேரடியாகத் தொடர்புகொள்ளவும்.',
+    noReplyClosed: 'பதில் அளிக்கும் காலம் முடிந்துவிட்டது, உங்களிடமிருந்து பதில் கிடைக்கவில்லை. அழைத்தவர்களை நேரடியாகத் தொடர்புகொள்ளவும்.',
+    ourMoments: 'நினைவுகள்',
+    shareDefault: 'அன்புள்ள {name}, {couple} விழாவிற்கு உங்களை மகிழ்ச்சியுடன் அழைக்கிறோம். உங்கள் அழைப்பிதழைத் திறந்து உங்கள் வருகையைத் தெரிவிக்கவும்:',
+  },
+}
+
+// 1 → "1st", 22 → "22nd", 13 → "13th"
+export function ordinalEn(n) {
+  const s = ['th', 'st', 'nd', 'rd']
+  const v = n % 100
+  return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`
+}
+
+export const isBirthday = (invitation) => invitation?.eventType === 'birthday'
+
+// Who the invitation is for: "Amaya & Nuwan", or "Kavindi" for a birthday
+export function hostsOf(invitation, lang = 'en') {
+  if (isBirthday(invitation)) return invitation.celebrant || '…'
+  const and = (STRINGS[lang] || STRINGS.en).and
+  return `${invitation?.partnerOne || '…'} ${and} ${invitation?.partnerTwo || '…'}`
+}
+
+// A title for lists, the share message and file names:
+// "Amaya & Nuwan", or "Kavindi's 5th birthday" (in the invitation's language)
+export function invitationTitle(invitation, lang = 'en') {
+  if (!isBirthday(invitation)) return hostsOf(invitation, lang)
+  const name = invitation.celebrant || '…'
+  const age = invitation.age ?? null
+  if (lang === 'si') return age != null ? `${name}ගේ ${age} වන උපන්දිනය` : `${name}ගේ උපන්දිනය`
+  if (lang === 'ta') return age != null ? `${name}-இன் ${age}வது பிறந்தநாள்` : `${name}-இன் பிறந்தநாள்`
+  return age != null ? `${name}’s ${ordinalEn(age)} birthday` : `${name}’s birthday`
+}
+
 // The wording for an invitation: its language, with the lines for its occasion
 export function stringsFor(language, eventType) {
   const lang = STRINGS[language] ? language : 'en'
@@ -224,6 +332,7 @@ export function stringsFor(language, eventType) {
 }
 
 export function occasionLabel(eventType) {
+  if (eventType === 'birthday') return 'Birthday'
   return (OCCASIONS.find((o) => o.value === eventType) || OCCASIONS[0]).label
 }
 

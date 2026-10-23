@@ -2,6 +2,7 @@
 // They must confirm they have the right to use the music before uploading.
 
 const AppError = require("../utils/AppError");
+const { limitsFor } = require("../utils/packages");
 const cloudinary = require("../utils/cloudinary");
 const { findOwned } = require("./invitationController");
 
@@ -20,10 +21,18 @@ function requireRights(body) {
 }
 
 // POST /api/invitations/:id/music/signature  { rightsConfirmed: true }
+// Their own song is part of Premium Plus and Signature
+function requireOwnMusic(invitation, user) {
+    if (!limitsFor(invitation, user).ownMusic) {
+        throw new AppError(403, "Your own song is part of Premium Plus. Choose one of our songs, or upgrade to use your own.", undefined, "needs_plus");
+    }
+}
+
 async function musicSignature(req, res) {
     requireConfigured();
     requireRights(req.body);
     const invitation = await findOwned(req);
+    requireOwnMusic(invitation, req.user);
     res.json({ success: true, upload: cloudinary.uploadSignature(folderFor(invitation), "audio") });
 }
 
@@ -32,6 +41,7 @@ async function setMusic(req, res) {
     requireConfigured();
     requireRights(req.body);
     const invitation = await findOwned(req);
+    requireOwnMusic(invitation, req.user);
     const { publicId, version, signature } = req.body || {};
     const title = typeof req.body?.title === "string" ? req.body.title.trim().slice(0, 120) : "";
 
@@ -72,7 +82,7 @@ async function setMusic(req, res) {
     await invitation.save();
     if (previous && previous !== publicId) await cloudinary.deleteResource(previous, "video").catch(() => {});
 
-    res.status(201).json({ success: true, invitation: invitation.toOwnerJSON() });
+    res.status(201).json({ success: true, invitation: invitation.toOwnerJSON(req.user) });
 }
 
 // DELETE /api/invitations/:id/music
@@ -85,7 +95,7 @@ async function removeMusic(req, res) {
     if (previous && cloudinary.isConfigured()) {
         await cloudinary.deleteResource(previous, "video").catch((err) => console.error("[music] delete failed:", err.message));
     }
-    res.json({ success: true, invitation: invitation.toOwnerJSON() });
+    res.json({ success: true, invitation: invitation.toOwnerJSON(req.user) });
 }
 
 module.exports = { musicSignature, setMusic, removeMusic };

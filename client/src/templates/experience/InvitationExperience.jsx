@@ -14,6 +14,7 @@ import RoyalIndian from './RoyalIndian'
 import CrimsonLove from './CrimsonLove'
 import NoirRouge from './NoirRouge'
 import RanPahana from './RanPahana'
+import GoldenVow from './GoldenVow'
 import WhiteRose from './WhiteRose'
 import PinkFloral from './PinkFloral'
 import BlueBotanical from './BlueBotanical'
@@ -24,6 +25,9 @@ import SwarnaNelum from './SwarnaNelum'
 import WhiteVeil from './WhiteVeil'
 import EnchantedStorybook from './EnchantedStorybook'
 import StaticCard from './StaticCard'
+import BirthdayCard from './BirthdayCard'
+import BirthdayParty from './BirthdayParty'
+import { siteHost, siteUrl } from '../../lib/siteUrl'
 import './experience.css'
 import './designs.css'
 
@@ -34,6 +38,7 @@ const EXPERIENCES = {
   'crimson-love': CrimsonLove,
   'noir-rouge': NoirRouge,
   'ran-pahana': RanPahana,
+  'golden-vow': GoldenVow,
   'white-rose': WhiteRose,
   'pink-floral': PinkFloral,
   'blue-botanical': BlueBotanical,
@@ -49,6 +54,18 @@ const EXPERIENCES = {
   'pastel-blossom': StaticCard,
   'sinhala-swarna': StaticCard,
   'simple-lotus': StaticCard,
+  // Birthdays (Premium, animated)
+  'balloon-bash': BirthdayParty,
+  'ocean-adventure': BirthdayParty,
+  'fairy-garden': BirthdayParty,
+  'midnight-gala': BirthdayParty,
+  'rose-wish': BirthdayParty,
+  // Free birthday cards
+  'confetti-pop': BirthdayCard,
+  'little-star': BirthdayCard,
+  'blush-bloom': BirthdayCard,
+  'black-gold': BirthdayCard,
+  'rose-bubbles': BirthdayCard,
 }
 
 // Theme colours as CSS variables, so experience.css can use them
@@ -84,6 +101,27 @@ function ClassicCard({ invitation, guestName, rsvp, music, t }) {
   )
 }
 
+// "Made with ♥ on EventInvito · eventinvito.lk" at the very bottom of every invitation.
+// It links to the home page (?ref=invite shows how many visitors come from invitations).
+function BrandFooter() {
+  const url = siteUrl()
+  const host = siteHost()
+  return (
+    <footer className="ei-brand" lang="en">
+      <a href={`${url}/?ref=invite`} target="_blank" rel="noopener">
+        <span className="ei-brand-line">
+          Made with{' '}
+          <span className="ei-brand-heart" aria-label="love">
+            ♥
+          </span>{' '}
+          on <strong>EventInvito</strong>
+        </span>
+        {host && <span className="ei-brand-url">{host}</span>}
+      </a>
+    </footer>
+  )
+}
+
 /**
  * @param invitation  invitation fields (from the guest API or the owner's copy)
  * @param guestName   shown as "Dear …"; empty for a generic greeting
@@ -106,8 +144,8 @@ export default function InvitationExperience({ invitation, guestName, rsvp, star
 
   // In previews there is no real guest, so show what the reply buttons will look like
   const sampleRsvp = (
-    <div className={`mt-5 grid gap-3 ${lang === 'en' ? 'grid-cols-2' : 'grid-cols-1'}`} aria-hidden="true">
-      <span className="rounded-full px-4 py-3 text-center text-[14px] font-semibold" style={{ background: theme.accent, color: theme.layout === 'regal' ? theme.page : '#fff' }}>
+    <div className={`mt-5 grid grid-cols-1 gap-3 ${lang === 'en' ? 'sm:grid-cols-2' : ''}`} aria-hidden="true">
+      <span className="rounded-full px-4 py-3 text-center text-[14px] font-semibold" style={{ background: theme.accent, color: theme.onAccent || (theme.layout === 'regal' ? theme.page : '#fff') }}>
         {t.accept}
       </span>
       <span className="rounded-full border px-4 py-3 text-center text-[14px] font-semibold" style={{ borderColor: theme.accent, color: theme.accentText }}>
@@ -119,6 +157,7 @@ export default function InvitationExperience({ invitation, guestName, rsvp, star
   return (
     <div className={`ei-root ${poster ? 'is-poster' : ''}`} lang={lang} style={{ ...themeVars(theme), '--ei-top': `${topOffset}px` }}>
       <Experience invitation={invitation} guestName={guestName} rsvp={rsvp || sampleRsvp} music={music} t={t} lang={lang} startOpen={startOpen} poster={poster} />
+      {!poster && <BrandFooter />}
     </div>
   )
 }

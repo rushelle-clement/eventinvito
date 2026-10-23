@@ -8,6 +8,8 @@ import AuthLayout from '../components/AuthLayout'
 import FormField from '../components/FormField'
 import FormAlert from '../components/FormAlert'
 import InvitationShowcase from '../components/InvitationShowcase'
+import ContactLine from '../components/ContactLine'
+import { useSiteConfig } from '../lib/siteConfig'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const MIN_PASSWORD = 8 // must match the server rule
@@ -37,8 +39,35 @@ export default function SignUp() {
   const [errors, setErrors] = useState({})
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const { signupOpen, loaded } = useSiteConfig()
 
   if (user) return <Navigate to="/dashboard" replace />
+
+  // Until online payments are added, accounts are created by the EventInvito team
+  if (loaded && !signupOpen) {
+    return (
+      <AuthLayout aside={<InvitationShowcase quote="A beautiful arrival for your most memorable day." />}>
+        <section className="card px-6 py-10 sm:px-10 sm:py-12">
+          <p className="eyebrow">
+            <span className="h-2 w-2 rounded-full bg-gold" aria-hidden="true" /> Get started
+          </p>
+          <h1 className="mt-4 font-serif text-display-mobile text-espresso sm:text-display">Let&apos;s create your invitation</h1>
+          <p className="mt-3 text-body-lg text-on-surface-variant">
+            For now, EventInvito accounts are set up by our team. Contact us and we&apos;ll create yours, then you can design, publish and share your invitation.
+          </p>
+          <ContactLine className="mt-5 text-body-md" />
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <Link to="/templates" className="btn-primary">
+              Browse the designs <ArrowRight size={18} aria-hidden="true" />
+            </Link>
+            <Link to="/signin" className="btn-secondary">
+              I have an account — Sign In
+            </Link>
+          </div>
+        </section>
+      </AuthLayout>
+    )
+  }
 
   const update = (field) => (e) => {
     const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value

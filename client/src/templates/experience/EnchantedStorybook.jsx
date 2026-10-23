@@ -14,7 +14,7 @@ import { useEffect, useRef, useState } from 'react'
 import { CalendarDays, Clock, MapPin, Shirt } from 'lucide-react'
 import Reveal from './Reveal'
 import MusicButton from './MusicButton'
-import { ceremonyList, names, prefersReducedMotion, timeRange } from './shared'
+import { ceremonyList, names, prefersReducedMotion, timeRange, galleryClass } from './shared'
 import { formatDate } from '../strings'
 import { Parents, InviteLine } from './Wording'
 import { guestNamedInLine, hasParentsLines } from '../wording'
@@ -411,8 +411,8 @@ export default function EnchantedStorybook({ invitation, guestName, rsvp, music,
               <Reveal>
                 <h2 className={`es-eyebrow es-on-sky ${local} text-center`}>{t.ourMoments}</h2>
               </Reveal>
-              <div className={`es-photos count-${Math.min(photos.length, 6)}`}>
-                {photos.slice(0, 6).map((p, i) => (
+              <div className={`es-photos ${galleryClass(photos.length, 6)}`}>
+                {photos.map((p, i) => (
                   <Reveal key={p.id} variant="scale" delay={i * 100} className="es-photo">
                     <img src={p.url} alt="" loading="lazy" />
                   </Reveal>

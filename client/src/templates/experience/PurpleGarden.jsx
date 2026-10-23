@@ -14,7 +14,7 @@ import { useEffect, useRef, useState } from 'react'
 import { CalendarDays, Clock, MapPin, Shirt, Sparkle } from 'lucide-react'
 import Reveal from './Reveal'
 import MusicButton from './MusicButton'
-import { ceremonyList, names, prefersReducedMotion, timeRange } from './shared'
+import { ceremonyList, names, prefersReducedMotion, timeRange, galleryClass } from './shared'
 import { formatDate } from '../strings'
 import { DriftingPieces, Flyer, Resting } from './floralParts'
 import './purpleGarden.css'
@@ -307,8 +307,8 @@ export default function PurpleGarden({ invitation, guestName, rsvp, music, t, la
               <Reveal>
                 <h2 className={`pg-eyebrow ${local} text-center`}>{t.ourMoments}</h2>
               </Reveal>
-              <div className={`pg-photos count-${Math.min(photos.length, 6)}`}>
-                {photos.slice(0, 6).map((p, i) => (
+              <div className={`pg-photos ${galleryClass(photos.length, 6)}`}>
+                {photos.map((p, i) => (
                   <Reveal key={p.id} variant="scale" delay={i * 100} className="pg-photo">
                     <img src={p.url} alt="" loading="lazy" />
                   </Reveal>

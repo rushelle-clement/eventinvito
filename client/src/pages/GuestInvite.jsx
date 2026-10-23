@@ -3,14 +3,15 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { LinkIcon, Clock } from 'lucide-react'
+import { LinkIcon, Clock, Heart } from 'lucide-react'
 import { api } from '../lib/api'
 import InvitationExperience from '../templates/experience/InvitationExperience'
 import RsvpForm from '../templates/RsvpForm'
+import { invitationTitle, isBirthday, stringsFor } from '../templates/strings'
 
-function StatePage({ icon: Icon, title, message }) {
+function StatePage({ icon: Icon, title, message, lang }) {
   return (
-    <main className="grid min-h-screen place-items-center bg-ivory px-margin-mobile py-16 text-center">
+    <main className="grid min-h-screen place-items-center bg-ivory px-margin-mobile py-16 text-center" lang={lang}>
       <div className="card max-w-md px-8 py-12">
         <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-blush-tint text-gold-text" aria-hidden="true">
           <Icon size={24} />
@@ -42,10 +43,16 @@ export default function GuestInvite() {
     api(`/invite/${encodeURIComponent(token)}`, { auth: false })
       .then((data) => {
         setState({ status: 'ready', ...data })
-        const { partnerOne, partnerTwo } = data.invitation
-        document.title = `${partnerOne} & ${partnerTwo} — Invitation`
+        document.title = `${invitationTitle(data.invitation, data.invitation.language)} — Invitation`
       })
-      .catch((err) => setState({ status: 'error', code: err.status === 403 ? 'not_published' : err.status === 404 ? 'invalid' : 'other', message: err.message }))
+      .catch((err) =>
+        setState({
+          status: 'error',
+          code: err.code === 'ended' ? 'ended' : err.status === 403 ? 'not_published' : err.status === 404 ? 'invalid' : 'other',
+          message: err.message,
+          ended: err.data?.ended,
+        }),
+      )
     return () => {
       document.title = 'EventInvito'
     }
@@ -60,6 +67,14 @@ export default function GuestInvite() {
   }
 
   if (state.status === 'error') {
+    if (state.code === 'ended') {
+      // The day after the last event has passed: a short thank-you in the invitation's language
+      const e = state.ended || {}
+      const t = stringsFor(e.language, e.eventType)
+      // "Thank you for celebrating with Amaya & Nuwan" / "… with Kavindi"
+      const couple = isBirthday(e) ? e.celebrant || '' : [e.partnerOne, e.partnerTwo].filter(Boolean).join(` ${t.and} `)
+      return <StatePage icon={Heart} title={t.endedTitle} message={couple ? t.endedMessage(couple) : state.message} lang={e.language || 'en'} />
+    }
     if (state.code === 'invalid') return <StatePage icon={LinkIcon} title="This link isn’t valid" message={state.message} />
     if (state.code === 'not_published') return <StatePage icon={Clock} title="Not available right now" message={state.message} />
     return <StatePage icon={Clock} title="Something went wrong" message={state.message} />

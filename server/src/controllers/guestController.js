@@ -5,6 +5,12 @@
 const mongoose = require("mongoose");
 const Guest = require("../models/Guest");
 const AppError = require("../utils/AppError");
+const { limitsFor } = require("../utils/packages");
+
+// "Simple Card includes up to 50 guests per invitation. Upgrade to add more."
+function guestLimitMessage(planName, limit) {
+    return `${planName} includes up to ${limit} guests per invitation.${limit < 500 ? " Upgrade your package to add more." : ""}`;
+}
 const { findOwned } = require("./invitationController");
 const { newGuestToken, decrypt, guestLink } = require("../utils/guestToken");
 
@@ -96,7 +102,7 @@ async function listGuests(req, res) {
         summary[g.rsvpStatus] += 1;
         if (g.sharedAt) summary.shared += 1;
     }
-    res.json({ success: true, invitation: invitation.toOwnerJSON(), summary, guests: guests.map(toOwnerJSON) });
+    res.json({ success: true, invitation: invitation.toOwnerJSON(req.user), summary, guests: guests.map(toOwnerJSON) });
 }
 
 // POST /api/invitations/:id/guests  { name, email?, phone?, notes? }
@@ -106,8 +112,9 @@ async function addGuest(req, res) {
     if (Object.keys(errors).length) throw new AppError(400, "Please fix the highlighted fields.", errors);
 
     const count = await Guest.countDocuments({ invitation: invitation._id });
-    if (count >= MAX_GUESTS_PER_INVITATION) {
-        throw new AppError(400, `An invitation can have up to ${MAX_GUESTS_PER_INVITATION} guests.`);
+    const { guests: limit, planName } = limitsFor(invitation, req.user);
+    if (count >= Math.min(limit, MAX_GUESTS_PER_INVITATION)) {
+        throw new AppError(403, guestLimitMessage(planName, limit), undefined, "guest_limit");
     }
 
     const { tokenHash, tokenEncrypted } = newGuestToken();
@@ -164,6 +171,7 @@ async function markGuestShared(req, res) {
 }
 
 module.exports = {
+    guestLimitMessage,
     listGuests,
     addGuest,
     updateGuest,

@@ -174,6 +174,8 @@
 .rp-venue.is-local { letter-spacing: normal; text-transform: none; font-size: 15px; }
 
 .rp-section { max-width: 720px; margin: 0 auto; padding: 0 18px 56px; }
+/* breathing room between the brocade top section and the first cards */
+.rp-hero + .rp-section { padding-top: clamp(36px, 7vw, 56px); }
 .rp-details { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
 .rp-panel { position: relative; padding: 34px 26px 30px; background: var(--ei-card); box-shadow: inset 0 0 0 1px rgba(214, 166, 74, 0.6), inset 0 0 0 5px var(--ei-card), inset 0 0 0 6px rgba(214, 166, 74, 0.25); text-align: center; }
 .rp-corner.is-small { width: 46px; filter: none; }

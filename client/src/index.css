@@ -180,11 +180,11 @@
 @layer components {
   /* Reusable pieces from the design system */
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-full bg-gold px-6 py-3 font-semibold text-espresso transition-shadow hover:shadow-gold disabled:cursor-not-allowed disabled:opacity-60;
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full bg-gold px-6 py-3 font-semibold text-espresso transition-shadow hover:shadow-gold disabled:cursor-not-allowed disabled:opacity-60;
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-full border border-bone bg-white px-5 py-2.5 font-medium text-espresso transition-colors hover:border-gold hover:bg-ivory;
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full border border-bone bg-white px-5 py-2.5 font-medium text-espresso transition-colors hover:border-gold hover:bg-ivory;
   }
 
   .card {
@@ -201,5 +201,19 @@
 
   .eyebrow {
     @apply flex items-center gap-2 text-label-md text-gold-text uppercase;
+  }
+}
+
+/* Nothing may push the page wider than the screen: on phones that lets the whole page slide
+   sideways. "clip" (unlike "hidden") keeps sticky headers working; older browsers get "hidden". */
+html,
+body {
+  overflow-x: clip;
+}
+@supports not (overflow: clip) {
+  html,
+  body,
+  .ei-root {
+    overflow-x: hidden;
   }
 }

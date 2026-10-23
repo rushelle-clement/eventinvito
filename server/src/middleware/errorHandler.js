@@ -13,6 +13,7 @@ function errorHandler(err, req, res, next) {
             message: err.message,
             ...(err.code && { code: err.code }),
             ...(err.details && { errors: err.details }),
+            ...(err.extra || {}),
         });
     }
 

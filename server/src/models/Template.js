@@ -38,12 +38,33 @@ const templateSchema = new mongoose.Schema(
         status: { type: String, enum: TEMPLATE_STATUSES, default: "draft" },
         version: { type: Number, default: 1, min: 1 },
         sortOrder: { type: Number, default: 0 },
+        // Signature custom designs (custom: true in data/templates.js) are hidden until the admin
+        // gives one to a couple on the admin page (reservedFor = their account email). Then only
+        // that couple (and admins) can see and use it. Once their event is over it joins the
+        // collection for everyone (releasedAt is set; see utils/customDesigns.js).
+        custom: { type: Boolean, default: false },
+        reservedFor: { type: String, lowercase: true, trim: true },
+        releasedAt: { type: Date },
     },
     { timestamps: true }
 );
 
-templateSchema.methods.toPublicJSON = function () {
+// Still private to one couple?
+templateSchema.methods.isReserved = function () {
+    return (this.custom || Boolean(this.reservedFor)) && !this.releasedAt;
+};
+
+// Can this person (signed in or not) see and use the design?
+templateSchema.methods.isVisibleTo = function (user) {
+    if (!this.isReserved()) return true;
+    if (!user) return false;
+    return user.role === "admin" || (Boolean(this.reservedFor) && String(user.email).toLowerCase() === this.reservedFor);
+};
+
+templateSchema.methods.toPublicJSON = function (viewer) {
     return {
+        // "Your custom design" in the gallery (admins see whose it is)
+        ...(this.isReserved() && { custom: true, ...(viewer?.role === "admin" && { reservedFor: this.reservedFor }) }),
         id: this._id.toString(),
         key: this.key,
         name: this.name,

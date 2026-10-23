@@ -8,9 +8,12 @@ import AuthLayout from '../components/AuthLayout'
 import FormField from '../components/FormField'
 import FormAlert from '../components/FormAlert'
 import InvitationShowcase from '../components/InvitationShowcase'
+import ContactLine from '../components/ContactLine'
+import { useSiteConfig } from '../lib/siteConfig'
 
 export default function SignIn() {
-  const { user, signIn } = useAuth()
+  const { user, signIn, notice } = useAuth()
+  const { signupOpen } = useSiteConfig()
   const navigate = useNavigate()
   const location = useLocation()
   const redirectTo = location.state?.from || '/dashboard'
@@ -73,7 +76,7 @@ export default function SignIn() {
         </p>
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit} noValidate>
-          <FormAlert>{formError}</FormAlert>
+          <FormAlert>{formError || notice}</FormAlert>
 
           <FormField
             label="Email address"
@@ -117,12 +120,19 @@ export default function SignIn() {
           </button>
         </form>
 
-        <p className="mt-8 text-center text-body-md text-on-surface-variant">
-          Don&apos;t have an EventInvito account?{' '}
-          <Link to="/signup" className="font-semibold text-gold-text underline underline-offset-4 hover:text-primary">
-            Create an Account
-          </Link>
-        </p>
+        {signupOpen ? (
+          <p className="mt-8 text-center text-body-md text-on-surface-variant">
+            Don&apos;t have an EventInvito account?{' '}
+            <Link to="/signup" className="font-semibold text-gold-text underline underline-offset-4 hover:text-primary">
+              Create an Account
+            </Link>
+          </p>
+        ) : (
+          <div className="mt-8 text-center text-body-md text-on-surface-variant">
+            <p>New to EventInvito? Accounts are set up by our team — contact us to get started.</p>
+            <ContactLine className="mt-2 justify-center" />
+          </div>
+        )}
       </section>
     </AuthLayout>
   )

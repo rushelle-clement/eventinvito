@@ -15,6 +15,7 @@ import { STRINGS, formatDate, formatTime, stringsFor } from './strings'
 import { ceremonyList } from './experience/shared'
 import { guestNamedInLine, hasParentsLines, inviteLineText } from './wording'
 import StaticCard from './experience/StaticCard'
+import BirthdayCard from './experience/BirthdayCard'
 
 function Ornament({ color, variant }) {
   if (variant === 'minimal') {
@@ -81,7 +82,11 @@ export default function InvitationCard({ invitation, templateKey, guestName, rsv
   if (theme.free) {
     return (
       <div className={`overflow-hidden rounded-xl ${className}`}>
-        <StaticCard invitation={{ ...invitation, templateKey }} guestName={guestName} t={t} lang={lang} embedded />
+        {theme.birthday ? (
+          <BirthdayCard invitation={{ ...invitation, templateKey }} guestName={guestName} t={t} lang={lang} embedded />
+        ) : (
+          <StaticCard invitation={{ ...invitation, templateKey }} guestName={guestName} t={t} lang={lang} embedded />
+        )}
       </div>
     )
   }
@@ -239,7 +244,7 @@ export default function InvitationCard({ invitation, templateKey, guestName, rsv
             </p>
           )}
           {rsvp || (
-            <div className={`mt-4 grid gap-3 ${lang === 'en' ? 'grid-cols-2' : 'grid-cols-1'}`} aria-hidden="true">
+            <div className={`mt-4 grid grid-cols-1 gap-3 ${lang === 'en' ? 'sm:grid-cols-2' : ''}`} aria-hidden="true">
               <span
                 className="rounded-full px-4 py-3 text-center text-[14px] font-semibold"
                 style={{ background: theme.accent, color: theme.onAccent || (regal ? theme.page : '#ffffff') }}

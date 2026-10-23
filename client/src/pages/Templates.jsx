@@ -46,12 +46,14 @@ export default function Templates() {
   const [creating, setCreating] = useState('')
   const [createError, setCreateError] = useState('')
 
+  // Signed in, a Signature couple's own custom design is included (first, "Made for you")
   useEffect(() => {
-    api('/templates', { auth: false })
-      // Free designs first, then Premium (each keeps the server's order)
-      .then((data) => setTemplates([...data.templates].sort((a, b) => (a.tier === 'free' ? 0 : 1) - (b.tier === 'free' ? 0 : 1))))
+    const rank = (t) => (t.custom ? 0 : t.tier === 'free' ? 1 : 2)
+    api('/templates')
+      // Their custom design, then free designs, then Premium (each keeps the server's order)
+      .then((data) => setTemplates([...data.templates].sort((a, b) => rank(a) - rank(b))))
       .catch((err) => setLoadError(err.message))
-  }, [])
+  }, [user?.id])
 
   const visible = useMemo(() => {
     if (!templates) return []
@@ -175,12 +177,12 @@ export default function Templates() {
                 <li key={t.key} className="card flex flex-col overflow-hidden">
                   <div className="relative">
                     <TemplateThumbnail templateKey={t.key} height={260} occasion={chosenOccasion || 'wedding'} />
-                    <TierBadge tier={t.tier} className="absolute top-2 left-2" />
+                    <TierBadge tier={t.tier} custom={t.custom} className="absolute top-2 left-2" />
                   </div>
                   <div className="flex flex-1 flex-col p-3 sm:p-4">
                     <div className="hidden items-center justify-between sm:flex">
                       <p className="min-w-0 truncate text-label-sm text-gold-text uppercase">
-                        {!COUPLE.includes(t.eventType) ? `${t.eventType} suite` : chosenOccasion ? `${occasionLabel(chosenOccasion)} design` : 'All occasions'}
+                        {t.eventType === 'birthday' ? 'Birthday' : !COUPLE.includes(t.eventType) ? `${t.eventType} suite` : chosenOccasion ? `${occasionLabel(chosenOccasion)} design` : 'All occasions'}
                       </p>
                       <span className="flex gap-1" aria-hidden="true">
                         {t.palette?.map((c) => (

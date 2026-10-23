@@ -1,5 +1,7 @@
-// The wedding templates. `tier`: "premium" = animated designs, "free" = simple static cards.
+// The invitation templates. `tier`: "premium" = animated designs, "free" = simple static cards.
 // `npm run seed:templates` writes these to MongoDB. Running it again updates them.
+// A Signature custom design gets `custom: true`: it stays hidden until the admin gives it to the
+// couple on the admin page, and joins the collection after their event (see utils/customDesigns.js).
 
 const COMMON_FIELDS = [
     "partnerOne",
@@ -22,7 +24,52 @@ const COMMON_FIELDS = [
 // Free static cards: no photos, music or RSVP
 const STATIC_FIELDS = COMMON_FIELDS.filter((f) => f !== "rsvpDeadline");
 
+// Birthdays: one person (celebrant) and their age, instead of a couple
+const BIRTHDAY_FIELDS = ["celebrant", "age", ...COMMON_FIELDS.filter((f) => !["partnerOne", "partnerTwo", "partnerOneParents", "partnerTwoParents"].includes(f))];
+const BIRTHDAY_STATIC_FIELDS = BIRTHDAY_FIELDS.filter((f) => f !== "rsvpDeadline");
+
+const birthdayPremium = (key, name, description, styleTags, palette, sortOrder) => ({
+    key,
+    name,
+    description,
+    eventType: "birthday",
+    styleTags,
+    palette,
+    supportedFields: BIRTHDAY_FIELDS,
+    tier: "premium",
+    status: "published",
+    version: 1,
+    sortOrder,
+});
+
+const birthdayCard = (key, name, description, styleTags, palette, sortOrder) => ({
+    key,
+    name,
+    description,
+    eventType: "birthday",
+    styleTags,
+    palette,
+    supportedFields: BIRTHDAY_STATIC_FIELDS,
+    tier: "free",
+    status: "published",
+    version: 1,
+    sortOrder,
+});
+
 module.exports = [
+    {
+        key: "golden-vow",
+        name: "Golden Vow",
+        description: "Modern gold, ivory and white around your photos — your cover photo in a gold-lined arch opens out to fill the screen.",
+        eventType: "wedding",
+        styleTags: ["Modern", "Gold", "Photos"],
+        palette: ["#faf6ee", "#ffffff", "#b8964f"],
+        supportedFields: COMMON_FIELDS,
+        tier: "premium",
+        status: "published",
+        version: 1,
+        sortOrder: 6.5,
+    },
     {
         key: "pure-elegance",
         name: "Pure Elegance",
@@ -310,4 +357,89 @@ module.exports = [
         version: 1,
         sortOrder: 5,
     },
+
+    // ---- Birthdays: animated (Premium) ----
+    birthdayPremium(
+        "balloon-bash",
+        "Balloon Bash",
+        "A big bunch of balloons holds the name tag — tap, and they float away in a shower of confetti. For a kids' party.",
+        ["Kids", "Colourful", "Balloons"],
+        ["#fff8ee", "#f2786b", "#6cc7b5"],
+        20
+    ),
+    birthdayPremium(
+        "ocean-adventure",
+        "Ocean Adventure",
+        "Under the sea with a friendly whale — tap, and the treasure chest opens in a burst of golden light. For a little boy.",
+        ["Kids", "Boy", "Under the sea"],
+        ["#0b8aa6", "#ffd76a", "#e6f7f8"],
+        21
+    ),
+    birthdayPremium(
+        "fairy-garden",
+        "Fairy Garden",
+        "A lilac wisteria garden — tap, and the flowered gate swings open as butterflies fly out. For a little girl.",
+        ["Kids", "Girl", "Butterflies"],
+        ["#f8f2fc", "#a674cf", "#f2a7c8"],
+        22
+    ),
+    birthdayPremium(
+        "midnight-gala",
+        "Midnight Gala",
+        "Navy and gold — tap, and the gift's lid lifts off in a burst of gold confetti. For his milestone birthday.",
+        ["Adult", "Elegant", "Navy & gold"],
+        ["#0a1330", "#d9b768", "#f6efdc"],
+        23
+    ),
+
+    birthdayPremium(
+        "rose-wish",
+        "Rosé Wish",
+        "Blush and rose gold with a cake and three lit candles — tap \"Make a wish\" and they blow out. For her birthday.",
+        ["Adult", "Elegant", "Rose gold"],
+        ["#fbf1ee", "#b9786a", "#4e2c2b"],
+        24
+    ),
+
+    // ---- Birthdays: free cards ----
+    birthdayCard(
+        "confetti-pop",
+        "Confetti Pop",
+        "Bright confetti in sunshine yellow, teal and coral with a big, happy age — for a kids' party.",
+        ["Kids", "Colourful", "Fun"],
+        ["#fffaf0", "#f5b82e", "#1fa6a0"],
+        30
+    ),
+    birthdayCard(
+        "little-star",
+        "Little Star",
+        "Baby blue with a little gold crown and twinkling stars — for a little boy's birthday.",
+        ["Kids", "Boy", "First birthday"],
+        ["#eaf4fb", "#7fb2d9", "#c9a24a"],
+        31
+    ),
+    birthdayCard(
+        "blush-bloom",
+        "Blush Bloom",
+        "Blush pink balloons and soft flowers with a gentle script — for a little girl's birthday.",
+        ["Kids", "Girl", "Floral"],
+        ["#fff5f6", "#f2b8c4", "#9c4f63"],
+        32
+    ),
+    birthdayCard(
+        "black-gold",
+        "Black & Gold",
+        "Modern and minimal: a huge gold number, clean type and a thin gold ring on black — for a milestone like a 30th or 50th.",
+        ["Adult", "Milestone", "Modern"],
+        ["#0e0e0e", "#d9b768", "#f7f3ea"],
+        33
+    ),
+    birthdayCard(
+        "rose-bubbles",
+        "Rosé Bubbles",
+        "Rose gold and champagne bubbles on blush — elegant, for her birthday.",
+        ["Adult", "Elegant", "Rose gold"],
+        ["#fbefec", "#c98b7a", "#6b3b39"],
+        34
+    ),
 ];

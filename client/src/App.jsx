@@ -18,6 +18,7 @@ import TemplateDemo from './pages/TemplateDemo'
 import Home from './pages/Home'
 import ComingSoon from './pages/ComingSoon'
 import ScrollToTop from './components/ScrollToTop'
+import Admin from './pages/Admin'
 
 // Loaded only when opened: the spreadsheet libraries are large and most visitors never need them
 const ImportGuests = lazy(() => import('./pages/ImportGuests'))
@@ -66,6 +67,11 @@ export default function App() {
             }
           />
           <Route path="/guests" element={<MyGuests />} />
+        </Route>
+
+        {/* Admin only: accounts and publish credits */}
+        <Route element={<ProtectedRoute role="admin" />}>
+          <Route path="/admin" element={<Admin />} />
         </Route>
       </Route>
 

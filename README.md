@@ -143,6 +143,17 @@ The server can also serve the built React app itself, so the whole site runs as 
 
 Use the same environment variables as above, with `CLIENT_URL` set to that service's own address.
 
+## Accounts and publishing
+
+- **Couples sign up themselves.** Every account gets **one free card**: one invitation published with a free design. Drafts are always free.
+- **Packages:** when a couple pays, choose their package on the admin page (Premium, Premium Plus or Signature). It sets each invitation's limits (guests, photos, own song, Excel download) and adds the Premium credits: 1 for Premium, 2 for Premium Plus and Signature. A published free card can be switched to an animated design by using a Premium credit.
+- **Signature custom designs:** build the design like any other (a component in `client/src/templates`, a theme with `custom: true` in `themes.js`, and an entry with `custom: true` in `server/src/data/templates.js`), then run `npm run seed:templates`. It stays hidden until you give it to the couple under **Custom designs** on the admin page; then only they see it, marked "Made for you". Their last Premium credit is kept for it, so Signature gives exactly: the custom design, one other Premium design and the free card. It joins the collection for everyone once their event is over, or when you press **Add to collection**.
+- Publishing uses one free card or credit; that invitation can then be edited, unpublished and published again without using another.
+- **Your first admin account:** from the `server` folder run
+  `npm run create-admin -- you@example.com "Your Name" "a-strong-password"` (12+ characters). Sign in, then open **Admin: accounts** from the account menu.
+- **Accounts stay open** after their event (the invitation itself goes offline the day after the last event). `LOCK_AFTER_EVENT=true` closes paid accounts instead; `ALLOW_SIGNUP=false` closes sign-up.
+- **Later, with payments:** add a Premium credit to the account when a payment succeeds — nothing else changes.
+
 ## Security notes
 
 - Passwords are hashed with bcrypt; sign-in uses JWTs that expire after 7 days.

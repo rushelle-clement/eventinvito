@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LogOut, User } from 'lucide-react'
+import { LogOut, ShieldCheck, User } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 export default function UserMenu() {
@@ -51,6 +51,19 @@ export default function UserMenu() {
             <p className="text-title-md text-espresso">{user?.name}</p>
             <p className="truncate text-body-sm text-on-surface-variant">{user?.email}</p>
           </div>
+          {user?.role === 'admin' && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false)
+                navigate('/admin')
+              }}
+              className="mt-1 flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-left text-body-md text-espresso hover:bg-blush-tint"
+            >
+              <ShieldCheck size={16} aria-hidden="true" /> Admin: accounts
+            </button>
+          )}
           <button
             type="button"
             role="menuitem"

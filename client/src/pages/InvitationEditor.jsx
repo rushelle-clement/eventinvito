@@ -31,21 +31,25 @@ import InvitationCard from '../templates/InvitationCard'
 import TemplateThumbnail from '../templates/TemplateThumbnail'
 import TierBadge from '../components/TierBadge'
 import { getTheme } from '../templates/themes'
-import { LANGUAGES, OCCASIONS, sampleGuestName } from '../templates/strings'
+import { LANGUAGES, OCCASIONS, invitationTitle, ordinalEn, sampleGuestName } from '../templates/strings'
 import { sinhalaWording } from '../templates/wording'
+import { onlineUntil, untilText } from '../lib/onlineUntil'
+import { useAuth } from '../context/AuthContext'
+import ContactLine from '../components/ContactLine'
 import MusicChooser from '../components/editor/MusicChooser'
 import PhotosSection from '../components/editor/PhotosSection'
 import CeremoniesEditor from '../components/editor/CeremoniesEditor'
 
 // The fields this screen edits, in the order the server expects
 const FIELDS = [
-  'partnerOne', 'partnerTwo', 'blessing', 'ceremonies', 'hostLine', 'partnerOneParents', 'partnerTwoParents', 'message', 'inviteLine', 'eventDate', 'eventTime', 'endTime',
+  'partnerOne', 'partnerTwo', 'celebrant', 'age', 'blessing', 'ceremonies', 'hostLine', 'partnerOneParents', 'partnerTwoParents', 'message', 'inviteLine', 'eventDate', 'eventTime', 'endTime',
   'venueName', 'address', 'mapUrl', 'dressCode', 'rsvpDeadline', 'language', 'eventType', 'templateKey', 'musicTrack',
 ]
 
 const FIELD_LABELS = {
   partnerOne: 'First partner’s name',
   partnerTwo: 'Second partner’s name',
+  celebrant: 'Birthday person’s name',
   eventDate: 'Event date',
   eventTime: 'Start time',
   venueName: 'Venue name',
@@ -54,7 +58,9 @@ const FIELD_LABELS = {
 }
 
 function pickFields(inv) {
-  return Object.fromEntries(FIELDS.map((f) => [f, inv?.[f] ?? (f === 'ceremonies' ? [] : f === 'eventType' ? 'wedding' : '')]))
+  return Object.fromEntries(
+    FIELDS.map((f) => [f, f === 'age' ? (inv?.age == null ? '' : String(inv.age)) : (inv?.[f] ?? (f === 'ceremonies' ? [] : f === 'eventType' ? 'wedding' : ''))]),
+  )
 }
 
 // Fields can be text or a list (ceremonies), so compare by value
@@ -138,6 +144,7 @@ export default function InvitationEditor() {
   const navigate = useNavigate()
 
   const [saved, setSaved] = useState(null) // last version from the server
+  const { user, updateUser } = useAuth()
   const [form, setForm] = useState(null) // what's on screen
   const [templates, setTemplates] = useState([])
   const [errors, setErrors] = useState({})
@@ -154,11 +161,12 @@ export default function InvitationEditor() {
 
   // Load the invitation and the list of designs
   useEffect(() => {
-    Promise.all([api(`/invitations/${id}`), api('/templates', { auth: false })])
+    Promise.all([api(`/invitations/${id}`), api('/templates')])
       .then(([inv, tpl]) => {
         setSaved(inv.invitation)
         setForm(pickFields(inv.invitation))
-        setTemplates(tpl.templates)
+        // A Signature couple's own custom design comes first
+        setTemplates([...tpl.templates].sort((a, b) => (b.custom ? 1 : 0) - (a.custom ? 1 : 0)))
       })
       .catch((err) => setLoadError(err.status === 404 ? 'This invitation could not be found.' : err.message))
   }, [id])
@@ -235,6 +243,7 @@ export default function InvitationEditor() {
     setPublishing(true)
     try {
       const data = await api(`/invitations/${id}/publish`, { method: 'POST' })
+      updateUser(data.user) // one fewer invitation left to publish
       setSaved(data.invitation)
       setForm(pickFields(data.invitation))
       setJustPublished(true)
@@ -292,7 +301,11 @@ export default function InvitationEditor() {
   // Free designs are static cards: no photos, music or online RSVP
   const freeDesign = (templates.find((t) => t.key === form.templateKey)?.tier || saved.tier) === 'free'
   const isLive = saved.status === 'published'
-  const title = form.partnerOne || form.partnerTwo ? `${form.partnerOne || '…'} & ${form.partnerTwo || '…'}` : 'Untitled invitation'
+  const ended = isLive && saved.ended
+  const until = onlineUntil(form) // follows the dates as they are typed
+  // Birthdays are for one person and their age instead of a couple
+  const birthday = form.eventType === 'birthday'
+  const title = form.partnerOne || form.partnerTwo || form.celebrant ? invitationTitle({ ...form, age: form.age === '' ? null : Number(form.age) }) : 'Untitled invitation'
   const theme = getTheme(form.templateKey)
   // Photos and the couple's music are saved immediately, so they come from the saved copy
   const previewGuest = previewGuestInput ?? sampleGuestName(form.language)
@@ -357,7 +370,7 @@ export default function InvitationEditor() {
           <h1 className="mt-2 truncate font-serif text-headline-md-mobile text-espresso md:text-headline-md">{title}</h1>
           <p className="mt-1 flex flex-wrap items-center gap-2 text-body-sm text-on-surface-variant">
             <span className={`rounded-full px-2.5 py-0.5 text-label-sm uppercase ${isLive ? 'bg-[#e3f4e8] text-[#1e6b3a]' : 'bg-surface-container text-on-surface-variant'}`}>
-              {saved.status}
+              {ended ? 'ended' : saved.status}
             </span>
             <span>{saved.templateName || form.templateKey}</span>
             <span aria-hidden="true">•</span>
@@ -366,7 +379,8 @@ export default function InvitationEditor() {
             </span>
           </p>
         </div>
-        <div className="flex gap-3">
+        {/* On phones each button gets its own full-width line */}
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:gap-3">
           <button type="button" className="btn-secondary" onClick={openPreview}>
             <Eye size={16} aria-hidden="true" /> Preview
           </button>
@@ -387,10 +401,57 @@ export default function InvitationEditor() {
         </div>
       </div>
 
+      {/* What publishing this uses: the free card (free designs) or a Premium credit (animated designs) */}
+      {(() => {
+        if (user?.role === 'admin') return null
+        const freeDesign = !!getTheme(form.templateKey).free
+        const free = user?.freeCredits || 0
+        const premium = user?.publishCredits || 0
+        const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
+        let note = null
+        let blocked = false
+        if (saved.paid) {
+          // Published as a free card, now switched to an animated design
+          if (saved.paidKind === 'free' && !freeDesign) {
+            blocked = premium === 0
+            note = blocked
+              ? 'This invitation was published with your free card, so it can only use free designs. To use an animated design, upgrade to a Premium package.'
+              : `Using an animated design for this invitation uses 1 of your ${plural(premium, 'Premium invitation')}.`
+          }
+        } else if (freeDesign) {
+          if (free > 0) note = 'This is a free design: publishing it uses your free card. After that you can still edit it, unpublish it and publish it again.'
+          else if (premium > 0) note = `You’ve used your free card, so publishing this uses 1 of your ${plural(premium, 'Premium invitation')}.`
+          else {
+            blocked = true
+            note = 'You’ve already used your free card. Choose a Premium package to publish another invitation.'
+          }
+        } else if (premium > 0) {
+          note = `Your account can publish ${plural(premium, 'Premium invitation')}. Publishing this uses ${premium === 1 ? 'it' : 'one'}; after that you can still edit it, unpublish it and publish it again.`
+        } else {
+          blocked = true
+          note =
+            free > 0
+              ? 'Animated designs are part of the Premium packages. Upgrade to publish this one — or switch to a free design (5. Design) to publish it with your free card.'
+              : 'Animated designs are part of the Premium packages. Upgrade to publish this one.'
+        }
+        if (!note) return null
+        return (
+          <div className={`mt-4 rounded-lg px-4 py-3 text-body-sm ${blocked ? 'border border-gold/40 bg-blush-tint text-espresso' : 'bg-surface-container-low text-on-surface-variant'}`}>
+            <p>{note}</p>
+            {blocked && (
+              <>
+                <p className="mt-1.5">Contact us to upgrade:</p>
+                <ContactLine className="mt-1" />
+              </>
+            )}
+          </div>
+        )
+      })()}
+
       {justPublished ? (
         <div className="mt-4 flex flex-col gap-3 rounded-lg border border-[#b7e0c4] bg-[#e3f4e8] px-5 py-4 sm:flex-row sm:items-center sm:justify-between" role="status">
           <p className="text-body-md text-[#1e6b3a]">
-            <strong>Your invitation is live.</strong> Next, add your guests to get their personal links.
+            <strong>Your invitation is live.</strong> Guests can open it until {untilText(saved.onlineUntil || until)}, the day after your last event. Next, add your guests to get their personal links.
           </p>
           <Link to={`/invitations/${id}/guests`} className="btn-primary shrink-0">
             <Users size={16} aria-hidden="true" /> Add guests
@@ -399,7 +460,11 @@ export default function InvitationEditor() {
       ) : (
         isLive && (
           <div className="mt-4 flex flex-col gap-3 rounded-lg bg-blush-tint px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-body-sm text-espresso">This invitation is live. Changes you save will show to every guest straight away.</p>
+            <p className="text-body-sm text-espresso">
+              {ended
+                ? `This invitation ended on ${untilText(saved.onlineUntil)}. Guests who open their link now see a short note that it has ended.`
+                : `This invitation is live until ${untilText(saved.onlineUntil || until)}, the day after your last event. Changes you save will show to every guest straight away.`}
+            </p>
             <div className="flex shrink-0 gap-2">
               <Link to={`/invitations/${id}/guests`} className="btn-secondary px-4 py-2 text-body-sm">
                 <Users size={15} aria-hidden="true" /> Guests
@@ -454,27 +519,79 @@ export default function InvitationEditor() {
             </fieldset>
           </Section>
 
-          <Section id="details" icon={CalendarDays} number={2} title="Event Details" subtitle="Occasion, names, date, time and dress code" open={open === 'details'} onToggle={toggle}>
-            <fieldset>
-              <legend className="mb-2 text-label-md text-espresso">Occasion</legend>
-              <div className="grid grid-cols-3 gap-2">
-                {OCCASIONS.map((o) => (
-                  <label
-                    key={o.value}
-                    className={`flex cursor-pointer items-center justify-center rounded-lg border px-2 py-2.5 text-center text-body-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-gold ${form.eventType === o.value ? 'border-gold bg-blush-tint font-semibold text-espresso' : 'border-bone bg-white text-espresso'}`}
-                  >
-                    <input type="radio" name="eventType" value={o.value} checked={form.eventType === o.value} onChange={() => update('eventType', o.value)} className="sr-only" />
-                    {o.label}
-                  </label>
-                ))}
+          <Section
+            id="details"
+            icon={CalendarDays}
+            number={2}
+            title="Event Details"
+            subtitle={birthday ? 'Name, age, date, time and dress code' : 'Occasion, names, date, time and dress code'}
+            open={open === 'details'}
+            onToggle={toggle}
+          >
+            {birthday ? (
+              <div className="grid gap-5 sm:grid-cols-[1fr_9rem]">
+                <Field
+                  label="Birthday person"
+                  name="celebrant"
+                  value={form.celebrant}
+                  onChange={update}
+                  error={errors.celebrant}
+                  maxLength={60}
+                  required
+                  placeholder="e.g. Kavindi"
+                />
+                <Field
+                  label="Turning"
+                  name="age"
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={120}
+                  value={form.age}
+                  onChange={update}
+                  error={errors.age}
+                  placeholder="e.g. 5"
+                  hint={/^\d{1,3}$/.test(String(form.age)) ? `Shows “${ordinalEn(Number(form.age))} Birthday”` : 'Optional'}
+                />
               </div>
-              <p className="mt-2 text-body-sm text-on-surface-variant">The standard wording on your invitation follows the occasion.</p>
-            </fieldset>
-            <div className="grid gap-5 sm:grid-cols-2">
-              <Field label="First partner" name="partnerOne" value={form.partnerOne} onChange={update} error={errors.partnerOne} maxLength={60} required placeholder="e.g. Amaya" />
-              <Field label="Second partner" name="partnerTwo" value={form.partnerTwo} onChange={update} error={errors.partnerTwo} maxLength={60} required placeholder="e.g. Nuwan" />
-            </div>
-            <Field label="Event date" name="eventDate" type="date" value={form.eventDate} onChange={update} error={errors.eventDate} required min={today} />
+            ) : (
+              <>
+                <fieldset>
+                  <legend className="mb-2 text-label-md text-espresso">Occasion</legend>
+                  <div className="grid grid-cols-3 gap-2">
+                    {OCCASIONS.map((o) => (
+                      <label
+                        key={o.value}
+                        className={`flex cursor-pointer items-center justify-center rounded-lg border px-2 py-2.5 text-center text-body-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-gold ${form.eventType === o.value ? 'border-gold bg-blush-tint font-semibold text-espresso' : 'border-bone bg-white text-espresso'}`}
+                      >
+                        <input type="radio" name="eventType" value={o.value} checked={form.eventType === o.value} onChange={() => update('eventType', o.value)} className="sr-only" />
+                        {o.label}
+                      </label>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-body-sm text-on-surface-variant">The standard wording on your invitation follows the occasion.</p>
+                </fieldset>
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <Field label="First partner" name="partnerOne" value={form.partnerOne} onChange={update} error={errors.partnerOne} maxLength={60} required placeholder="e.g. Amaya" />
+                  <Field label="Second partner" name="partnerTwo" value={form.partnerTwo} onChange={update} error={errors.partnerTwo} maxLength={60} required placeholder="e.g. Nuwan" />
+                </div>
+              </>
+            )}
+            <Field
+              label="Event date"
+              name="eventDate"
+              type="date"
+              value={form.eventDate}
+              onChange={update}
+              error={errors.eventDate}
+              required
+              min={today}
+              hint={
+                until
+                  ? `Guests can open your invitation until ${untilText(until)}, the day after your last event. After that their link shows a short note that it has ended.`
+                  : 'Guests can open your invitation until the day after your last event.'
+              }
+            />
             <div className="grid gap-5 sm:grid-cols-2">
               <Field label="Start time" name="eventTime" type="time" value={form.eventTime} onChange={update} error={errors.eventTime} required />
               <Field label="End time" name="endTime" type="time" value={form.endTime} onChange={update} error={errors.endTime} />
@@ -499,7 +616,7 @@ export default function InvitationEditor() {
           </Section>
 
           <Section id="wording" icon={NotebookPen} number={4} title="Wording" subtitle="The words on your invitation" open={open === 'wording'} onToggle={toggle}>
-            {form.language === 'si' && <SinhalaWordingFill form={form} update={update} />}
+            {form.language === 'si' && !birthday && <SinhalaWordingFill form={form} update={update} />}
             <Field
               label="Opening blessing"
               name="blessing"
@@ -519,9 +636,11 @@ export default function InvitationEditor() {
               onChange={update}
               error={errors.hostLine}
               maxLength={200}
-              placeholder="e.g. Mr. & Mrs. Perera request the honour of your presence"
+              placeholder={birthday ? 'e.g. Mr. & Mrs. Perera invite you to celebrate their daughter’s birthday' : 'e.g. Mr. & Mrs. Perera request the honour of your presence'}
               hint={`Optional. ${form.hostLine.length}/200`}
             />
+            {!birthday && (
+              <>
             <Field
               label={`Line above ${form.partnerOne.trim() || 'the first partner'}’s name`}
               name="partnerOneParents"
@@ -546,6 +665,8 @@ export default function InvitationEditor() {
               placeholder={form.language === 'si' ? 'e.g. රංජිත් සිල්වා මහතා සහ නිලන්ති සිල්වා මැතිනියගේ ආදරණීය පුත්' : 'e.g. Son of Mr. & Mrs. Ranjith Silva'}
               hint={bracketHint(form.partnerTwoParents) || 'Optional.'}
             />
+              </>
+            )}
             <Field
               label="Invitation message"
               name="message"
@@ -577,7 +698,8 @@ export default function InvitationEditor() {
 
           <Section id="design" icon={LayoutTemplate} number={5} title="Design" subtitle="Switch to another template" open={open === 'design'} onToggle={toggle}>
             <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Template">
-              {templates.map((t) => (
+              {/* Birthday invitations switch between birthday designs; couple invitations between couple designs */}
+              {templates.filter((t) => (t.eventType === 'birthday') === birthday).map((t) => (
                 <button
                   key={t.key}
                   type="button"
@@ -588,7 +710,7 @@ export default function InvitationEditor() {
                 >
                   <span className="relative block">
                     <TemplateThumbnail templateKey={t.key} invitation={previewInvitation} height={180} />
-                    <TierBadge tier={t.tier} className="absolute top-2 left-2" />
+                    <TierBadge tier={t.tier} custom={t.custom} className="absolute top-2 left-2" />
                   </span>
                   <span className="block px-3 py-2 text-body-sm font-semibold text-espresso">{t.name}</span>
                 </button>
@@ -601,7 +723,7 @@ export default function InvitationEditor() {
             {freeDesign ? (
               <PremiumOnly>Photos are shown on the Premium designs. Your free design is a simple card without photos.</PremiumOnly>
             ) : (
-              <PhotosSection invitationId={id} photos={saved.photos || []} onChange={(photos) => setSaved((prev) => ({ ...prev, photos }))} />
+              <PhotosSection invitationId={id} photos={saved.photos || []} limits={saved.limits} onChange={(photos) => setSaved((prev) => ({ ...prev, photos }))} />
             )}
           </Section>
 
@@ -614,6 +736,8 @@ export default function InvitationEditor() {
                 templateKey={form.templateKey}
                 value={form.musicTrack}
                 customMusic={saved.customMusic}
+                ownMusic={saved.limits?.ownMusic !== false}
+                planName={saved.limits?.planName}
                 onChange={update}
                 onInvitation={(inv) => {
                   setSaved((prev) => ({ ...prev, customMusic: inv.customMusic, musicTrack: inv.musicTrack }))
@@ -718,6 +842,7 @@ export default function InvitationEditor() {
 // Which accordion section contains a field
 function sectionFor(field) {
   if (['venueName', 'address', 'mapUrl'].includes(field)) return 'venue'
+  if (['celebrant', 'age'].includes(field)) return 'details'
   if (['hostLine', 'partnerOneParents', 'partnerTwoParents', 'message', 'inviteLine', 'blessing', 'ceremonies'].includes(field)) return 'wording'
   if (field === 'templateKey') return 'design'
   if (field === 'language') return 'language'

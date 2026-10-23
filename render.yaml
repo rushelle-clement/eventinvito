@@ -23,6 +23,10 @@ services:
         generateValue: true
       - key: JWT_EXPIRES_IN
         value: 7d
+      - key: CONTACT_EMAIL
+        sync: false # shown to visitors who want an account
+      - key: CONTACT_PHONE
+        sync: false
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
       - key: CLOUDINARY_API_KEY

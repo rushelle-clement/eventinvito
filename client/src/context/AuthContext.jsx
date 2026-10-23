@@ -11,6 +11,17 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   // "loading" while we check a saved token on first page load
   const [status, setStatus] = useState(() => (getToken() ? 'loading' : 'ready'))
+  // Why the user was signed out (account closed), shown on the Sign In page
+  const [notice, setNotice] = useState('')
+
+  useEffect(() => {
+    const onClosed = (e) => {
+      setUser(null)
+      setNotice(e.detail || '')
+    }
+    window.addEventListener('ei:account-closed', onClosed)
+    return () => window.removeEventListener('ei:account-closed', onClosed)
+  }, [])
 
   // On first load: if a token was saved, ask the server who it belongs to.
   useEffect(() => {
@@ -24,6 +35,7 @@ export function AuthProvider({ children }) {
   const signIn = useCallback(async ({ email, password, remember }) => {
     const data = await api('/auth/login', { method: 'POST', body: { email, password }, auth: false })
     saveToken(data.token, remember)
+    setNotice('')
     setUser(data.user)
     return data.user
   }, [])
@@ -45,9 +57,12 @@ export function AuthProvider({ children }) {
     setUser(null)
   }, [])
 
+  // After publishing (a credit was used) the server sends the updated account
+  const updateUser = useCallback((next) => next && setUser(next), [])
+
   const value = useMemo(
-    () => ({ user, status, signIn, signUp, signOut }),
-    [user, status, signIn, signUp, signOut],
+    () => ({ user, status, notice, signIn, signUp, signOut, updateUser }),
+    [user, status, notice, signIn, signUp, signOut, updateUser],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
