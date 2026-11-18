@@ -27,13 +27,25 @@ import {
   Info,
   SkipForward,
   PartyPopper,
+  QrCode,
+  Printer,
+  ExternalLink,
+  Eye,
+  EyeOff,
+  Tag,
+  X,
 } from 'lucide-react'
 import { api } from '../lib/api'
 import { buildShareText, copyText, toWhatsAppNumber, whatsAppUrl } from '../lib/share'
 import FormAlert from '../components/FormAlert'
 import Modal from '../components/Modal'
 import { downloadGuestList } from '../lib/guestExport'
+import { FAMILY, TITLES, formatAddress, parseAddress } from '../lib/addressing'
+import { MAX_GROUP_LENGTH, groupChoices, groupCounts, groupKey } from '../lib/guestGroups'
 import { STRINGS, formatDate, invitationTitle, stringsFor } from '../templates/strings'
+import { siteUrl } from '../lib/siteUrl'
+import { qrInitials } from '../lib/qrStrings'
+import { downloadQr, drawQr } from '../lib/qrImage'
 
 const RSVP = {
   attending: { label: 'Attending', Icon: CircleCheck, className: 'bg-[#e3f4e8] text-[#1e6b3a]' },
@@ -46,8 +58,38 @@ const FILTERS = [
   { value: 'attending', label: 'Attending' },
   { value: 'pending', label: 'Awaiting' },
   { value: 'not_attending', label: 'Declined' },
+  { value: 'opened_no_reply', label: 'Opened, no reply' },
+  { value: 'not_opened', label: 'Not opened' },
   { value: 'not_shared', label: 'Not shared' },
 ]
+// Simple Card sees replies and sharing, but not who opened their invitation (that's Premium)
+const OPEN_FILTERS = ['opened_no_reply', 'not_opened']
+
+// Which filter a guest belongs to
+function matchesFilter(g, filter) {
+  // Sharing and opening are about personal links; printed-card guests have neither
+  if (g.cardType === 'physical' && ['not_shared', 'not_opened', 'opened_no_reply', 'opened'].includes(filter)) return false
+  switch (filter) {
+    case 'all':
+      return true
+    case 'not_shared':
+      return !g.sharedAt && !g.openedAt // a guest who opened it clearly has the link
+    case 'opened':
+      return Boolean(g.openedAt)
+    case 'not_opened':
+      return !g.openedAt
+    case 'opened_no_reply':
+      return Boolean(g.openedAt) && g.rsvpStatus === 'pending'
+    default:
+      return g.rsvpStatus === filter
+  }
+}
+
+// "3 Nov, 2 visits" — shown under "Opened"
+function openedNote(g) {
+  const when = new Date(g.lastOpenedAt || g.openedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
+  return g.openCount > 1 ? `Last ${when} · ${g.openCount} visits` : when
+}
 
 function initials(name) {
   return name
@@ -59,19 +101,112 @@ function initials(name) {
     .toUpperCase()
 }
 
+// What the "See the packages" message says for each locked feature
+const UPGRADE = {
+  export: {
+    title: 'Download your guest list',
+    text: 'Downloading your guest list and replies as an Excel file is part of Premium Plus and Signature. It’s handy for seating plans and catering numbers.',
+  },
+  import: {
+    title: 'Import guests from Excel',
+    text: 'Importing your guest list from an Excel or CSV file is part of Premium and above. On Simple Card, add guests one at a time.',
+  },
+  bulkGroups: {
+    title: 'Set the group for many guests',
+    text: 'Ticking many guests and putting them in a group at once, with counts and replies for each group, is part of Premium Plus and Signature. On Premium, set a guest’s group when you add or edit them, or from a Group column when you import.',
+  },
+}
+
 function shortDate(d) {
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }
 
 // ---------------- modals ----------------
 
-function GuestFormModal({ invitationId, guest, onClose, onSaved }) {
+// Quick ways to address a guest: a title and "and family". They write the "Name on invitation";
+// in English they start from the guest name, in Sinhala and Tamil from what's already written there.
+function AddressPicker({ form, setForm, language }) {
+  const lang = TITLES[language] ? language : 'en'
+  const current = parseAddress(form.displayName || (lang === 'en' ? form.name : ''))
+  const base = current.name || (lang === 'en' ? form.name.trim() : '')
+  const apply = (next) => {
+    const merged = { ...current, name: base, ...next }
+    const text = formatAddress(merged, lang)
+    // Nothing added and the same as the guest name: leave "Name on invitation" empty
+    setForm((f) => ({ ...f, displayName: !merged.title && !merged.family && text === f.name.trim() ? '' : text }))
+  }
+  const disabled = !base
+  const chip = (active) =>
+    `rounded-full border px-3 py-1 text-body-sm transition ${active ? 'border-gold bg-gold/15 text-espresso' : 'border-bone bg-white text-on-surface-variant hover:border-gold'} disabled:opacity-40`
+  return (
+    <div>
+      <p className="mb-1.5 text-label-md text-espresso uppercase">Address them as</p>
+      <div className="flex flex-wrap gap-1.5" lang={lang}>
+        {TITLES[lang].map((t) => {
+          const active = current.title?.label === t.label
+          return (
+            <button key={t.label} type="button" disabled={disabled} className={chip(active)} aria-pressed={active} onClick={() => apply({ title: active ? null : t })}>
+              {t.label}
+            </button>
+          )
+        })}
+        <button type="button" disabled={disabled} className={chip(current.family)} aria-pressed={current.family} onClick={() => apply({ family: !current.family })}>
+          + {FAMILY[lang]}
+        </button>
+      </div>
+      {disabled && lang !== 'en' && <p className="mt-1.5 text-body-sm text-on-surface-variant">Write their name in the box below first, then pick a title.</p>}
+    </div>
+  )
+}
+
+// A group box with the groups already used and a few ideas as one-tap chips
+function GroupPicker({ id, value, onChange, guests, eventType, error }) {
+  const { used, ideas } = groupChoices(guests, eventType)
+  const chip = (active) =>
+    `rounded-full border px-3 py-1 text-body-sm transition ${active ? 'border-gold bg-gold/15 text-espresso' : 'border-bone bg-white text-on-surface-variant hover:border-gold'}`
+  const pick = (name) => onChange(groupKey(value) === groupKey(name) ? '' : name)
+  return (
+    <div>
+      <label htmlFor={id} className="mb-1.5 block text-label-md text-espresso uppercase">
+        Group
+      </label>
+      <input
+        id={id}
+        value={value}
+        maxLength={MAX_GROUP_LENGTH}
+        autoComplete="off"
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Optional, e.g. Bride's family, Office"
+        aria-invalid={error ? 'true' : undefined}
+        className={`w-full rounded-lg border bg-white px-4 py-3 text-body-md outline-none focus:border-gold focus:shadow-[0_0_0_3px_rgba(197,160,89,0.15)] ${error ? 'border-error' : 'border-bone'}`}
+      />
+      {error && <p className="mt-1.5 text-body-sm text-error">{error}</p>}
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {used.map((name) => (
+          <button key={name} type="button" className={chip(groupKey(value) === groupKey(name))} aria-pressed={groupKey(value) === groupKey(name)} onClick={() => pick(name)}>
+            {name}
+          </button>
+        ))}
+        {ideas.map((name) => (
+          <button key={name} type="button" className={`${chip(groupKey(value) === groupKey(name))} border-dashed`} aria-pressed={groupKey(value) === groupKey(name)} onClick={() => pick(name)}>
+            + {name}
+          </button>
+        ))}
+      </div>
+      <p className="mt-1.5 text-body-sm text-on-surface-variant">Only you see this. Use it to filter your list and count replies by side or group.</p>
+    </div>
+  )
+}
+
+function GuestFormModal({ invitationId, guest, language = 'en', guests = [], eventType, allowGroups = true, allowPhysical = false, physicalOnly = false, defaultCardType = 'online', onClose, onSaved }) {
   const [form, setForm] = useState({
+    cardType: physicalOnly ? 'physical' : guest?.cardType || (allowPhysical ? defaultCardType : 'online'),
     name: guest?.name || '',
     displayName: guest?.displayName || '',
     email: guest?.email || '',
     phone: guest?.phone || '',
     notes: guest?.notes || '',
+    group: guest?.group || '',
   })
   const [errors, setErrors] = useState({})
   const [formError, setFormError] = useState('')
@@ -92,13 +227,17 @@ function GuestFormModal({ invitationId, guest, onClose, onSaved }) {
     }
     setSaving(true)
     setFormError('')
+    // Physical cards have no phone number; the card type is only sent when it can be chosen
+    const payload = { ...form, ...(form.cardType === 'physical' && { phone: '' }) }
+    if (!allowPhysical && !physicalOnly && guest?.cardType !== 'physical') delete payload.cardType
     try {
       const data = guest
-        ? await api(`/invitations/${invitationId}/guests/${guest.id}`, { method: 'PATCH', body: form })
-        : await api(`/invitations/${invitationId}/guests`, { method: 'POST', body: form })
+        ? await api(`/invitations/${invitationId}/guests/${guest.id}`, { method: 'PATCH', body: payload })
+        : await api(`/invitations/${invitationId}/guests`, { method: 'POST', body: payload })
       onSaved(data.guest, !guest)
       if (!guest && addAnother) {
-        setForm({ name: '', displayName: '', email: '', phone: '', notes: '' })
+        // Keep the group: guests are usually added a side at a time
+        setForm((f) => ({ cardType: f.cardType, name: '', displayName: '', email: '', phone: '', notes: '', group: f.group }))
         nameRef.current?.focus()
       } else {
         onClose()
@@ -106,6 +245,7 @@ function GuestFormModal({ invitationId, guest, onClose, onSaved }) {
     } catch (err) {
       setFormError(err.message)
       setErrors(err.fieldErrors || {})
+      if (err.fieldErrors?.name) nameRef.current?.focus() // e.g. a physical card with the same name
     } finally {
       setSaving(false)
     }
@@ -137,18 +277,82 @@ function GuestFormModal({ invitationId, guest, onClose, onSaved }) {
     <Modal title={guest ? 'Edit guest' : 'Add guest'} onClose={onClose}>
       <form onSubmit={submit} noValidate className="space-y-5 px-5 py-5">
         <FormAlert>{formError}</FormAlert>
+        {!physicalOnly && (allowPhysical || guest?.cardType === 'physical') && (
+          <fieldset>
+            <legend className="mb-1.5 block text-label-md text-espresso uppercase">Card type</legend>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { value: 'online', label: 'Online card', note: 'Personal link by WhatsApp', Icon: Link2 },
+                { value: 'physical', label: 'Physical card', note: 'Replies by the QR code', Icon: Printer },
+              ].map((o) => (
+                <label
+                  key={o.value}
+                  className={`flex cursor-pointer items-start gap-2.5 rounded-lg border px-3.5 py-3 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-gold ${form.cardType === o.value ? 'border-gold bg-gold/10' : 'border-bone bg-white hover:border-gold'}`}
+                >
+                  <input
+                    type="radio"
+                    name="g-cardType"
+                    value={o.value}
+                    checked={form.cardType === o.value}
+                    onChange={() => {
+                      setForm((f) => ({ ...f, cardType: o.value }))
+                      setErrors((x) => ({ ...x, cardType: undefined, name: undefined }))
+                    }}
+                    className="sr-only"
+                  />
+                  <o.Icon size={17} className="mt-0.5 shrink-0 text-gold-text" aria-hidden="true" />
+                  <span>
+                    <span className="block text-title-md text-espresso">{o.label}</span>
+                    <span className="block text-body-sm text-on-surface-variant">{o.note}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            {errors.cardType && <p className="mt-1.5 text-body-sm text-error">{errors.cardType}</p>}
+          </fieldset>
+        )}
         {input('name', 'Guest name *', { ref: nameRef, maxLength: 100, autoComplete: 'off', placeholder: 'e.g. Amal Perera' })}
+        <AddressPicker form={form} setForm={setForm} language={language} />
         <div>
-          {input('displayName', 'Name on invitation', { maxLength: 100, autoComplete: 'off', lang: 'si', placeholder: 'Optional, e.g. අමල් පෙරේරා මහතා' })}
-          <p className="mt-1.5 text-body-sm text-on-surface-variant">Shown on their invitation instead of the guest name. Use it to write the name in Sinhala or add a title.</p>
+          {input('displayName', 'Name on invitation', {
+            maxLength: 100,
+            autoComplete: 'off',
+            lang: language,
+            placeholder: language === 'si' ? 'Optional, e.g. අමල් පෙරේරා මහතා සහ මහත්මිය' : 'Optional, e.g. Mr. & Mrs. Amal Perera and family',
+          })}
+          <p className="mt-1.5 text-body-sm text-on-surface-variant">
+            Shown on their invitation instead of the guest name{language === 'si' ? ' — write it in Sinhala here' : ''}. You can also type it yourself.
+          </p>
+          <p className="mt-2 rounded-lg bg-surface-container-low px-3 py-2 text-body-sm text-espresso" lang={language}>
+            Their invitation will say: <strong>{STRINGS[language]?.dear?.((form.displayName || form.name).trim() || '…') ?? `Dear ${form.displayName || form.name}`}</strong>
+          </p>
         </div>
-        <div className="grid gap-5 sm:grid-cols-2">
-          {input('phone', 'Phone (for WhatsApp)', { type: 'tel', maxLength: 20, placeholder: 'e.g. 077 123 4567' })}
-          {input('email', 'Email', { type: 'email', maxLength: 254, placeholder: 'Optional' })}
-        </div>
-        {input('notes', 'Notes', { maxLength: 300, placeholder: "Optional, only you see this (e.g. Bride's family)" })}
+        {form.cardType === 'physical' ? (
+          input('email', 'Email', { type: 'email', maxLength: 254, placeholder: 'Optional' })
+        ) : (
+          <div className="grid gap-5 sm:grid-cols-2">
+            {input('phone', 'Phone (for WhatsApp)', { type: 'tel', maxLength: 20, placeholder: 'e.g. 077 123 4567' })}
+            {input('email', 'Email', { type: 'email', maxLength: 254, placeholder: 'Optional' })}
+          </div>
+        )}
+        {allowGroups && (
+        <GroupPicker
+          id="g-group"
+          value={form.group}
+          onChange={(v) => {
+            setForm((f) => ({ ...f, group: v }))
+            setErrors((x) => ({ ...x, group: undefined }))
+          }}
+          guests={guests}
+          eventType={eventType}
+          error={errors.group}
+        />
+        )}
+        {input('notes', 'Notes', { maxLength: 300, placeholder: 'Optional, only you see this (e.g. Aunt, vegetarian)' })}
         <p className="text-body-sm text-on-surface-variant">
-          Each guest gets their own link that shows their name. One person per guest: plus-ones can’t be added.
+          {form.cardType === 'physical'
+            ? 'They’ll scan the QR code on their card, type their name and tap it to reply, so use the name as written on their card. Two physical-card guests can’t have the same name: add a town or note, e.g. “Amal Perera (Kandy)”.'
+            : 'Each guest gets their own link that shows their name. For a couple or a family, add them once (e.g. “Mr. & Mrs. Amal Perera and family”): they share one link and send one reply.'}
         </p>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-bone pt-4">
           {!guest ? (
@@ -252,7 +456,8 @@ function ShareModal({ invitation, guest, onClose, onShared }) {
 // that guest's personal message and link; the couple presses Send there and comes back, and the
 // next guest is ready. WhatsApp only lets a person send from their own number this way (no
 // automatic bulk sending), so each message is still sent by the couple with one tap.
-function SendAllModal({ invitation, guests, onClose, onShared, onEditMessage }) {
+function SendAllModal({ invitation, guests, selection = false, onClose, onShared, onEditMessage }) {
+  const title = selection ? `Send to ${guests.length} selected on WhatsApp` : 'Send to all on WhatsApp'
   const notSent = guests.filter((g) => !g.sharedAt)
   const [includeSent, setIncludeSent] = useState(notSent.length === 0)
   const [skipNoPhone, setSkipNoPhone] = useState(false)
@@ -284,7 +489,7 @@ function SendAllModal({ invitation, guests, onClose, onShared, onEditMessage }) 
   if (!queue) {
     return (
       <Modal
-        title="Send to all on WhatsApp"
+        title={title}
         onClose={onClose}
         footer={
           <>
@@ -362,7 +567,7 @@ function SendAllModal({ invitation, guests, onClose, onShared, onEditMessage }) 
   const hasNumber = !!toWhatsAppNumber(guest.phone)
   return (
     <Modal
-      title="Send to all on WhatsApp"
+      title={title}
       onClose={onClose}
       footer={
         <>
@@ -466,6 +671,128 @@ function MessageTemplateModal({ invitation, onClose, onSaved }) {
   )
 }
 
+// Put the selected guests in a group (or take them out of their group)
+function BulkGroupModal({ invitationId, selected, guests, eventType, onClose, onDone }) {
+  const [group, setGroup] = useState('')
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+  async function save(value) {
+    setSaving(true)
+    setError('')
+    try {
+      const d = await api(`/invitations/${invitationId}/guests/group`, { method: 'POST', body: { guestIds: selected.map((g) => g.id), group: value } })
+      onDone(d.group)
+    } catch (err) {
+      setError(err.message)
+      setSaving(false)
+    }
+  }
+  const n = selected.length
+  const inGroups = selected.filter((g) => g.group).length
+  return (
+    <Modal
+      title={`Set the group for ${n} guest${n === 1 ? '' : 's'}`}
+      onClose={() => !saving && onClose()}
+      footer={
+        <>
+          {inGroups > 0 && (
+            <button type="button" className="btn-secondary mr-auto" disabled={saving} onClick={() => save('')}>
+              Remove from group
+            </button>
+          )}
+          <button type="button" className="btn-secondary" onClick={onClose} disabled={saving}>
+            Cancel
+          </button>
+          <button type="button" className="btn-primary" disabled={saving || !group.trim()} onClick={() => save(group)}>
+            {saving ? 'Saving…' : 'Save group'}
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-4 px-5 py-5">
+        <FormAlert>{error}</FormAlert>
+        <GroupPicker id="bulk-group" value={group} onChange={setGroup} guests={guests} eventType={eventType} />
+        {inGroups > 0 && <p className="text-body-sm text-on-surface-variant">{inGroups === n ? 'They are' : `${inGroups} of them are`} already in a group; saving moves them to this one.</p>}
+      </div>
+    </Modal>
+  )
+}
+
+// Replies and opens for each group; tap a group to list its guests
+function GroupsPanel({ rows, active, onPick, showOpened = true }) {
+  const noRsvp = false // every design takes replies
+  const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0)
+  // Printed cards aren't "opened", so that column is left out for them
+  const cols = showOpened ? 'md:grid-cols-[minmax(0,2fr)_repeat(5,minmax(0,1fr))]' : 'md:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))]'
+  return (
+    <section className="card mt-6 p-0" aria-labelledby="groups-h">
+      <div className="flex items-center justify-between gap-3 border-b border-bone px-5 py-3">
+        <h2 id="groups-h" className="flex items-center gap-2 text-label-md text-espresso uppercase">
+          <Tag size={15} className="text-gold-text" aria-hidden="true" /> Groups
+        </h2>
+        {active !== null && (
+          <button type="button" className="text-body-sm text-gold-text underline underline-offset-2" onClick={() => onPick(null)}>
+            Show all groups
+          </button>
+        )}
+      </div>
+      <div className={`hidden gap-3 px-5 pt-3 pb-1 text-label-sm text-on-surface-variant uppercase md:grid ${cols}`}>
+        <span>Group</span>
+        <span className="text-right">Guests</span>
+        {!noRsvp && (
+          <>
+            <span className="text-right">Attending</span>
+            <span className="text-right">Declined</span>
+            <span className="text-right">Awaiting</span>
+          </>
+        )}
+        {showOpened && <span className="text-right">Opened</span>}
+      </div>
+      <ul className="pb-2">
+        {rows.map((r) => {
+          const on = active === r.key
+          return (
+            <li key={r.key || '__none'}>
+              <button
+                type="button"
+                aria-pressed={on}
+                onClick={() => onPick(on ? null : r.key)}
+                className={`grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 px-5 py-2.5 text-left transition-colors md:gap-3 ${cols} ${on ? 'bg-blush-tint' : 'hover:bg-surface-container-low'}`}
+              >
+                <span className={`min-w-0 text-body-md [overflow-wrap:anywhere] ${r.name ? 'text-espresso' : 'text-on-surface-variant italic'}`}>{r.name || 'No group'}</span>
+                <span className="text-right text-body-md font-semibold text-espresso">{r.total}</span>
+                {/* Phones: the numbers sit in one line under the name */}
+                <span className="col-span-2 flex flex-wrap gap-x-3 text-body-sm text-on-surface-variant md:hidden">
+                  {!noRsvp && (
+                    <>
+                      <span className="text-[#1e6b3a]">{r.attending} attending</span>
+                      <span>{r.not_attending} declined</span>
+                      <span>{r.pending} awaiting</span>
+                    </>
+                  )}
+                  {showOpened && <span>{r.opened} opened</span>}
+                </span>
+                {!noRsvp && (
+                  <>
+                    <span className="hidden text-right text-body-md text-[#1e6b3a] md:block">{r.attending}</span>
+                    <span className="hidden text-right text-body-md text-on-surface-variant md:block">{r.not_attending}</span>
+                    <span className="hidden text-right text-body-md text-on-surface-variant md:block">{r.pending}</span>
+                  </>
+                )}
+                {showOpened && (
+                  <span className="hidden text-right text-body-md text-on-surface-variant md:block">
+                    {r.opened} <span className="text-body-sm">({pct(r.opened, r.total)}%)</span>
+                  </span>
+                )}
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
+}
+
 function RowMenu({ onEdit, onReset, onRemove, name }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
@@ -498,9 +825,9 @@ function RowMenu({ onEdit, onReset, onRemove, name }) {
           <button role="menuitem" type="button" className={item} onClick={() => (setOpen(false), onEdit())}>
             <PencilLine size={15} aria-hidden="true" /> Edit details
           </button>
-          <button role="menuitem" type="button" className={item} onClick={() => (setOpen(false), onReset())}>
+          {onReset && <button role="menuitem" type="button" className={item} onClick={() => (setOpen(false), onReset())}>
             <RefreshCw size={15} aria-hidden="true" /> Reset link
-          </button>
+          </button>}
           <button role="menuitem" type="button" className={`${item} text-error`} onClick={() => (setOpen(false), onRemove())}>
             <Trash2 size={15} aria-hidden="true" /> Remove guest
           </button>
@@ -512,17 +839,149 @@ function RowMenu({ onEdit, onReset, onRemove, name }) {
 
 // ---------------- page ----------------
 
+// Physical cards: one QR code for the whole invitation (Premium Plus and Signature).
+// Guests marked "Physical card" scan it, find their name and reply.
+function QrPanel({ invitation, physical, viaQr, live, physicalOnly, onSaved, onError }) {
+  const qr = invitation.qr || { enabled: false, code: '' }
+  const [saving, setSaving] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const canvasRef = useRef(null)
+  const url = qr.code ? `${siteUrl()}/r/${qr.code}` : ''
+  const initials = qrInitials(invitation)
+
+  useEffect(() => {
+    if (qr.enabled && url && canvasRef.current) drawQr(canvasRef.current, url, initials, 480)
+  }, [qr.enabled, url, initials])
+
+  async function toggle() {
+    setSaving(true)
+    try {
+      const d = await api(`/invitations/${invitation.id}/qr`, { method: 'PATCH', body: { enabled: !qr.enabled } })
+      onSaved(d.qr)
+    } catch (err) {
+      onError(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function copy() {
+    if (await copyText(url)) {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  const fileName = `${invitationTitle(invitation).replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '') || 'invitation'}-QR.png`
+
+  return (
+    <section className="card mt-6 p-5" aria-labelledby="qr-panel-h">
+      <div className="flex flex-col gap-5 md:flex-row md:items-start">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-blush-tint text-gold-text" aria-hidden="true">
+                <QrCode size={19} />
+              </span>
+              <div>
+                <h2 id="qr-panel-h" className="text-title-md text-espresso">
+                  QR code for physical cards
+                </h2>
+                <p className="mt-0.5 text-body-sm text-on-surface-variant">
+                  {physicalOnly ? (
+                    'Print this one code on all your cards. Guests scan it, find their name and reply.'
+                  ) : (
+                    <>
+                      Print one code on all your paper cards. Guests marked <strong className="text-espresso">Physical card</strong> scan it, find their name and reply.
+                    </>
+                  )}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={qr.enabled}
+              aria-labelledby="qr-panel-h"
+              onClick={toggle}
+              disabled={saving}
+              className={`relative mt-1 h-7 w-12 shrink-0 rounded-full transition-colors disabled:opacity-60 ${qr.enabled ? 'bg-gold' : 'bg-outline-variant'}`}
+            >
+              <span className={`absolute top-1 left-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${qr.enabled ? 'translate-x-5' : ''}`} aria-hidden="true" />
+            </button>
+          </div>
+
+          {qr.enabled && (
+            <>
+              <p className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-body-sm text-espresso">
+                <span>
+                  <strong>{physical.total}</strong> guest{physical.total === 1 ? '' : 's'} with physical cards
+                </span>
+                <span>
+                  <strong>{viaQr}</strong> replied by QR
+                </span>
+              </p>
+              {physical.total === 0 && (
+                <p className="mt-3 flex items-start gap-2 rounded-lg bg-blush-tint px-4 py-3 text-body-sm text-espresso">
+                  <Info size={16} className="mt-0.5 shrink-0 text-gold-text" aria-hidden="true" />
+                  {physicalOnly
+                    ? 'Add your guests, or import them from Excel, using the names written on their cards. Only guests on your list can reply.'
+                    : 'Choose “Physical card” when you add a guest, or import a separate Excel file for your physical-card guests. Only they can reply with this code.'}
+                </p>
+              )}
+              {!live && (
+                <p className="mt-3 flex items-start gap-2 rounded-lg bg-blush-tint px-4 py-3 text-body-sm text-espresso">
+                  <AlertTriangle size={16} className="mt-0.5 shrink-0 text-gold-text" aria-hidden="true" />
+                  The QR page opens once your invitation is published. You can print the code now: it won’t change.
+                </p>
+              )}
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button type="button" className="btn-primary px-4 py-2 text-body-sm" onClick={() => downloadQr(url, initials, fileName)}>
+                  <Download size={15} aria-hidden="true" /> Download QR (PNG)
+                </button>
+                <button type="button" className="btn-secondary px-3.5 py-2 text-body-sm" onClick={copy}>
+                  {copied ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />} {copied ? 'Copied' : 'Copy link'}
+                </button>
+                <a href={url} target="_blank" rel="noreferrer" className="btn-secondary px-3.5 py-2 text-body-sm">
+                  <ExternalLink size={15} aria-hidden="true" /> Open reply page
+                </a>
+              </div>
+            </>
+          )}
+          {!qr.enabled && qr.code && (
+            <p className="mt-3 text-body-sm text-on-surface-variant">Off: guests who scan the code are asked to contact you. Switch it on again and the same code works.</p>
+          )}
+        </div>
+        {qr.enabled && (
+          <canvas ref={canvasRef} className="h-36 w-36 shrink-0 self-center rounded-md border border-bone md:self-start" role="img" aria-label={`QR code with ${initials || 'your initials'} in the middle`} />
+        )}
+      </div>
+    </section>
+  )
+}
+
 export default function ManageGuests() {
   const { id } = useParams()
   const [invitation, setInvitation] = useState(null)
   const [guests, setGuests] = useState([])
+  // The server's totals: on Simple Card the guests come without opening details, so the
+  // "Opened" count is taken from here
+  const [serverSummary, setServerSummary] = useState(null)
   const [loadError, setLoadError] = useState('')
   const [error, setError] = useState('')
   const [toast, setToast] = useState('')
   const [query, setQuery] = useState('')
-  const [filter, setFilter] = useState('all')
+  // ?filter=opened_no_reply (from the dashboard) opens the list already filtered
+  const [filter, setFilter] = useState(() => {
+    const f = new URLSearchParams(window.location.search).get('filter')
+    return [...FILTERS.map((x) => x.value), 'opened'].includes(f) ? f : 'all'
+  })
   const [modal, setModal] = useState(null) // { type, guest? }
   const [busy, setBusy] = useState(false)
+  // null = every group; '' = guests without a group; otherwise a group's key
+  const [groupFilter, setGroupFilter] = useState(null)
+  const [selected, setSelected] = useState(() => new Set()) // guest ids ticked for a bulk action
+  const [cardFilter, setCardFilter] = useState('all') // all / online / physical cards
   const toastTimer = useRef(null)
 
   useEffect(() => {
@@ -533,6 +992,7 @@ export default function ManageGuests() {
           if (!alive) return
           setInvitation(d.invitation)
           setGuests(d.guests)
+          setServerSummary(d.summary)
         })
         .catch((err) => {
           if (alive && initial) setLoadError(err.status === 404 ? 'This invitation could not be found.' : err.message)
@@ -602,6 +1062,11 @@ export default function ManageGuests() {
     try {
       await api(`/invitations/${id}/guests/${guest.id}`, { method: 'DELETE' })
       setGuests((list) => list.filter((g) => g.id !== guest.id))
+      setSelected((s) => {
+        const next = new Set(s)
+        next.delete(guest.id)
+        return next
+      })
       showToast(`${guest.name} removed`)
       setModal(null)
     } catch (err) {
@@ -613,22 +1078,48 @@ export default function ManageGuests() {
   }
 
   const summary = useMemo(() => {
-    const s = { total: guests.length, attending: 0, not_attending: 0, pending: 0, shared: 0 }
+    const card = () => ({ total: 0, attending: 0, not_attending: 0, pending: 0 })
+    const s = { total: guests.length, attending: 0, not_attending: 0, pending: 0, shared: 0, opened: 0, openedNoReply: 0, viaQr: 0, online: card(), physical: card() }
     for (const g of guests) {
       s[g.rsvpStatus] += 1
+      const c = s[g.cardType === 'physical' ? 'physical' : 'online']
+      c.total += 1
+      c[g.rsvpStatus] += 1
+      if (g.rsvpVia === 'qr' && g.rsvpStatus !== 'pending') s.viaQr += 1
       if (g.sharedAt) s.shared += 1
+      if (g.openedAt) {
+        s.opened += 1
+        if (g.rsvpStatus === 'pending') s.openedNoReply += 1
+      }
     }
+    // Simple Card: who opened isn't shown, only how many (from the server)
+    if (invitation?.limits?.openDetails === false && serverSummary) s.opened = serverSummary.opened || 0
     return s
-  }, [guests])
+  }, [guests, invitation, serverSummary])
 
+  const groups = useMemo(() => groupCounts(guests), [guests])
+  const hasGroups = groups.some((r) => r.name)
+  // The chosen group, before the reply filters and search
+  const inGroup = useMemo(
+    () =>
+      guests.filter(
+        (g) =>
+          (groupFilter === null || groupKey(g.group) === groupFilter) &&
+          (cardFilter === 'all' || (g.cardType === 'physical' ? 'physical' : 'online') === cardFilter),
+      ),
+    [guests, groupFilter, cardFilter],
+  )
+
+  // Simple Card has no "opened" filters, even if one comes in the address (?filter=)
+  const activeFilter = invitation?.limits?.openDetails === false && [...OPEN_FILTERS, 'opened'].includes(filter) ? 'all' : filter
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return guests.filter((g) => {
-      if (filter === 'not_shared' ? g.sharedAt : filter !== 'all' && g.rsvpStatus !== filter) return false
+    return inGroup.filter((g) => {
+      if (!matchesFilter(g, activeFilter)) return false
       if (!q) return true
-      return [g.name, g.displayName, g.email, g.phone, g.notes].join(' ').toLowerCase().includes(q)
+      return [g.name, g.displayName, g.email, g.phone, g.notes, g.group].join(' ').toLowerCase().includes(q)
     })
-  }, [guests, query, filter])
+  }, [inGroup, query, activeFilter])
 
   if (loadError) {
     return (
@@ -651,30 +1142,90 @@ export default function ManageGuests() {
   const names = invitationTitle(invitation)
   const live = invitation.status === 'published'
   const pct = (n) => (summary.total ? `${Math.round((n / summary.total) * 100)}%` : '–')
-  const counts = { all: summary.total, attending: summary.attending, pending: summary.pending, not_attending: summary.not_attending, not_shared: summary.total - summary.shared }
+  // The filter counts follow the chosen group
+  const counts = Object.fromEntries([...FILTERS.map((f) => f.value), 'opened'].map((f) => [f, inGroup.filter((g) => matchesFilter(g, f)).length]))
+  const activeGroup = groupFilter === null ? null : groups.find((r) => r.key === groupFilter)
+  const groupLabel = activeGroup ? activeGroup.name || 'No group' : ''
 
-  // Free designs don't collect replies online, so the RSVP numbers and filters are left out
-  const noRsvp = invitation.tier === 'free'
-  const allStats = [
-    { label: 'Total guests', value: summary.total, note: invitation.limits?.guests ? `of ${invitation.limits.guests} in ${invitation.limits.planName}` : 'On your list', Icon: Users },
-    { label: 'Links shared', value: summary.shared, note: `${pct(summary.shared)} shared`, Icon: Send },
-    { label: 'Attending', value: summary.attending, note: `${pct(summary.attending)} confirmed`, Icon: CircleCheck },
-    { label: 'Declined', value: summary.not_attending, note: 'Sent regrets', Icon: CircleSlash },
-    { label: 'Awaiting reply', value: summary.pending, note: invitation.rsvpDeadline ? `Deadline ${formatDate(invitation.rsvpDeadline, 'en', { day: 'numeric', month: 'short' })}` : 'No deadline set', Icon: Hourglass },
+  // Ticked guests (only those still on the list), and "select all shown"
+  const selectedGuests = guests.filter((g) => selected.has(g.id))
+  const allShownSelected = visible.length > 0 && visible.every((g) => selected.has(g.id))
+  const toggle = (gid) =>
+    setSelected((s) => {
+      const next = new Set(s)
+      if (next.has(gid)) next.delete(gid)
+      else next.add(gid)
+      return next
+    })
+  const toggleAllShown = () =>
+    setSelected((s) => {
+      const next = new Set(s)
+      for (const g of visible) {
+        if (allShownSelected) next.delete(g.id)
+        else next.add(g.id)
+      }
+      return next
+    })
+
+  // What the package includes (see server/src/utils/packages.js)
+  const limits = invitation.limits || {}
+  const can = {
+    openDetails: limits.openDetails !== false, // who opened, and "opened, no reply" (Premium and above)
+    groups: limits.groups !== false, // guest groups and the group filter (Premium and above)
+    groupStats: limits.groupStats !== false, // the per-group counts panel (Premium Plus and Signature)
+    bulkGroups: limits.bulkGroups !== false, // set the group for many guests at once (Premium Plus and Signature)
+    import: limits.import !== false, // import from Excel or CSV (Premium and above)
+    qr: limits.qrRsvp === true, // physical cards with a QR code (Premium Plus and Signature)
+  }
+  // Printed Cards package: every guest has a paper card and replies by QR (no links to share)
+  const physicalOnly = limits.onlineCards === false
+  // Online / physical counts are shown once physical cards are possible or used
+  const showCards = !physicalOnly && (can.qr || summary.physical.total > 0)
+  const onlineGuests = guests.filter((g) => g.cardType !== 'physical')
+  const split = (k) => `${summary.online[k]} online · ${summary.physical[k]} physical`
+  const noDeadline = limits.rsvpDeadline === false // Simple Card: replies stay open until the event
+  const stats = [
+    {
+      label: 'Total guests',
+      value: summary.total,
+      note: showCards ? `${summary.online.total} online · ${summary.physical.total} physical` : invitation.limits?.guests ? `of ${invitation.limits.guests} in ${invitation.limits.planName}` : 'On your list',
+      Icon: Users,
+    },
+    { label: 'Links shared', value: summary.shared, note: showCards ? `of ${summary.online.total} online guests` : `${pct(summary.shared)} shared`, Icon: Send },
+    {
+      label: 'Opened',
+      value: summary.opened,
+      // the most useful nudge: they've seen it but haven't answered
+      note: can.openDetails && summary.openedNoReply ? `${summary.openedNoReply} opened, no reply yet` : showCards ? `of ${summary.online.total} online guests` : `${pct(summary.opened)} of guests`,
+      Icon: Eye,
+      filter: can.openDetails ? 'opened_no_reply' : null,
+    },
+    { label: 'Attending', value: summary.attending, note: showCards ? split('attending') : `${pct(summary.attending)} confirmed`, Icon: CircleCheck },
+    { label: 'Declined', value: summary.not_attending, note: showCards ? split('not_attending') : 'Sent regrets', Icon: CircleSlash },
+    { label: 'Awaiting reply', value: summary.pending, note: showCards ? split('pending') : noDeadline ? 'Open until your event' : invitation.rsvpDeadline ? `Deadline ${formatDate(invitation.rsvpDeadline, 'en', { day: 'numeric', month: 'short' })}` : 'No deadline set', Icon: Hourglass },
   ]
-  const stats = noRsvp ? allStats.slice(0, 2) : allStats
+
+  if (physicalOnly) {
+    // No links to share or open: show replies by QR instead
+    stats.splice(1, 2, { label: 'Replied by QR', value: summary.viaQr, note: `${pct(summary.viaQr)} of guests`, Icon: QrCode })
+    stats[0].note = `of ${limits.guests} in ${limits.planName}`
+  }
 
   // The package sets the guest limit (Simple Card 50, Premium 150, Premium Plus 300, Signature 500)
   // and whether the list can be downloaded as Excel (Premium Plus and Signature)
-  const limits = invitation.limits
-  const guestLimit = limits?.guests
+  const guestLimit = limits.guests
   const full = Boolean(guestLimit) && guests.length >= guestLimit
   const addGuest = () => (full ? setModal({ type: 'upgrade', reason: 'guests' }) : setModal({ type: 'add' }))
   const downloadExcel = () =>
     limits?.export
       ? downloadGuestList(invitation, guests).catch(() => setError('The Excel file couldn’t be made. Please try again.'))
       : setModal({ type: 'upgrade', reason: 'export' })
-  const filters = noRsvp ? FILTERS.filter((f) => f.value === 'all' || f.value === 'not_shared') : FILTERS
+  const filters = (can.openDetails ? FILTERS : FILTERS.filter((f) => !OPEN_FILTERS.includes(f.value))).filter((f) => !physicalOnly || f.value !== 'not_shared')
+  const importGuests = (e) => {
+    if (can.import) return
+    e.preventDefault()
+    setModal({ type: 'upgrade', reason: 'import' })
+  }
 
   return (
     <div className="mx-auto max-w-[1200px] px-margin-mobile py-10 md:px-margin">
@@ -702,15 +1253,17 @@ export default function ManageGuests() {
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
-          {guests.length > 0 && (
+          {onlineGuests.length > 0 && (
             <button type="button" className="btn-primary bg-[#25D366] text-white hover:shadow-[0_4px_14px_rgba(37,211,102,0.35)]" onClick={() => setModal({ type: 'sendAll' })}>
               <Send size={16} aria-hidden="true" /> Send to all
             </button>
           )}
-          <button type="button" className="btn-secondary" onClick={() => setModal({ type: 'message' })}>
-            <MessageSquareText size={16} aria-hidden="true" /> Edit message
-          </button>
-          <Link to={`/invitations/${id}/guests/import`} className="btn-secondary">
+          {!physicalOnly && (
+            <button type="button" className="btn-secondary" onClick={() => setModal({ type: 'message' })}>
+              <MessageSquareText size={16} aria-hidden="true" /> Edit message
+            </button>
+          )}
+          <Link to={`/invitations/${id}/guests/import`} onClick={importGuests} className="btn-secondary">
             <Upload size={16} aria-hidden="true" /> Import Guests
           </Link>
           {guests.length > 0 && (
@@ -738,13 +1291,13 @@ export default function ManageGuests() {
         </div>
       )}
 
-      {live && invitation.ended && (
+      {live && invitation.ended && !physicalOnly && (
         <p className="mt-6 flex items-start gap-2 rounded-lg border border-gold/30 bg-blush-tint px-5 py-4 text-body-md text-espresso">
           <Info size={18} className="mt-0.5 shrink-0 text-gold-text" aria-hidden="true" />
           This invitation ended on {formatDate(invitation.onlineUntil, 'en')}, the day after your last event. Guests who open their link now see a short note that it has ended.
         </p>
       )}
-      {live && !invitation.ended && invitation.onlineUntil && (
+      {live && !invitation.ended && invitation.onlineUntil && !physicalOnly && (
         <p className="mt-6 flex items-start gap-2 rounded-lg border border-bone bg-white px-5 py-4 text-body-md text-on-surface-variant">
           <Info size={18} className="mt-0.5 shrink-0 text-gold-text" aria-hidden="true" />
           Guest links open the invitation until {formatDate(invitation.onlineUntil, 'en')}, the day after your last event.
@@ -769,53 +1322,130 @@ export default function ManageGuests() {
         </p>
       )}
 
-      {noRsvp && (
-        <p className="mt-6 flex items-start gap-2 rounded-lg border border-bone bg-white px-5 py-4 text-body-md text-on-surface-variant">
-          <Info size={18} className="mt-0.5 shrink-0 text-gold-text" aria-hidden="true" />
-          This invitation uses a free design, so guests can’t reply online. Online RSVP comes with the Premium designs.
-        </p>
-      )}
-
-      <ul className={`mt-8 grid grid-cols-2 gap-4 ${noRsvp ? 'md:max-w-xl' : 'md:grid-cols-3 lg:grid-cols-5'}`}>
-        {stats.map(({ label, value, note, Icon }) => (
-          <li key={label} className="card p-5">
-            <div className="flex items-start justify-between gap-2">
-              <p className="text-label-sm text-on-surface-variant uppercase">{label}</p>
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-blush-tint text-gold-text" aria-hidden="true">
-                <Icon size={15} />
-              </span>
-            </div>
-            <p className="mt-3 font-serif text-headline-md text-espresso">{value}</p>
-            <p className="mt-1 text-body-sm text-on-surface-variant">{note}</p>
-          </li>
-        ))}
+      <ul className={`mt-8 grid grid-cols-2 gap-4 md:grid-cols-3 ${physicalOnly ? 'xl:grid-cols-5' : 'xl:grid-cols-6'}`}>
+        {stats.map(({ label, value, note, Icon, filter: show }) => {
+          const body = (
+            <>
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-label-sm text-on-surface-variant uppercase">{label}</p>
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-blush-tint text-gold-text" aria-hidden="true">
+                  <Icon size={15} />
+                </span>
+              </div>
+              <p className="mt-3 font-serif text-headline-md text-espresso">{value}</p>
+              <p className={`mt-1 text-body-sm ${show && value ? 'text-gold-text underline-offset-2 group-hover:underline' : 'text-on-surface-variant'}`}>{note}</p>
+            </>
+          )
+          return (
+            <li key={label} className="card p-0">
+              {/* "Opened": tap to list who opened it but hasn't replied */}
+              {show && value ? (
+                <button type="button" className="group block h-full w-full rounded-[inherit] p-5 text-left hover:bg-surface-container-low" onClick={() => setFilter(show)}>
+                  {body}
+                </button>
+              ) : (
+                <div className="p-5">{body}</div>
+              )}
+            </li>
+          )
+        })}
       </ul>
 
       <div className="mt-6">
         <FormAlert>{error}</FormAlert>
       </div>
 
+      {can.qr && (
+        <QrPanel
+          invitation={invitation}
+          physical={summary.physical}
+          viaQr={summary.viaQr}
+          live={live}
+          physicalOnly={physicalOnly}
+          onSaved={(qr) => {
+            setInvitation((inv) => ({ ...inv, qr }))
+            showToast(qr.enabled ? 'QR code switched on' : 'QR code switched off')
+          }}
+          onError={setError}
+        />
+      )}
+
+      {hasGroups && can.groupStats ? (
+        <GroupsPanel rows={groups} active={groupFilter} onPick={setGroupFilter} showOpened={!physicalOnly} />
+      ) : (
+        !hasGroups &&
+        can.groups &&
+        guests.length >= 10 && (
+          <p className="mt-6 flex items-start gap-2 rounded-lg border border-bone bg-white px-5 py-4 text-body-md text-on-surface-variant">
+            <Tag size={18} className="mt-0.5 shrink-0 text-gold-text" aria-hidden="true" />
+            <span>
+              Tip: put guests in groups such as “Bride’s family”, “Groom’s friends” or “Office” to filter the list by group.{' '}
+              {can.bulkGroups ? (
+                <>
+                  Tick guests below and choose <strong className="text-espresso">Set group</strong>, add a Group column when you import, or edit a guest.
+                </>
+              ) : (
+                'Add a Group column when you import, or edit a guest.'
+              )}
+            </span>
+          </p>
+        )
+      )}
+
       {/* Search + filters */}
       <div className="card mt-6 flex flex-col gap-4 p-4 lg:flex-row lg:items-center">
-        <label className="relative block lg:w-80">
+        <label className="relative block lg:w-72 lg:shrink-0">
           <span className="sr-only">Search guests</span>
           <Search size={18} aria-hidden="true" className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-on-surface-variant" />
           <input
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by name, phone or email"
+            placeholder={physicalOnly ? 'Search by name or email' : 'Search by name, phone or email'}
             className="w-full rounded-full border border-bone bg-ivory py-2.5 pr-4 pl-11 text-body-md outline-none focus:border-gold"
           />
         </label>
+        {hasGroups && can.groups && (
+          <label className="block shrink-0">
+            <span className="sr-only">Group</span>
+            <select
+              value={groupFilter ?? '__all'}
+              onChange={(e) => setGroupFilter(e.target.value === '__all' ? null : e.target.value)}
+              className={`w-full rounded-full border py-2.5 pr-9 pl-4 text-body-md text-espresso outline-none focus:border-gold lg:w-56 ${groupFilter !== null ? 'border-gold bg-gold/15' : 'border-bone bg-ivory'}`}
+            >
+              {/* the counts per group are part of Premium Plus and Signature */}
+              <option value="__all">All groups{can.groupStats ? ` (${guests.length})` : ''}</option>
+              {groups.map((r) => (
+                <option key={r.key || '__none'} value={r.key}>
+                  {r.name || 'No group'}
+                  {can.groupStats ? ` (${r.total})` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {showCards && (
+          <label className="block shrink-0">
+            <span className="sr-only">Card type</span>
+            <select
+              value={cardFilter}
+              onChange={(e) => setCardFilter(e.target.value)}
+              className={`w-full rounded-full border py-2.5 pr-9 pl-4 text-body-md text-espresso outline-none focus:border-gold lg:w-48 ${cardFilter !== 'all' ? 'border-gold bg-gold/15' : 'border-bone bg-ivory'}`}
+            >
+              <option value="all">All cards ({guests.length})</option>
+              <option value="online">Online ({summary.online.total})</option>
+              <option value="physical">Physical cards ({summary.physical.total})</option>
+            </select>
+          </label>
+        )}
         <div className="flex flex-wrap gap-2" role="group" aria-label="Filter guests">
           {filters.map((f) => (
             <button
               key={f.value}
               type="button"
-              aria-pressed={filter === f.value}
+              aria-pressed={activeFilter === f.value}
               onClick={() => setFilter(f.value)}
-              className={`rounded-full px-3.5 py-1.5 text-label-md uppercase transition-colors ${filter === f.value ? 'bg-gold text-espresso' : 'border border-bone bg-white text-on-surface-variant hover:border-gold'}`}
+              className={`rounded-full px-3.5 py-1.5 text-label-md uppercase transition-colors ${activeFilter === f.value ? 'bg-gold text-espresso' : 'border border-bone bg-white text-on-surface-variant hover:border-gold'}`}
             >
               {f.label} ({counts[f.value]})
             </button>
@@ -831,13 +1461,15 @@ export default function ManageGuests() {
           </span>
           <h2 className="mt-5 font-serif text-headline-md-mobile text-espresso">Add your first guest</h2>
           <p className="mt-2 max-w-md text-body-md text-on-surface-variant">
-            Each guest gets a personal link that greets them by name. Add a phone number to send it straight to their WhatsApp.
+            {physicalOnly
+              ? 'Add the guests you’re giving printed cards to, using the names on their cards. They reply by scanning your QR code.'
+              : 'Each guest gets a personal link that greets them by name. Add a phone number to send it straight to their WhatsApp.'}
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <button type="button" className="btn-primary" onClick={addGuest}>
               <UserPlus size={16} aria-hidden="true" /> Add Guest
             </button>
-            <Link to={`/invitations/${id}/guests/import`} className="btn-secondary">
+            <Link to={`/invitations/${id}/guests/import`} onClick={importGuests} className="btn-secondary">
               <Upload size={16} aria-hidden="true" /> Import from Excel or CSV
             </Link>
           </div>
@@ -847,32 +1479,82 @@ export default function ManageGuests() {
           <p className="sr-only" aria-live="polite">
             Showing {visible.length} of {guests.length} guests
           </p>
+          {/* Tick guests to put them in a group or send to just them */}
+          <div className={`flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-bone px-5 py-2.5 ${selected.size ? 'bg-blush-tint' : 'bg-white'}`}>
+            <label className="flex cursor-pointer items-center gap-2.5 text-body-sm text-espresso">
+              <input type="checkbox" className="h-4 w-4 accent-espresso" checked={allShownSelected} onChange={toggleAllShown} disabled={!visible.length} />
+              <span>
+                {allShownSelected ? 'Untick all shown' : `Select all ${visible.length} shown`}
+                {groupLabel && !allShownSelected && <span className="text-on-surface-variant"> in “{groupLabel}”</span>}
+              </span>
+            </label>
+            {selected.size > 0 && (
+              <div className="ml-auto flex flex-wrap items-center gap-2">
+                <span className="text-body-sm font-semibold text-espresso">{selected.size} selected</span>
+                {can.groups && (
+                  <button
+                    type="button"
+                    className="btn-secondary px-3.5 py-1.5 text-body-sm"
+                    onClick={() => setModal(can.bulkGroups ? { type: 'bulkGroup' } : { type: 'upgrade', reason: 'bulkGroups' })}
+                  >
+                    <Tag size={15} aria-hidden="true" /> Set group
+                  </button>
+                )}
+                {selectedGuests.some((g) => g.cardType !== 'physical') && (
+                  <button
+                    type="button"
+                    className="btn-primary bg-[#25D366] px-3.5 py-1.5 text-body-sm text-white"
+                    onClick={() => setModal({ type: 'sendAll', guests: selectedGuests.filter((g) => g.cardType !== 'physical') })}
+                  >
+                    <Send size={15} aria-hidden="true" /> Send to selected
+                  </button>
+                )}
+                <button type="button" className="grid h-8 w-8 place-items-center rounded-full text-on-surface-variant hover:bg-surface-container" aria-label="Clear selection" onClick={() => setSelected(new Set())}>
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+          </div>
           {/* Header (desktop) */}
           <div className="hidden grid-cols-[minmax(0,2.2fr)_minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1.1fr)_auto] gap-4 border-b border-bone bg-surface-container-low px-5 py-3 text-label-md text-on-surface-variant uppercase md:grid">
             <span>Guest</span>
             <span>Contact</span>
-            <span>Link</span>
-            <span>{noRsvp ? '' : 'RSVP'}</span>
+            <span>Invitation</span>
+            <span>RSVP</span>
             <span className="w-[136px] text-right">Actions</span>
           </div>
-          {visible.length === 0 && <p className="px-5 py-10 text-center text-body-md text-on-surface-variant">No guests match this search or filter.</p>}
+          {visible.length === 0 && (
+            <p className="px-5 py-10 text-center text-body-md text-on-surface-variant">No guests match this search or filter{groupLabel ? ` in “${groupLabel}”` : ''}{cardFilter !== 'all' ? ` among ${cardFilter === 'physical' ? 'physical-card' : 'online'} guests` : ''}.</p>
+          )}
           <ul>
             {visible.map((g) => {
               const r = RSVP[g.rsvpStatus]
+              const physical = g.cardType === 'physical'
               return (
                 <li
                   key={g.id}
                   className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 border-b border-bone px-5 py-4 last:border-b-0 md:grid-cols-[minmax(0,2.2fr)_minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1.1fr)_auto]"
                 >
-                  <div className="flex min-w-0 items-center gap-3">
+                  <div className="col-span-2 flex min-w-0 items-center gap-3 md:col-span-1">
+                    <input type="checkbox" className="h-4 w-4 shrink-0 accent-espresso" checked={selected.has(g.id)} onChange={() => toggle(g.id)} aria-label={`Select ${g.name}`} />
                     <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary-fixed font-serif text-body-md text-on-primary-fixed-variant" aria-hidden="true">
                       {initials(g.name)}
                     </span>
                     <div className="min-w-0">
-                      <p className="truncate text-title-md text-espresso">{g.name}</p>
-                      {g.displayName && g.displayName !== g.name && <p className="truncate text-body-sm text-espresso" lang="si">{g.displayName}</p>}
+                      <p className="text-title-md text-espresso [overflow-wrap:anywhere]">{g.name}</p>
+                      {g.displayName && g.displayName !== g.name && <p className="text-body-sm text-espresso [overflow-wrap:anywhere]" lang={invitation.language}>{g.displayName}</p>}
                       {!g.displayName && invitation.language === 'si' && (
                         <p className="truncate text-body-sm text-on-surface-variant italic">No Sinhala name yet: the invitation will show “{g.name}”</p>
+                      )}
+                      {g.group && can.groups && (
+                        <button
+                          type="button"
+                          onClick={() => setGroupFilter(groupKey(g.group))}
+                          title={`Show only “${g.group}”`}
+                          className="mt-1 inline-flex max-w-full items-center gap-1 rounded-full bg-gold/15 px-2 py-0.5 text-label-sm text-espresso hover:bg-gold/25"
+                        >
+                          <Tag size={11} className="shrink-0 text-gold-text" aria-hidden="true" /> <span className="truncate">{g.group}</span>
+                        </button>
                       )}
                       {g.notes && <p className="truncate text-body-sm text-on-surface-variant">{g.notes}</p>}
                     </div>
@@ -881,11 +1563,15 @@ export default function ManageGuests() {
                   <div className="col-span-2 min-w-0 text-body-sm text-on-surface-variant md:col-span-1">
                     {g.phone && <p className="truncate font-mono">{g.phone}</p>}
                     {g.email && <p className="truncate">{g.email}</p>}
-                    {!g.phone && !g.email && <p className="italic">No contact details</p>}
+                    {!g.phone && !g.email && <p className="italic">{physical ? 'Printed card, no phone needed' : 'No contact details'}</p>}
                   </div>
 
-                  <div className="order-last md:order-none">
-                    {g.sharedAt ? (
+                  <div className="order-last flex flex-col items-start gap-1 md:order-none">
+                    {physical ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-[#f1ebf8] px-2.5 py-1 text-label-sm text-[#5b3d86]">
+                        <Printer size={13} aria-hidden="true" /> Physical card
+                      </span>
+                    ) : g.openedAt ? null : g.sharedAt ? (
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-container px-2.5 py-1 text-label-sm text-espresso">
                         <span className="h-1.5 w-1.5 rounded-full bg-gold" aria-hidden="true" /> Shared {shortDate(g.sharedAt)}
                       </span>
@@ -894,23 +1580,40 @@ export default function ManageGuests() {
                         Not shared
                       </span>
                     )}
+                    {/* Opened: when they first saw it; the last visit and how many visits on hover */}
+                    {physical ? null : g.openedAt ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-[#e8f0fb] px-2.5 py-1 text-label-sm text-[#24508a]" title={openedNote(g)}>
+                        <Eye size={13} aria-hidden="true" /> Opened {shortDate(g.openedAt)}
+                        {g.openCount > 1 && <span className="opacity-75">· {g.openCount}×</span>}
+                      </span>
+                    ) : (
+                      live &&
+                      can.openDetails &&
+                      g.sharedAt && (
+                        <span className="inline-flex items-center gap-1.5 px-1 text-label-sm text-on-surface-variant">
+                          <EyeOff size={13} aria-hidden="true" /> Not opened yet
+                        </span>
+                      )
+                    )}
                   </div>
 
                   <div className="order-last md:order-none">
-                    {!noRsvp && (
-                      <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-label-sm ${r.className}`}>
-                        <r.Icon size={13} aria-hidden="true" /> {r.label}
-                      </span>
-                    )}
+                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-label-sm ${r.className}`}>
+                      <r.Icon size={13} aria-hidden="true" /> {r.label}
+                    </span>
                     {g.respondedAt && (
                       <span className="mt-1 block text-body-sm text-on-surface-variant" title={new Date(g.respondedAt).toLocaleString('en-GB')}>
                         Replied {shortDate(g.respondedAt)}
+                        {g.rsvpStatus !== 'pending' && g.rsvpVia && (
+                          <span className={g.rsvpVia === 'qr' ? 'font-semibold text-[#5b3d86]' : ''}> · {g.rsvpVia === 'qr' ? 'by QR' : 'by link'}</span>
+                        )}
                       </span>
                     )}
                   </div>
 
-                  <div className="col-start-2 row-start-1 flex items-center justify-end gap-1 md:col-start-auto md:row-start-auto">
-                    {g.link ? (
+                  {/* Phones: the name gets the full width, and these buttons sit at the bottom of the card */}
+                  <div className="order-last col-span-2 -mt-1 flex items-center justify-end gap-1 md:order-none md:col-span-1 md:mt-0">
+                    {physical ? null : g.link ? (
                       <>
                         <button
                           type="button"
@@ -939,7 +1642,7 @@ export default function ManageGuests() {
                     <RowMenu
                       name={g.name}
                       onEdit={() => setModal({ type: 'edit', guest: g })}
-                      onReset={() => setModal({ type: 'reset', guest: g })}
+                      onReset={physical ? null : () => setModal({ type: 'reset', guest: g })}
                       onRemove={() => setModal({ type: 'remove', guest: g })}
                     />
                   </div>
@@ -955,6 +1658,13 @@ export default function ManageGuests() {
         <GuestFormModal
           invitationId={id}
           guest={modal.guest}
+          language={invitation.language}
+          guests={guests}
+          eventType={invitation.eventType}
+          allowGroups={can.groups}
+          allowPhysical={can.qr && !physicalOnly}
+          physicalOnly={physicalOnly}
+          defaultCardType={cardFilter === 'physical' ? 'physical' : 'online'}
           onClose={() => setModal(null)}
           onSaved={(g, isNew) => {
             upsertGuest(g)
@@ -967,15 +1677,32 @@ export default function ManageGuests() {
       {modal?.type === 'sendAll' && (
         <SendAllModal
           invitation={invitation}
-          guests={guests}
+          guests={modal.guests || onlineGuests}
+          selection={Boolean(modal.guests)}
           onClose={() => setModal(null)}
           onShared={markShared}
           onEditMessage={() => setModal({ type: 'message' })}
         />
       )}
+      {modal?.type === 'bulkGroup' && (
+        <BulkGroupModal
+          invitationId={id}
+          selected={selectedGuests}
+          guests={guests}
+          eventType={invitation.eventType}
+          onClose={() => setModal(null)}
+          onDone={(group) => {
+            const ids = new Set(selectedGuests.map((g) => g.id))
+            setGuests((list) => list.map((g) => (ids.has(g.id) ? { ...g, group } : g)))
+            showToast(group ? `${ids.size} guest${ids.size === 1 ? '' : 's'} put in “${group}”` : `${ids.size} guest${ids.size === 1 ? '' : 's'} taken out of their group`)
+            setSelected(new Set())
+            setModal(null)
+          }}
+        />
+      )}
       {modal?.type === 'upgrade' && (
         <Modal
-          title={modal.reason === 'export' ? 'Download your guest list' : 'Your guest list is full'}
+          title={UPGRADE[modal.reason]?.title || 'Your guest list is full'}
           onClose={() => setModal(null)}
           footer={
             <>
@@ -989,9 +1716,8 @@ export default function ManageGuests() {
           }
         >
           <p className="px-5 py-5 text-body-md text-on-surface-variant">
-            {modal.reason === 'export'
-              ? 'Downloading your guest list and replies as an Excel file is part of Premium Plus and Signature. It’s handy for seating plans and catering numbers.'
-              : `${limits?.planName || 'Your package'} includes up to ${guestLimit} guests per invitation. Premium includes 150, Premium Plus 300 and Signature 500.`}
+            {UPGRADE[modal.reason]?.text ||
+              `${limits.planName || 'Your package'} includes up to ${guestLimit} guests per invitation. Premium includes 150, Premium Plus 300 and Signature 500.`}
           </p>
         </Modal>
       )}

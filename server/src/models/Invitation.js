@@ -15,6 +15,7 @@ function photoJSON(p) {
 const INVITATION_STATUSES = ["draft", "published", "unpublished", "archived"];
 const MAX_PHOTOS = 12; // the most any package allows (utils/packages.js sets each package's limit)
 const MAX_CEREMONIES = 8;
+const MAX_AGENDA = 30;
 
 const ceremonySchema = new mongoose.Schema(
     {
@@ -26,6 +27,22 @@ const ceremonySchema = new mongoose.Schema(
     },
     { _id: false }
 );
+
+// One step of the day plan (the wedding day agenda): "10:30 · Poruwa ceremony · Main hall".
+// `date` is only needed when the plan covers more than one day; empty means the event date.
+const agendaItemSchema = new mongoose.Schema(
+    {
+        date: { type: String, match: /^$|^\d{4}-\d{2}-\d{2}$/, default: "" },
+        time: { type: String, match: /^\d{2}:\d{2}$/, required: true },
+        endTime: { type: String, match: /^$|^\d{2}:\d{2}$/, default: "" },
+        title: { type: String, trim: true, maxlength: 80, required: true },
+        place: { type: String, trim: true, maxlength: 120, default: "" },
+        note: { type: String, trim: true, maxlength: 200, default: "" },
+    },
+    { _id: false }
+);
+const agendaJSON = (list) =>
+    (list || []).map((a) => ({ date: a.date, time: a.time, endTime: a.endTime, title: a.title, place: a.place, note: a.note }));
 
 // A photo stored in Cloudinary (see utils/cloudinary.js). The first photo is the cover.
 const photoSchema = new mongoose.Schema({
@@ -57,6 +74,27 @@ const invitationSchema = new mongoose.Schema(
         // Birthdays: the person celebrating and (optionally) the age they're turning
         celebrant: { type: String, trim: true, maxlength: 60, default: "" },
         age: { type: Number, min: 0, max: 120, default: null },
+        // Corporate events: the company, the event's title, the company logo and, for an
+        // anniversary, how many years (the big number on the Corporate Anniversary design)
+        companyName: { type: String, trim: true, maxlength: 80, default: "" },
+        eventTitle: { type: String, trim: true, maxlength: 100, default: "" },
+        milestone: { type: Number, min: 1, max: 500, default: null },
+        // How the logo is shown: in its own colours, or in one colour that matches the design
+        logoStyle: { type: String, enum: ["original", "mono"], default: "original" },
+        logo: {
+            type: new mongoose.Schema(
+                {
+                    publicId: { type: String, required: true, maxlength: 300 },
+                    version: { type: Number, required: true },
+                    width: Number,
+                    height: Number,
+                    format: String,
+                    bytes: Number,
+                },
+                { _id: false }
+            ),
+            default: undefined,
+        },
         hostLine: { type: String, trim: true, maxlength: 200, default: "" },
         // Optional line above each name, e.g. "... මහතා සහ ... මැතිනියගේ ආදරණීය දියණිය"
         partnerOneParents: { type: String, trim: true, maxlength: 200, default: "" },
@@ -91,6 +129,15 @@ const invitationSchema = new mongoose.Schema(
             default: [],
         },
 
+        // The day plan (Premium Plus and Signature): a timed list of what happens on the day.
+        // Guests only see it when the couple switches it on (agendaVisible).
+        agenda: {
+            type: [agendaItemSchema],
+            validate: { validator: (v) => v.length <= MAX_AGENDA, message: `Up to ${MAX_AGENDA} agenda items.` },
+            default: [],
+        },
+        agendaVisible: { type: Boolean, default: false },
+
         // Optional text sent with each guest's link on WhatsApp / copy (FR-033).
         // {name} is replaced with the guest's name.
         shareMessage: { type: String, trim: true, maxlength: 500, default: "" },
@@ -122,18 +169,28 @@ const invitationSchema = new mongoose.Schema(
             default: undefined,
         },
 
+        // QR code for printed cards: guests with a physical card scan it, find their name and reply.
+        // `qrCode` is made the first time it's switched on and never changes (it's printed).
+        qrEnabled: { type: Boolean, default: false },
+        // Printed Cards package: the couple prints every card. No online invitation is shown,
+        // only the QR reply page; every guest has a physical card. `template` is only kept
+        // so the invitation has a design if they upgrade to online cards.
+        printed: { type: Boolean, default: false },
+        qrCode: { type: String, unique: true, sparse: true },
+
         publishedAt: { type: Date },
         // A publish credit was used for this invitation (it may be unpublished and published again freely)
         creditUsed: { type: Boolean, default: false },
         // Which allowance paid for it: a free card (free designs only) or a premium credit
-        creditKind: { type: String, enum: ["free", "premium"] },
+        creditKind: { type: String, enum: ["free", "premium", "printed"] },
     },
     { timestamps: true }
 );
 
-// Free designs are simple static cards: no RSVP, music or photos (see Template.tier).
+// Free designs are simple static cards: replies but no deadline, no music or photos (see Template.tier).
 // Needs `template` populated with its tier; an unpopulated template counts as premium.
 invitationSchema.methods.isFreeDesign = function () {
+    if (this.printed) return false; // printed cards have a reply-by date, like paid cards
     return this.template?.tier === "free";
 };
 
@@ -142,8 +199,26 @@ invitationSchema.methods.isBirthday = function () {
     return this.eventType === "birthday";
 };
 
-// "Amaya & Nuwan", or "Kavindi's 1st birthday" (for lists, the admin page and emails)
+// Corporate events: a company's event (title, company name and logo instead of a couple)
+invitationSchema.methods.isCorporate = function () {
+    return this.eventType === "corporate";
+};
+
+// Christmas parties: the party's title and its hosts (stored in eventTitle and companyName)
+invitationSchema.methods.isChristmas = function () {
+    return this.eventType === "christmas";
+};
+
+// The company logo, sized for invitations (any design, free cards included)
+function logoJSON(logo) {
+    if (!logo?.publicId) return null;
+    return { url: imageUrl(logo, 800), width: logo.width, height: logo.height };
+}
+
+// "Amaya & Nuwan", "Kavindi's 1st birthday" or "Annual Awards Night · Acme" (for lists, the admin page and emails)
 invitationSchema.methods.title = function () {
+    if (this.isCorporate()) return [this.eventTitle, this.companyName].filter(Boolean).join(" · ") || "Untitled event";
+    if (this.isChristmas()) return [this.eventTitle, this.companyName].filter(Boolean).join(" · ") || "Untitled Christmas party";
     if (this.isBirthday()) {
         if (!this.celebrant) return "Untitled birthday";
         return this.age != null ? `${this.celebrant}'s ${ordinal(this.age)} birthday` : `${this.celebrant}'s birthday`;
@@ -162,6 +237,9 @@ invitationSchema.methods.missingForPublish = function () {
     const missing = [];
     if (this.isBirthday()) {
         if (!this.celebrant) missing.push("celebrant");
+    } else if (this.isCorporate() || this.isChristmas()) {
+        if (!this.companyName) missing.push("companyName");
+        if (!this.eventTitle) missing.push("eventTitle");
     } else {
         if (!this.partnerOne) missing.push("partnerOne");
         if (!this.partnerTwo) missing.push("partnerTwo");
@@ -169,7 +247,7 @@ invitationSchema.methods.missingForPublish = function () {
     if (!this.eventDate) missing.push("eventDate");
     if (!this.eventTime) missing.push("eventTime");
     if (!this.venueName) missing.push("venueName");
-    if (!this.address) missing.push("address");
+    if (!this.address && !this.printed) missing.push("address"); // the address is on the printed card
     if (!this.isFreeDesign() && !this.rsvpDeadline) missing.push("rsvpDeadline");
     return missing;
 };
@@ -190,12 +268,19 @@ invitationSchema.methods.toOwnerJSON = function (owner) {
         partnerTwo: this.partnerTwo,
         celebrant: this.celebrant,
         age: this.age ?? null,
+        companyName: this.companyName || "",
+        eventTitle: this.eventTitle || "",
+        milestone: this.milestone ?? null,
+        logo: logoJSON(this.logo),
+        logoStyle: this.logoStyle || "original",
         hostLine: this.hostLine,
         partnerOneParents: this.partnerOneParents,
         partnerTwoParents: this.partnerTwoParents,
         inviteLine: this.inviteLine,
         blessing: this.blessing,
         ceremonies: (this.ceremonies || []).map((c) => ({ name: c.name, date: c.date, time: c.time, venue: c.venue, note: c.note })),
+        agenda: agendaJSON(this.agenda),
+        agendaVisible: Boolean(this.agendaVisible),
         message: this.message,
         eventDate: this.eventDate,
         eventTime: this.eventTime,
@@ -217,6 +302,8 @@ invitationSchema.methods.toOwnerJSON = function (owner) {
         paidKind: this.paidKind(),
         onlineUntil: this.onlineUntil(), // guests can open it until the end of this day
         ended: this.hasEnded(),
+        qr: { enabled: Boolean(this.qrEnabled), code: this.qrCode || "" },
+        printed: Boolean(this.printed),
         publishedAt: this.publishedAt,
         createdAt: this.createdAt,
         updatedAt: this.updatedAt,
@@ -265,16 +352,19 @@ invitationSchema.methods.paidKind = function () {
     return this.creditKind || "premium";
 };
 
-// Guests may reply up to and including the deadline day (FR-052, BR-009)
+// Guests may reply up to and including the deadline day (FR-052, BR-009).
+// Simple Card (free designs) has no deadline: replies stay open until the invitation ends.
 invitationSchema.methods.isRsvpOpen = function () {
-    if (this.isFreeDesign() || !this.rsvpDeadline) return false;
+    if (this.isFreeDesign()) return !this.hasEnded();
+    if (!this.rsvpDeadline) return false;
     return todayIn(this.timeZone || "Asia/Colombo") <= this.rsvpDeadline;
 };
 
 // What a guest's personal page receives: the invitation content only —
 // no owner details, no other guests, no RSVP numbers (NFR-004).
-invitationSchema.methods.toGuestJSON = function () {
-    const free = this.isFreeDesign(); // free designs show no RSVP, music or photos
+// `showAgenda`: the couple switched the day plan on and their package includes it.
+invitationSchema.methods.toGuestJSON = function ({ showAgenda = false } = {}) {
+    const free = this.isFreeDesign(); // free designs show no reply deadline, music or photos
     return {
         templateKey: this.templateKey,
         eventType: this.eventType,
@@ -283,6 +373,11 @@ invitationSchema.methods.toGuestJSON = function () {
         partnerTwo: this.partnerTwo,
         celebrant: this.celebrant,
         age: this.age ?? null,
+        companyName: this.companyName || "",
+        eventTitle: this.eventTitle || "",
+        milestone: this.milestone ?? null,
+        logo: logoJSON(this.logo),
+        logoStyle: this.logoStyle || "original",
         hostLine: this.hostLine,
         partnerOneParents: this.partnerOneParents,
         partnerTwoParents: this.partnerTwoParents,
@@ -303,6 +398,7 @@ invitationSchema.methods.toGuestJSON = function () {
         // Only sent when the couple chose their own file
         musicUrl: !free && this.musicTrack === "custom" && this.customMusic ? audioUrl(this.customMusic) : null,
         photos: free ? [] : (this.photos || []).map(photoJSON),
+        agenda: showAgenda ? agendaJSON(this.agenda) : [],
     };
 };
 
@@ -310,3 +406,4 @@ module.exports = mongoose.model("Invitation", invitationSchema);
 module.exports.INVITATION_STATUSES = INVITATION_STATUSES;
 module.exports.MAX_PHOTOS = MAX_PHOTOS;
 module.exports.MAX_CEREMONIES = MAX_CEREMONIES;
+module.exports.MAX_AGENDA = MAX_AGENDA;

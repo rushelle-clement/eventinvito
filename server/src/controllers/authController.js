@@ -1,8 +1,10 @@
+const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const AppError = require("../utils/AppError");
 const { signToken } = require("../utils/token");
 const { assertCanSignIn } = require("../utils/accountAccess");
+const { sendEmail, layout } = require("../utils/email");
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD = 8;
@@ -30,7 +32,7 @@ function checkNewAccount({ name, email, password }) {
 }
 
 // Creates a customer account (sign-up and the admin page)
-async function createAccount({ name, email, password, publishCredits = 0, freeCredits = 1, plan }) {
+async function createAccount({ name, email, password, publishCredits = 0, freeCredits = 1, printedCredits = 0, plan }) {
     if (await User.exists({ email })) {
         throw new AppError(409, "An account with this email already exists.", {
             email: "An account with this email already exists.",
@@ -42,7 +44,7 @@ async function createAccount({ name, email, password, publishCredits = 0, freeCr
     let user;
     try {
         // Role is never taken from the request — new accounts are always customers
-        user = await User.create({ name, email, passwordHash, publishCredits, freeCredits, ...(plan && { plan }) });
+        user = await User.create({ name, email, passwordHash, publishCredits, freeCredits, printedCredits, ...(plan && { plan }) });
     } catch (err) {
         if (err.code === 11000) {
             // Race: same email registered between the check and the insert
@@ -99,4 +101,71 @@ async function logout(req, res) {
     res.json({ success: true, message: "Signed out." });
 }
 
-module.exports = { register, login, me, logout, checkNewAccount, createAccount, signupOpen, str };
+// ---------------------------------------------------------------- forgot password
+//
+// 1. POST /forgot-password { email }: if there's an account, email it a one-time link
+//    /reset-password/<secret> that works for an hour. The reply is the same whether or not the
+//    email has an account, so nobody can use this to find out who has one.
+// 2. POST /reset-password { token, password }: set the new password, end every other sign-in,
+//    and sign in on this device.
+
+const RESET_MINUTES = 60;
+const RESET_SENT = "If there's an account with that email, we've sent a link to reset the password. It works for 1 hour — please check your spam folder too.";
+const RESET_INVALID = "This reset link is not valid or has expired. Please ask for a new one.";
+const hashSecret = (secret) => crypto.createHash("sha256").update(secret).digest("hex");
+
+// POST /api/auth/forgot-password  { email }
+async function forgotPassword(req, res) {
+    const email = str(req.body?.email).toLowerCase();
+    if (!EMAIL_RE.test(email)) throw new AppError(400, "Enter a valid email address.", { email: "Enter a valid email address." });
+
+    const user = await User.findOne({ email });
+    // Turned-off accounts get no email either (and the reply stays the same)
+    if (user && !user.disabled) {
+        const secret = crypto.randomBytes(32).toString("base64url");
+        user.resetTokenHash = hashSecret(secret);
+        user.resetTokenExpires = new Date(Date.now() + RESET_MINUTES * 60 * 1000);
+        await user.save();
+
+        const base = (process.env.CLIENT_URL || "http://localhost:5173").replace(/\/+$/, "");
+        const link = `${base}/reset-password/${secret}`;
+        const first = user.name.split(" ")[0];
+        await sendEmail({
+            to: user.email,
+            toName: user.name,
+            subject: "Reset your EventInvito password",
+            text: `Hi ${first},\n\nWe received a request to reset the password for your EventInvito account. Open this link to choose a new one (it works for 1 hour):\n\n${link}\n\nIf you didn't ask for this, you can ignore this email — your password stays the same.\n\nEventInvito`,
+            html: layout({
+                heading: "Reset your password",
+                lines: [`Hi ${first},`, "We received a request to reset the password for your EventInvito account. Choose a new one with the button below. The link works for 1 hour."],
+                button: { href: link, label: "Choose a new password" },
+                footer: "If you didn't ask for this, you can ignore this email — your password stays the same.",
+            }),
+        });
+    }
+    res.json({ success: true, message: RESET_SENT });
+}
+
+// POST /api/auth/reset-password  { token, password }
+async function resetPassword(req, res) {
+    const secret = str(req.body?.token);
+    const password = typeof req.body?.password === "string" ? req.body.password : "";
+    if (!/^[A-Za-z0-9_-]{40,60}$/.test(secret)) throw new AppError(400, RESET_INVALID, undefined, "reset_invalid");
+    if (password.length < MIN_PASSWORD) throw new AppError(400, "Please fix the highlighted fields.", { password: `Password must be at least ${MIN_PASSWORD} characters.` });
+    if (password.length > 128) throw new AppError(400, "Please fix the highlighted fields.", { password: "Password must be 128 characters or fewer." });
+
+    const user = await User.findOne({ resetTokenHash: hashSecret(secret), resetTokenExpires: { $gt: new Date() } }).select("+resetTokenHash +resetTokenExpires");
+    if (!user) throw new AppError(400, RESET_INVALID, undefined, "reset_invalid");
+    await assertCanSignIn(user);
+
+    user.passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+    user.resetTokenHash = undefined; // the link works once
+    user.resetTokenExpires = undefined;
+    // Ends every earlier sign-in (a second earlier, so the new sign-in below still counts)
+    user.passwordChangedAt = new Date(Date.now() - 1000);
+    await user.save();
+
+    res.json({ success: true, message: "Your password has been changed.", token: signToken(user), user: user.toPublicJSON() });
+}
+
+module.exports = { register, login, me, logout, forgotPassword, resetPassword, checkNewAccount, createAccount, signupOpen, str };

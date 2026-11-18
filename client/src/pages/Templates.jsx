@@ -1,8 +1,8 @@
 // Explore Invitations — template gallery (based on the Stitch "Explore Invitations" screen).
 // Public: anyone can browse; choosing a design requires signing in.
 
-import { useEffect, useMemo, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import { Link, useLocation, useNavigate, useNavigationType, useSearchParams } from 'react-router-dom'
 import { Eye, Search, Sparkles } from 'lucide-react'
 import TierBadge from '../components/TierBadge'
 import { api } from '../lib/api'
@@ -12,7 +12,7 @@ import FormAlert from '../components/FormAlert'
 import InvitationCard from '../templates/InvitationCard'
 import TemplateThumbnail from '../templates/TemplateThumbnail'
 import { getTheme, sampleInvitation } from '../templates/themes'
-import { OCCASIONS as COUPLE_OCCASIONS, occasionLabel } from '../templates/strings'
+import { CATEGORIES, categoryOf, categoryOfDesign } from '../lib/categories'
 
 const PLANS = [
   { value: 'all', label: 'All designs' },
@@ -20,28 +20,40 @@ const PLANS = [
   { value: 'premium', label: 'Premium' },
 ]
 
-// Every couple design works for a wedding, an engagement or a homecoming
-const COUPLE = COUPLE_OCCASIONS.map((o) => o.value)
-const OCCASIONS = [
-  { value: 'all', label: 'All Occasions' },
-  ...COUPLE_OCCASIONS.map((o) => ({ value: o.value, label: o.plural })),
-  { value: 'birthday', label: 'Birthdays' },
-  { value: 'anniversary', label: 'Anniversaries' },
-  { value: 'party', label: 'Parties' },
-  { value: 'corporate', label: 'Corporate Events' },
-]
+// The main occasion categories (no sub-filters): lib/categories.js
+const OCCASIONS = [{ value: 'all', label: 'All Occasions' }, ...CATEGORIES]
+
+// The designs, kept between visits, so coming back from a design's preview shows the
+// gallery straight away (and can scroll back to where you were)
+let cachedTemplates = null
+const SCROLL_KEY = 'ei:gallery-scroll'
 
 export default function Templates() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
-  const [templates, setTemplates] = useState(null)
+  const navigationType = useNavigationType()
+  const [templates, setTemplates] = useState(cachedTemplates)
   const [loadError, setLoadError] = useState('')
-  // ?occasion=engagement (from the home page) opens the gallery on that occasion
-  const [occasion, setOccasion] = useState(() => new URLSearchParams(location.search).get('occasion') || 'all')
-  const [plan, setPlan] = useState('all')
-  const [query, setQuery] = useState('')
+  // The filters live in the address (?occasion=birthday&plan=premium&q=gold), so they're still
+  // there after previewing a design and coming back (and links from the home page can set them)
+  const [params, setParams] = useSearchParams()
+  // older links (?occasion=engagement, ?occasion=party) land on their category
+  const occasion = categoryOf(params.get('occasion'))
+  const category = CATEGORIES.find((c) => c.value === occasion)
+  const plan = params.get('plan') || 'all'
+  const query = params.get('q') || ''
+  // Built from the address as it is right now, so quick changes (a filter, then typing) all stick
+  const setFilter = (name, value, empty) => {
+    const next = new URLSearchParams(window.location.search)
+    if (!value || value === empty) next.delete(name)
+    else next.set(name, value)
+    setParams(next, { replace: true })
+  }
+  const setOccasion = (v) => setFilter('occasion', v, 'all')
+  const setPlan = (v) => setFilter('plan', v, 'all')
+  const setQuery = (v) => setFilter('q', v, '')
   const [previewing, setPreviewing] = useState(null)
   const [creating, setCreating] = useState('')
   const [createError, setCreateError] = useState('')
@@ -51,25 +63,49 @@ export default function Templates() {
     const rank = (t) => (t.custom ? 0 : t.tier === 'free' ? 1 : 2)
     api('/templates')
       // Their custom design, then free designs, then Premium (each keeps the server's order)
-      .then((data) => setTemplates([...data.templates].sort((a, b) => rank(a) - rank(b))))
+      .then((data) => {
+        cachedTemplates = [...data.templates].sort((a, b) => rank(a) - rank(b))
+        setTemplates(cachedTemplates)
+      })
       .catch((err) => setLoadError(err.message))
   }, [user?.id])
+
+  // Coming back (browser Back, or "All designs" on a preview): return to the same place
+  useLayoutEffect(() => {
+    if (!templates || navigationType !== 'POP') return
+    let saved = null
+    try {
+      saved = JSON.parse(sessionStorage.getItem(SCROLL_KEY) || 'null')
+    } catch {
+      // storage blocked: just stay at the top
+    }
+    if (saved && saved.search === location.search) window.scrollTo(0, saved.y)
+    // run once the designs are on the page
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templates])
+
+  // Remember the scroll position when leaving for a preview
+  function rememberScroll() {
+    try {
+      sessionStorage.setItem(SCROLL_KEY, JSON.stringify({ search: location.search, y: window.scrollY }))
+    } catch {
+      // storage blocked: coming back starts at the top
+    }
+  }
 
   const visible = useMemo(() => {
     if (!templates) return []
     const q = query.trim().toLowerCase()
     return templates.filter((t) => {
-      if (COUPLE.includes(occasion)) {
-        if (!COUPLE.includes(t.eventType)) return false
-      } else if (occasion !== 'all' && t.eventType !== occasion) return false
+      if (category && !category.types.includes(t.eventType)) return false
       if (plan !== 'all' && (t.tier || 'premium') !== plan) return false
       if (!q) return true
       return [t.name, t.description, ...(t.styleTags || [])].join(' ').toLowerCase().includes(q)
     })
-  }, [templates, occasion, plan, query])
+  }, [templates, category, plan, query])
+  // a category with no designs at all yet shows "Coming soon" (not "no match")
+  const comingSoon = !!category && !templates?.some((t) => category.types.includes(t.eventType))
 
-  // The occasion picked in the filter goes with Preview and Use Design
-  const chosenOccasion = COUPLE.includes(occasion) ? occasion : ''
 
   async function chooseDesign(template) {
     if (!user) {
@@ -79,7 +115,7 @@ export default function Templates() {
     setCreating(template.key)
     setCreateError('')
     try {
-      const data = await api('/invitations', { method: 'POST', body: { templateKey: template.key, ...(chosenOccasion ? { eventType: chosenOccasion } : {}) } })
+      const data = await api('/invitations', { method: 'POST', body: { templateKey: template.key } })
       navigate(`/invitations/${data.invitation.id}/edit`)
     } catch (err) {
       setCreateError(err.message)
@@ -157,17 +193,18 @@ export default function Templates() {
         <>
           <p className="mt-6 text-body-sm text-on-surface-variant" aria-live="polite">
             Showing {visible.length} design{visible.length === 1 ? '' : 's'}
+            {category && <span className="text-on-surface-variant/80"> · {category.covers}</span>}
           </p>
 
           {visible.length === 0 ? (
             <div className="card mt-4 px-6 py-14 text-center">
               <Sparkles className="mx-auto text-gold-text" aria-hidden="true" />
               <h2 className="mt-4 font-serif text-headline-sm text-espresso">
-                {occasion !== 'all' && !COUPLE.includes(occasion) ? 'Coming soon' : 'No designs match your search'}
+                {comingSoon ? 'Coming soon' : 'No designs match your search'}
               </h2>
               <p className="mt-2 text-body-md text-on-surface-variant">
-                {occasion !== 'all' && !COUPLE.includes(occasion)
-                  ? 'We are starting with weddings, engagements and homecomings. Designs for more occasions are on the way.'
+                {comingSoon
+                  ? `Designs for ${category.properNames ? category.covers : category.covers.charAt(0).toLowerCase() + category.covers.slice(1)} are on the way.`
                   : 'Try a different word, or clear the search.'}
               </p>
             </div>
@@ -176,13 +213,13 @@ export default function Templates() {
               {visible.map((t) => (
                 <li key={t.key} className="card flex flex-col overflow-hidden">
                   <div className="relative">
-                    <TemplateThumbnail templateKey={t.key} height={260} occasion={chosenOccasion || 'wedding'} />
+                    <TemplateThumbnail templateKey={t.key} height={260} occasion="wedding" />
                     <TierBadge tier={t.tier} custom={t.custom} className="absolute top-2 left-2" />
                   </div>
                   <div className="flex flex-1 flex-col p-3 sm:p-4">
                     <div className="hidden items-center justify-between sm:flex">
                       <p className="min-w-0 truncate text-label-sm text-gold-text uppercase">
-                        {t.eventType === 'birthday' ? 'Birthday' : !COUPLE.includes(t.eventType) ? `${t.eventType} suite` : chosenOccasion ? `${occasionLabel(chosenOccasion)} design` : 'All occasions'}
+                        {t.eventType === 'christmas' ? 'Christmas' : categoryOfDesign(t.eventType)?.label || t.eventType}
                       </p>
                       <span className="flex gap-1" aria-hidden="true">
                         {t.palette?.map((c) => (
@@ -200,7 +237,12 @@ export default function Templates() {
                       ))}
                     </ul>
                     <div className="mt-auto grid gap-2 pt-3 sm:grid-cols-2">
-                      <Link to={`/templates/${t.key}/preview${chosenOccasion ? `?occasion=${chosenOccasion}` : ''}`} className="btn-secondary !px-3 !py-2 text-body-sm">
+                      <Link
+                        to={`/templates/${t.key}/preview`}
+                        state={{ fromGallery: true }}
+                        onClick={rememberScroll}
+                        className="btn-secondary !px-3 !py-2 text-body-sm"
+                      >
                         <Eye size={15} aria-hidden="true" /> Preview
                       </Link>
                       <button type="button" className="btn-primary !px-3 !py-2 text-body-sm" onClick={() => chooseDesign(t)} disabled={!!creating}>
@@ -233,7 +275,7 @@ export default function Templates() {
         >
           <div className="p-4 sm:p-8" style={{ background: getTheme(previewing.key).page }}>
             <InvitationCard
-              invitation={sampleInvitation(previewing.key, chosenOccasion || 'wedding')}
+              invitation={sampleInvitation(previewing.key, 'wedding')}
               templateKey={previewing.key}
               guestName="Amal Perera"
               className="mx-auto max-w-xl shadow-float"

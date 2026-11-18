@@ -16,6 +16,9 @@ import { ceremonyList } from './experience/shared'
 import { guestNamedInLine, hasParentsLines, inviteLineText } from './wording'
 import StaticCard from './experience/StaticCard'
 import BirthdayCard from './experience/BirthdayCard'
+import CorporateCard from './experience/CorporateCard'
+import ChristmasCard from './experience/ChristmasCard'
+import { CorpLogo } from './experience/corporateShared'
 
 function Ornament({ color, variant }) {
   if (variant === 'minimal') {
@@ -63,6 +66,7 @@ export default function InvitationCard({ invitation, templateKey, guestName, rsv
   const lang = STRINGS[invitation.language] ? invitation.language : 'en'
   const t = stringsFor(lang, invitation.eventType)
 
+  const corporate = invitation.eventType === 'corporate'
   const one = invitation.partnerOne || (lang === 'en' ? 'Partner one' : '…')
   const two = invitation.partnerTwo || (lang === 'en' ? 'Partner two' : '…')
   const hasParents = Boolean(invitation.partnerOneParents?.trim() || invitation.partnerTwoParents?.trim())
@@ -77,6 +81,24 @@ export default function InvitationCard({ invitation, templateKey, guestName, rsv
   const latin = lang === 'en'
 
   const ceremonies = ceremonyList(invitation, lang)
+
+  // Christmas designs preview as their front with the When / Where cards
+  if (theme.christmas) {
+    return (
+      <div className={`overflow-hidden rounded-xl ${className}`}>
+        <ChristmasCard invitation={{ ...invitation, templateKey }} guestName={guestName} t={t} lang={lang} embedded />
+      </div>
+    )
+  }
+
+  // Corporate designs (free and Premium) preview as their front with the When / Where cards
+  if (theme.corporate) {
+    return (
+      <div className={`overflow-hidden rounded-xl ${className}`}>
+        <CorporateCard invitation={{ ...invitation, templateKey }} guestName={guestName} t={t} lang={lang} embedded />
+      </div>
+    )
+  }
 
   // Free designs preview as their own static card
   if (theme.free) {
@@ -124,7 +146,19 @@ export default function InvitationCard({ invitation, templateKey, guestName, rsv
           </p>
         )}
 
-        {!hasParentsLines(invitation) && (
+        {/* Corporate events: the logo on top, the company inviting you, and the event's title as the heading */}
+        {corporate && invitation.logo?.url && (
+          <div className="mt-6">
+            <CorpLogo logo={invitation.logo} style={invitation.logoStyle} variant={templateKey} plate />
+          </div>
+        )}
+        {corporate && !invitation.hostLine && (
+          <p className={`mt-6 ${latin ? 'text-[12px] tracking-[0.18em] uppercase' : 'text-[15px]'}`} style={{ color: theme.muted }}>
+            {invitation.companyName ? t.corpInvites(invitation.companyName) : t.together}
+          </p>
+        )}
+
+        {!corporate && !hasParentsLines(invitation) && (
           <p className={`mt-8 ${latin ? 'text-[12px] tracking-[0.18em] uppercase' : 'text-[15px]'}`} style={{ color: theme.muted }}>
             {t.together}
           </p>
@@ -140,7 +174,9 @@ export default function InvitationCard({ invitation, templateKey, guestName, rsv
           className={`mt-6 leading-[1.1] break-words ${minimal ? 'text-[44px] font-light' : 'text-[46px]'}`}
           style={{ fontFamily: theme.namesFont, fontStyle: theme.namesStyle, color: regal ? theme.accentText : theme.text }}
         >
-          {hasParents ? (
+          {corporate ? (
+            invitation.eventTitle || '…'
+          ) : hasParents ? (
             <>
               <span className="block">
                 <ParentsLine text={invitation.partnerOneParents} theme={theme} />

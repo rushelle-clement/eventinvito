@@ -8,13 +8,17 @@ const MAX = 8
 // the Royal Indian Wedding design also suggests Mehendi, Haldi and Sangeet.
 const COMMON = ['Church ceremony', 'Poruwa ceremony', 'Wedding ceremony', 'Reception', 'Homecoming', 'Engagement']
 const INDIAN = ['Mehendi', 'Haldi', 'Sangeet']
-const suggestionsFor = (templateKey) =>
-  templateKey === 'royal-red' ? [COMMON[0], COMMON[1], ...INDIAN, ...COMMON.slice(2)] : COMMON
+// Corporate events: the parts of the evening or the day
+const CORPORATE = ['Registration', 'Welcome address', 'Keynote', 'Awards ceremony', 'Dinner', 'Networking', 'Cocktails']
+// Christmas parties: the parts of the evening
+const CHRISTMAS = ['Welcome drinks', 'Carols', 'Christmas dinner', 'Secret Santa', 'Games', 'Dancing']
+const suggestionsFor = (templateKey, corporate, christmas) =>
+  christmas ? CHRISTMAS : corporate ? CORPORATE : templateKey === 'royal-red' ? [COMMON[0], COMMON[1], ...INDIAN, ...COMMON.slice(2)] : COMMON
 const EMPTY = { name: '', date: '', time: '', venue: '', note: '' }
 
 const inputClass = 'w-full rounded-lg border border-bone bg-white px-3 py-2 text-body-md outline-none focus:border-gold'
 
-export default function CeremoniesEditor({ value = [], onChange, error, templateKey }) {
+export default function CeremoniesEditor({ value = [], onChange, error, templateKey, corporate = false, christmas = false }) {
   const set = (i, key, v) => onChange(value.map((c, j) => (j === i ? { ...c, [key]: v } : c)))
   const remove = (i) => onChange(value.filter((_, j) => j !== i))
   const move = (i, d) => {
@@ -25,14 +29,17 @@ export default function CeremoniesEditor({ value = [], onChange, error, template
     onChange(next)
   }
   const add = (name = '') => onChange([...value, { ...EMPTY, name }])
-  const unused = suggestionsFor(templateKey).filter((s) => !value.some((c) => c.name.trim().toLowerCase() === s.toLowerCase()))
+  const unused = suggestionsFor(templateKey, corporate, christmas).filter((s) => !value.some((c) => c.name.trim().toLowerCase() === s.toLowerCase()))
 
   return (
     <div>
-      <p className="text-label-md text-espresso uppercase">Ceremonies (optional)</p>
+      <p className="text-label-md text-espresso uppercase">{corporate || christmas ? 'Programme (optional)' : 'Ceremonies (optional)'}</p>
       <p className="mt-1 text-body-sm text-on-surface-variant">
-        Only add these if your celebration has separate events, such as a church ceremony or Poruwa ceremony followed by a reception.
-        For a single event, leave this empty: the invitation simply shows the main date, time and venue, with no celebrations section.
+        {christmas
+          ? 'Add the parts of your party, such as welcome drinks, carols, dinner and Secret Santa. Leave it empty for a single party: the invitation then shows just the date, time and venue.'
+          : corporate
+          ? 'Add the main parts of your event, such as registration, the keynote, the awards and dinner. Leave it empty for a single event: the invitation then shows just the date, time and venue.'
+          : 'Only add these if your celebration has separate events, such as a church ceremony or Poruwa ceremony followed by a reception. For a single event, leave this empty: the invitation simply shows the main date, time and venue, with no celebrations section.'}
       </p>
 
       {value.length > 0 && (

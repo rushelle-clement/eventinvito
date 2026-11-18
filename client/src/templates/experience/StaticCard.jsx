@@ -1,5 +1,6 @@
 // The five free designs: a single, beautifully typeset invitation card.
-// No opening animation, no music, no photos and no RSVP — those come with the Premium designs.
+// Guests reply on the card (no deadline: replies stay open until the event).
+// No opening animation, no music and no photos — those come with the Premium designs.
 // Each design is a variant (its template key) with its own colours, type and ornament
 // (watercolour / line-art images in /public/free; borders and rules are drawn in code).
 
@@ -32,7 +33,7 @@ function Rule({ className = '' }) {
   )
 }
 
-export default function StaticCard({ invitation, guestName, t, lang, embedded = false }) {
+export default function StaticCard({ invitation, guestName, rsvp, t, lang, embedded = false }) {
   const variant = VARIANTS[invitation.templateKey] ? invitation.templateKey : 'ivory-classic'
   const art = VARIANTS[variant]
   const latin = lang === 'en'
@@ -124,6 +125,15 @@ export default function StaticCard({ invitation, guestName, t, lang, embedded = 
                   </li>
                 ))}
               </ol>
+            </section>
+          )}
+
+          {rsvp && !embedded && (
+            <section className="sc-rsvp" aria-labelledby="sc-rsvp-h">
+              <h2 id="sc-rsvp-h" className={`sc-label ${local}`}>
+                {t.rsvpPrompt}
+              </h2>
+              {rsvp}
             </section>
           )}
 

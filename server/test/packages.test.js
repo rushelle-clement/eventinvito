@@ -20,7 +20,10 @@ describe("Packages", () => {
         const plus = await registerUser("Plus couple", { plan: "plus" });
         const id = await createInvitation(plus.token);
         const { limits } = (await get(plus.token, id)).body.invitation;
-        assert.deepEqual(limits, { plan: "plus", planName: "Premium Plus", guests: 300, photos: 12, ownMusic: true, export: true });
+        assert.deepEqual(limits, {
+            plan: "plus", planName: "Premium Plus", guests: 300, photos: 6, ownMusic: true, export: true, agenda: true,
+            rsvpDeadline: true, openDetails: true, visitDetails: true, import: true, groups: true, groupStats: true, bulkGroups: true, qrRsvp: true, onlineCards: true,
+        });
 
         // A free design on an account with its free card left is a Simple Card
         const card = await createInvitation(plus.token, {}, "ivory-classic");
@@ -28,23 +31,67 @@ describe("Packages", () => {
 
         const premium = await registerUser("Premium couple", { plan: "premium" });
         const p = (await get(premium.token, await createInvitation(premium.token))).body.invitation.limits;
-        assert.deepEqual(p, { plan: "premium", planName: "Premium", guests: 150, photos: 6, ownMusic: false, export: false });
+        assert.deepEqual(p, {
+            plan: "premium", planName: "Premium", guests: 150, photos: 3, ownMusic: false, export: false, agenda: false,
+            rsvpDeadline: true, openDetails: true, visitDetails: false, import: true, groups: true, groupStats: false, bulkGroups: false, qrRsvp: false, onlineCards: true,
+        });
     });
 
-    it("limits a free card to 50 guests, one at a time or from Excel", async () => {
+    it("limits a free card to 50 guests, added one at a time (importing is Premium)", async () => {
         const free = await registerUser("Free couple", { plan: "free" });
         const id = await createInvitation(free.token, {}, "ivory-classic");
-        const big = await importRows(free.token, id, rows(51));
-        assert.equal(big.status, 403);
-        assert.equal(big.body.code, "guest_limit");
-        assert.match(big.body.message, /51 guests.*Simple Card includes up to 50 guests/);
+        const imp = await importRows(free.token, id, rows(5));
+        assert.equal(imp.status, 403);
+        assert.equal(imp.body.code, "needs_plan");
 
-        assert.equal((await importRows(free.token, id, rows(49))).status, 200);
-        await addGuest(free.token, id, { name: "Guest 50" });
+        for (let i = 1; i <= 50; i++) await addGuest(free.token, id, { name: `Guest ${i}` });
         const over = await api().post(`/api/invitations/${id}/guests`).set(auth(free.token)).send({ name: "Guest 51" });
         assert.equal(over.status, 403);
         assert.equal(over.body.code, "guest_limit");
         assert.match(over.body.message, /Upgrade your package/);
+    });
+
+    it("gives each package its guest-list features", async () => {
+        const free = await registerUser("Free couple", { plan: "free" });
+        const freeId = await createInvitation(free.token, {}, "ivory-classic");
+        // Simple Card: no groups, no per-guest opening detail, no "opened, no reply"
+        const noGroup = await api().post(`/api/invitations/${freeId}/guests`).set(auth(free.token)).send({ name: "A", group: "Office" });
+        assert.equal(noGroup.status, 403);
+        assert.equal(noGroup.body.code, "needs_plan");
+        const a = await addGuest(free.token, freeId, { name: "A" });
+        await models.Guest.updateOne({ _id: a.id }, { $set: { openedAt: new Date(), lastOpenedAt: new Date(), openCount: 2 } });
+        let list = (await api().get(`/api/invitations/${freeId}/guests`).set(auth(free.token))).body;
+        assert.equal(list.summary.opened, 1, "the total opened count is still shown");
+        assert.equal(list.summary.openedNoReply, undefined);
+        assert.equal(list.guests[0].openedAt, null);
+        assert.equal(list.summary.groups, undefined);
+
+        // Premium: groups and who opened (first open), but no visit details, group panel or bulk groups
+        const premium = await registerUser("Premium couple", { plan: "premium" });
+        const pid = await createInvitation(premium.token);
+        const b = await addGuest(premium.token, pid, { name: "B", group: "Office" });
+        assert.equal(b.group, "Office");
+        await models.Guest.updateOne({ _id: b.id }, { $set: { openedAt: new Date(), lastOpenedAt: new Date(), openCount: 3 } });
+        list = (await api().get(`/api/invitations/${pid}/guests`).set(auth(premium.token))).body;
+        assert.ok(list.guests[0].openedAt);
+        assert.equal(list.guests[0].lastOpenedAt, null);
+        assert.equal(list.guests[0].openCount, 0);
+        assert.equal(list.summary.openedNoReply, 1);
+        assert.equal(list.summary.groups, undefined);
+        const bulk = await api().post(`/api/invitations/${pid}/guests/group`).set(auth(premium.token)).send({ guestIds: [b.id], group: "Family" });
+        assert.equal(bulk.status, 403);
+        assert.equal(bulk.body.code, "needs_plan");
+
+        // Premium Plus: everything
+        const plus = await registerUser("Plus couple", { plan: "plus" });
+        const xid = await createInvitation(plus.token);
+        const c = await addGuest(plus.token, xid, { name: "C", group: "Office" });
+        await models.Guest.updateOne({ _id: c.id }, { $set: { openedAt: new Date(), lastOpenedAt: new Date(), openCount: 4 } });
+        list = (await api().get(`/api/invitations/${xid}/guests`).set(auth(plus.token))).body;
+        assert.equal(list.guests[0].openCount, 4);
+        assert.ok(list.guests[0].lastOpenedAt);
+        assert.equal(list.summary.groups[0].name, "Office");
+        assert.equal((await api().post(`/api/invitations/${xid}/guests/group`).set(auth(plus.token)).send({ guestIds: [c.id], group: "Family" })).status, 200);
     });
 
     it("allows 150 guests on Premium, 300 on Premium Plus and 500 on Signature", async () => {

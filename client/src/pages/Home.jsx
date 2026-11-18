@@ -11,8 +11,8 @@ import {
   Check,
   Eye,
   Gem,
+  GraduationCap,
   Heart,
-  House,
   Languages,
   Link2,
   ListChecks,
@@ -21,30 +21,39 @@ import {
   PartyPopper,
   PenLine,
   Send,
+  Snowflake,
   Sparkles,
-  Wine,
 } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import TemplateThumbnail from '../templates/TemplateThumbnail'
 import { useSiteConfig } from '../lib/siteConfig'
+import { CATEGORIES } from '../lib/categories'
 import Packages from '../components/Packages'
 
-const FALLBACK_TEMPLATES = [
-  { key: 'pure-elegance', name: 'Pure Elegance', description: 'Ivory and white with champagne gold, delicate florals and classic serif lettering.', styleTags: ['Classic', 'Gold foil'] },
-  { key: 'modern-romance', name: 'Modern Romance', description: 'A minimalist composition in white, silver and beige with clean, airy typography.', styleTags: ['Minimalist', 'Modern'] },
-  { key: 'royal-red', name: 'Royal Indian Wedding', description: 'Deep crimson and antique gold with mandala, paisley and palace-arch ornament.', styleTags: ['Traditional', 'Indian'] },
-  { key: 'crimson-love', name: 'Crimson Love', description: 'Crimson, white and blush in a modern romantic style.', styleTags: ['Romantic', 'Modern'] },
+// The designs the home page shows, in this order: a modern photo design, a dramatic one, an Indian
+// one, a traditional one, a Sri Lankan one and a birthday. Details come from the server when it
+// answers; these are used until then (or if it doesn't).
+const FEATURED = [
+  { key: 'golden-vow', name: 'Golden Vow', eventType: 'wedding', description: 'Modern gold, ivory and white around your photos — your cover photo in a gold-lined arch opens out to fill the screen.', styleTags: ['Modern', 'Photos'] },
+  { key: 'white-lily', name: 'White Lily', eventType: 'wedding', description: 'Black and white with white lilies — a closed lily bud opens into full bloom and soft light reveals your invitation.', styleTags: ['Black & white', 'Floral'] },
+  { key: 'ratna-mahal', name: 'Ratna Mahal', eventType: 'wedding', description: 'A modern Indian wedding in ivory and gold with roses, jasmine, pearls and gems inside a Mughal arch.', styleTags: ['Modern Indian', 'Pearls'] },
+  { key: 'royal-red', name: 'Royal Indian Wedding', eventType: 'wedding', description: 'Deep crimson and antique gold with mandala, paisley and palace-arch ornament.', styleTags: ['Traditional', 'Indian'] },
+  { key: 'ran-pahana', name: 'Ran Pahana', eventType: 'wedding', description: 'Red silk brocade, gold liyawel and a traditional oil lamp the guest lights to open the invitation.', styleTags: ['Traditional', 'Sinhala'] },
+  { key: 'ocean-adventure', name: 'Ocean Adventure', eventType: 'birthday', description: 'Under the sea with a friendly whale — tap, and the treasure chest opens.', styleTags: ['Kids', 'Birthday'] },
 ]
 
+// What the card's small label says
+const SUITE = { wedding: 'Wedding suite', birthday: 'Birthday', engagement: 'Engagement', homecoming: 'Homecoming' }
+
+// The occasion categories, as in the gallery (lib/categories.js)
 const OCCASIONS = [
-  { icon: Heart, title: 'Weddings', text: 'Ceremonies and receptions, with a personal link for every guest.', available: 'wedding' },
-  { icon: Gem, title: 'Engagements', text: 'Announce the engagement and invite family and friends.', available: 'engagement' },
-  { icon: House, title: 'Homecomings', text: 'Welcome guests to the homecoming after the wedding.', available: 'homecoming' },
-  { icon: Cake, title: 'Birthdays', text: 'Kids’ parties and milestone birthdays, with the age on the invitation.', available: 'birthday' },
-  { icon: Wine, title: 'Anniversaries', text: 'Vow renewals and silver or golden jubilees.' },
-  { icon: PartyPopper, title: 'Parties', text: 'Seasonal gatherings and evening soirées.' },
-  { icon: Building2, title: 'Corporate Events', text: 'Launches, galas and client dinners.' },
+  { icon: Cake, value: 'birthday', text: 'Adult, kids’, milestone and first birthdays, with the age on the invitation.' },
+  { icon: Heart, value: 'wedding', text: 'Weddings, engagements and homecomings, with a personal link for every guest.' },
+  { icon: PartyPopper, value: 'parties', text: 'Housewarmings, farewells, anniversaries and dinners.' },
+  { icon: Snowflake, value: 'seasonal', text: 'Christmas, New Year, Halloween and Easter.' },
+  { icon: GraduationCap, value: 'special', text: 'Graduations, proms, reunions, bridal and baby showers, gender reveals and christenings.' },
+  { icon: Building2, value: 'corporate', text: 'Conferences, launches, networking and annual parties, with your company logo.' },
 ]
 
 const STEPS = [
@@ -75,12 +84,20 @@ function SectionHeading({ eyebrow, title, text, center = true }) {
 export default function Home() {
   const { user } = useAuth()
   const location = useLocation()
-  const [templates, setTemplates] = useState(FALLBACK_TEMPLATES)
+  const [featured, setFeatured] = useState(FEATURED)
+  // the categories that have designs (birthdays, weddings and corporate until the list arrives)
+  const [available, setAvailable] = useState(['birthday', 'wedding', 'corporate'])
 
   useEffect(() => {
     api('/templates', { auth: false })
-      .then((d) => d.templates.length && setTemplates(d.templates))
-      .catch(() => {}) // the fallback list is fine for the home page
+      .then((d) => {
+        // the server's own wording for each featured design, in our order (skipping any it doesn't have)
+        const byKey = new Map(d.templates.map((t) => [t.key, t]))
+        const list = FEATURED.map((f) => byKey.get(f.key)).filter(Boolean)
+        if (list.length) setFeatured(list)
+        setAvailable(CATEGORIES.filter((c) => d.templates.some((t) => c.types.includes(t.eventType))).map((c) => c.value))
+      })
+      .catch(() => {}) // the built-in details are fine for the home page
   }, [])
 
   // Support links like /#how-it-works
@@ -118,11 +135,11 @@ export default function Home() {
           </div>
 
           {/* Fanned invitation cards */}
-          <div className="relative mx-auto mt-14 h-[300px] max-w-3xl sm:h-[360px]" aria-hidden="true">
+          <div className="relative mx-auto mt-14 h-[380px] max-w-3xl sm:h-[420px]" aria-hidden="true">
             {[
-              { key: 'royal-red', cls: 'left-1/2 -translate-x-[115%] rotate-[-8deg] top-8 hidden sm:block' },
-              { key: 'crimson-love', cls: 'left-1/2 translate-x-[15%] rotate-[8deg] top-8 hidden sm:block' },
-              { key: 'pure-elegance', cls: 'left-1/2 -translate-x-1/2 top-0 z-10' },
+              { key: 'ratna-mahal', cls: 'left-1/2 -translate-x-[115%] rotate-[-8deg] top-8 hidden sm:block' },
+              { key: 'white-lily', cls: 'left-1/2 translate-x-[15%] rotate-[8deg] top-8 hidden sm:block' },
+              { key: 'golden-vow', cls: 'left-1/2 -translate-x-1/2 top-0 z-10' },
             ].map(({ key, cls }) => (
               <div key={key} className={`absolute w-[240px] overflow-hidden rounded-xl border border-bone shadow-float sm:w-[260px] ${cls}`}>
                 <TemplateThumbnail templateKey={key} height={360} />
@@ -152,18 +169,18 @@ export default function Home() {
       <section className="border-y border-bone bg-surface-container-low py-20">
         <div className="mx-auto max-w-[1200px] px-margin-mobile md:px-margin">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <SectionHeading center={false} eyebrow="Our collection" title="Signature Designs" text="Wedding, engagement and homecoming invitations designed to feel like fine printed stationery — on any phone." />
+            <SectionHeading center={false} eyebrow="Our collection" title="Signature Designs" text="Wedding, engagement, homecoming and birthday invitations designed to feel like fine printed stationery — on any phone." />
             <Link to="/templates" className="inline-flex shrink-0 items-center gap-1.5 text-label-md text-gold-text uppercase hover:text-primary">
               View all designs <ArrowRight size={15} aria-hidden="true" />
             </Link>
           </div>
 
-          <ul className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {templates.slice(0, 4).map((t) => (
+          <ul className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {featured.map((t) => (
               <li key={t.key} className="card flex flex-col overflow-hidden">
                 <TemplateThumbnail templateKey={t.key} height={340} />
                 <div className="flex flex-1 flex-col p-5">
-                  <p className="text-label-sm text-gold-text uppercase">Wedding suite</p>
+                  <p className="text-label-sm text-gold-text uppercase">{SUITE[t.eventType] || 'Wedding suite'}</p>
                   <h3 className="mt-1 font-serif text-headline-sm text-espresso">{t.name}</h3>
                   <p className="mt-1 flex-1 text-body-sm text-on-surface-variant">{t.description}</p>
                   <ul className="mt-3 flex flex-wrap gap-1.5">
@@ -173,7 +190,7 @@ export default function Home() {
                       </li>
                     ))}
                   </ul>
-                  <Link to="/templates" className="btn-secondary mt-4 w-full py-2 text-body-sm">
+                  <Link to={`/templates/${t.key}/preview`} state={{ fromGallery: true }} className="btn-secondary mt-4 w-full py-2 text-body-sm">
                     <Eye size={15} aria-hidden="true" /> Preview & customise
                   </Link>
                 </div>
@@ -186,24 +203,27 @@ export default function Home() {
       {/* ---------- Occasions ---------- */}
       <section className="py-20">
         <div className="mx-auto max-w-[1200px] px-margin-mobile md:px-margin">
-          <SectionHeading eyebrow="Milestone celebrations" title="Designed for Life’s Greatest Milestones" text="Every couple design works for weddings, engagements and homecomings, and birthdays have designs of their own. More occasions are on the way." />
-          <ul className="mt-12 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-            {OCCASIONS.map(({ icon: Icon, title, text, available }) => (
-              <li key={title} className={`card flex flex-col p-5 ${available ? 'border-gold/50' : ''}`}>
-                <span className="grid h-10 w-10 place-items-center rounded-full bg-blush-tint text-gold-text" aria-hidden="true">
-                  <Icon size={18} />
-                </span>
-                <h3 className="mt-4 text-title-md text-espresso">{title}</h3>
-                <p className="mt-1 flex-1 text-body-sm text-on-surface-variant">{text}</p>
-                {available ? (
-                  <Link to={`/templates?occasion=${available}`} className="mt-4 inline-flex items-center gap-1 text-label-md text-gold-text uppercase hover:text-primary">
-                    View designs <ArrowRight size={14} aria-hidden="true" />
-                  </Link>
-                ) : (
-                  <span className="mt-4 text-label-sm text-on-surface-variant uppercase">Coming soon</span>
-                )}
-              </li>
-            ))}
+          <SectionHeading eyebrow="Milestone celebrations" title="Designed for Life’s Greatest Milestones" text="Birthdays, weddings and corporate events have designs ready today, with parties, seasonal and special events on the way." />
+          <ul className="mt-12 grid grid-cols-2 gap-4 md:grid-cols-3">
+            {OCCASIONS.map(({ icon: Icon, value, text }) => {
+              const open = available.includes(value)
+              return (
+                <li key={value} className={`card flex flex-col p-5 ${open ? 'border-gold/50' : ''}`}>
+                  <span className="grid h-10 w-10 place-items-center rounded-full bg-blush-tint text-gold-text" aria-hidden="true">
+                    <Icon size={18} />
+                  </span>
+                  <h3 className="mt-4 text-title-md text-espresso">{CATEGORIES.find((c) => c.value === value).label}</h3>
+                  <p className="mt-1 flex-1 text-body-sm text-on-surface-variant">{text}</p>
+                  {open ? (
+                    <Link to={`/templates?occasion=${value}`} className="mt-4 inline-flex items-center gap-1 text-label-md text-gold-text uppercase hover:text-primary">
+                      View designs <ArrowRight size={14} aria-hidden="true" />
+                    </Link>
+                  ) : (
+                    <span className="mt-4 text-label-sm text-on-surface-variant uppercase">Coming soon</span>
+                  )}
+                </li>
+              )
+            })}
           </ul>
         </div>
       </section>

@@ -1,6 +1,7 @@
 const express = require("express");
 const rateLimit = require("express-rate-limit");
-const { viewInvite, submitRsvp } = require("../controllers/publicInviteController");
+const { viewInvite, submitRsvp, shareInvite } = require("../controllers/publicInviteController");
+const { optionalAuth } = require("../middleware/auth");
 
 const router = express.Router();
 
@@ -24,7 +25,10 @@ const rsvpLimiter = rateLimit({
     message: { success: false, message: "Too many replies. Please wait a few minutes and try again." },
 });
 
-router.get("/:token", inviteLimiter, viewInvite);
+// optionalAuth: so the couple opening a guest's link while signed in isn't counted as the guest
+router.get("/:token", inviteLimiter, optionalAuth, viewInvite);
+// The link-preview page chat apps read (see shareInvite)
+router.get("/:token/share", inviteLimiter, shareInvite);
 router.post("/:token/rsvp", rsvpLimiter, submitRsvp);
 
 module.exports = router;

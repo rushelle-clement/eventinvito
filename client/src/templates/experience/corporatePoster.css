@@ -1,0 +1,342 @@
+/* The front of the corporate invitations (cp-): one card per design. Sizes follow the card's width
+   (cqw), so the composition looks the same on a phone, a desktop and in thumbnails. The card keeps
+   its invitation shape (5 : 7) and grows taller only for very long text. */
+
+.cp {
+  --cp-gold: #c8a96a;
+  --cp-title: 'Cormorant Garamond', serif;
+  position: relative;
+  container-type: inline-size;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  --cp-w: min(calc(92 * var(--ei-vw, 1vw)), 460px);
+  width: var(--cp-w);
+  /* the invitation's 5 : 7 shape; longer text makes it taller rather than being cut off */
+  min-height: calc(var(--cp-w) * 1.4);
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--cp-bg);
+  color: var(--cp-ink);
+  font-family: 'Montserrat', 'Plus Jakarta Sans', 'Noto Sans Sinhala', 'Noto Sans Tamil', sans-serif;
+  box-shadow: 0 34px 70px -38px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.08);
+  text-align: center;
+}
+.cp-in { position: relative; z-index: 3; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 15% 13% 13%; }
+
+/* shared parts */
+.cp-logo img { max-height: 11cqw; max-width: 46cqw; }
+.cp-logo .cx-logo-mask { height: 9.5cqw; max-width: 46cqw; }
+.cp-logo.is-plate { padding: 2cqw 3.6cqw; border-radius: 1.6cqw; }
+.cp-logo.is-plate img { max-height: 9cqw; }
+.cp-dear { margin-top: 4.4cqw; padding: 1.2cqw 3.4cqw; border: 1px solid var(--cp-line); border-radius: 99px; font-size: max(11px, 2.7cqw); font-weight: 500; overflow-wrap: anywhere; }
+.cp-invites { margin-top: 4.4cqw; font-size: max(9.5px, 2.3cqw); font-weight: 600; letter-spacing: 0.26em; text-transform: uppercase; color: var(--cp-accent); overflow-wrap: anywhere; }
+.cp-title { margin-top: 2.8cqw; font-family: var(--cp-title); font-size: calc(11cqw * var(--cp-s, 1)); line-height: 1.04; overflow-wrap: break-word; hyphens: manual; }
+.cp .is-mid { --cp-s: 0.82; }
+.cp .is-long { --cp-s: 0.66; }
+.cp .is-xl { --cp-s: 0.52; }
+.cp-title > span { display: block; }
+.cp-note { margin-top: 2.4cqw; font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: max(13px, 3.6cqw); color: var(--cp-accent); }
+.cp-rule { display: block; width: 14cqw; height: 1px; margin: 5cqw auto 4cqw; background: var(--cp-accent); }
+.cp-message { margin: 0 auto; max-width: 66cqw; font-family: 'Cormorant Garamond', 'Noto Serif Sinhala', 'Noto Serif Tamil', serif; font-size: max(14px, 3.9cqw); line-height: 1.55; color: var(--cp-muted); }
+.cp-line { margin-top: 2cqw; font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: max(14px, 3.9cqw); color: var(--cp-ink); }
+/* Sinhala and Tamil: no capitals or wide spacing (they pull the letters apart) */
+.cp:not(:lang(en)) .cp-invites, .cp:not(:lang(en)) .cp-spaced { letter-spacing: normal; text-transform: none; font-size: max(13px, 3.2cqw); }
+.cp:not(:lang(en)) .cp-title, .cp:not(:lang(en)) .cp-title > span { font-family: 'Noto Serif Sinhala', 'Noto Serif Tamil', serif !important; font-weight: 600 !important; font-style: normal !important; text-transform: none !important; letter-spacing: normal !important; font-size: 7.4cqw; line-height: 1.3; }
+.cp:not(:lang(en)) .cp-title > span { font-size: 1em !important; }
+
+/* lines that draw themselves (pathLength 1) */
+.cp-art { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; pointer-events: none; }
+.cp-draw { fill: none; stroke: var(--cp-gold); stroke-width: 1; vector-effect: non-scaling-stroke; stroke-dasharray: 1; stroke-dashoffset: 1; animation: cp-draw 3.2s cubic-bezier(0.6, 0, 0.3, 1) forwards; }
+.cp-draw.d2 { animation-delay: 0.5s; }
+.cp-draw.d3 { animation-delay: 0.9s; }
+.cp-draw.d4 { animation-delay: 1.2s; }
+.cp-draw.d5 { animation-delay: 1.5s; }
+@keyframes cp-draw { to { stroke-dashoffset: 0; } }
+
+/* the words rise in one after another */
+.cp-in > * { animation: cp-in 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.cp-in > :nth-child(1) { animation-delay: 0.2s; }
+.cp-in > :nth-child(2) { animation-delay: 0.35s; }
+.cp-in > :nth-child(3) { animation-delay: 0.5s; }
+.cp-in > :nth-child(4) { animation-delay: 0.65s; }
+.cp-in > :nth-child(5) { animation-delay: 0.8s; }
+.cp-in > :nth-child(6) { animation-delay: 0.95s; }
+.cp-in > :nth-child(n + 7) { animation-delay: 1.1s; }
+@keyframes cp-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+/* ---------------------------------------------------------------- 1. Corporate Elegance */
+.cp-corporate-elegance {
+  --cp-bg: radial-gradient(ellipse at 50% 30%, #fffdf8 0%, #f7f2e8 60%, #efe7d8 100%);
+  --cp-ink: #2c2c2e;
+  --cp-muted: #66625b;
+  --cp-accent: #9a7b3c;
+  --cp-line: rgba(181, 150, 79, 0.5);
+  --cp-gold: #c2a160;
+  --cp-title: 'Italiana', 'Cormorant Garamond', serif;
+}
+.cp-corporate-elegance .cp-in { padding: 36% 22% 12%; }
+.cp-corporate-elegance .cp-title { font-size: calc(10.5cqw * var(--cp-s, 1)); letter-spacing: 0.06em; text-transform: uppercase; line-height: 1.12; }
+.cp-corporate-elegance .cp-rule { height: 2px; width: 16cqw; background: linear-gradient(90deg, #b8913f, #f3dfa8, #b8913f); }
+.cp-corporate-elegance .cp-art .d1 { stroke-width: 0.8; opacity: 0.7; }
+
+/* ---------------------------------------------------------------- 2. Modern Business */
+.cp-modern-business {
+  --cp-bg: linear-gradient(160deg, #17305a 0%, #0f2341 55%, #0a1a31 100%);
+  --cp-ink: #ffffff;
+  --cp-muted: #c3cad5;
+  --cp-accent: #c9d1dc;
+  --cp-line: rgba(201, 209, 220, 0.45);
+  --cp-title: 'Montserrat', sans-serif;
+}
+.cp-modern-business .cp-frame { position: absolute; inset: 4.5cqw; z-index: 1; border: 1px solid rgba(201, 209, 220, 0.4); pointer-events: none; }
+.cp-zig { position: absolute; left: 4.5cqw; right: 4.5cqw; z-index: 1; height: 6cqw; width: calc(100% - 9cqw); }
+.cp-zig polyline { fill: none; stroke: #c9d1dc; stroke-width: 1; vector-effect: non-scaling-stroke; opacity: 0.8; }
+.cp-zig.is-top { top: 4.5cqw; animation: cp-from-left 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) 0.1s both; }
+.cp-zig.is-bottom { bottom: 4.5cqw; animation: cp-from-right 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) 0.3s both; }
+@keyframes cp-from-left { from { opacity: 0; transform: translateX(-40%); } to { opacity: 1; transform: none; } }
+@keyframes cp-from-right { from { opacity: 0; transform: translateX(40%); } to { opacity: 1; transform: none; } }
+.cp-modern-business .cp-in { padding: 18% 12% 16%; }
+.cp-modern-business .cp-title { font-weight: 800; font-size: calc(10.5cqw * var(--cp-s, 1)); text-transform: uppercase; letter-spacing: 0.01em; line-height: 1.02; }
+.cp-spaced { margin-top: 3cqw; font-size: max(9px, 2.3cqw); font-weight: 600; letter-spacing: 0.5em; text-transform: uppercase; color: var(--cp-accent); padding-left: 0.5em; overflow-wrap: anywhere; }
+.cp-modern-business .cp-rule { height: 2px; background: #ffffff; }
+.cp-modern-business .cp-message { font-family: 'Montserrat', 'Noto Sans Sinhala', sans-serif; font-size: max(12.5px, 3.2cqw); }
+.cp-modern-business .cp-dear { border-color: rgba(255, 255, 255, 0.5); }
+
+/* ---------------------------------------------------------------- 3. Black Tie Gala */
+.cp-black-tie-gala {
+  --cp-bg: radial-gradient(ellipse at 50% 35%, #1d1c20 0%, #0a0a0c 70%);
+  --cp-ink: #f4ecdc;
+  --cp-muted: #bfb6a4;
+  --cp-accent: #d8b86e;
+  --cp-line: rgba(216, 184, 110, 0.45);
+  --cp-gold: #c9a55c;
+  --cp-title: 'Playfair Display', serif;
+}
+.cp-black-tie-gala .cp-in { padding: 22% 17% 18%; }
+.cp-black-tie-gala .cp-head { font-family: 'Cinzel', serif; font-weight: 500; font-size: calc(0.42em * var(--cp-s, 1)); letter-spacing: 0.18em; text-transform: uppercase; color: #e8d3a2; }
+.cp-black-tie-gala .cp-tail { font-weight: 700; font-size: calc(1.6em * var(--cp-s, 1)); line-height: 1; margin-top: 1cqw; }
+.cp-black-tie-gala .cp-tail,
+.cp-gold-text { background: linear-gradient(100deg, #9e7b34 10%, #f6e3b0 32%, #c9a55c 50%, #fff1c9 64%, #a8833a 86%); background-size: 240% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: cp-gold 5s ease-in-out infinite; }
+@keyframes cp-gold { 0%, 100% { background-position: 100% 0; } 50% { background-position: 0 0; } }
+/* Art Deco corners: stepped gold lines */
+.cp-deco { position: absolute; z-index: 1; width: 18cqw; height: 18cqw; background: repeating-linear-gradient(135deg, transparent 0 2.2cqw, rgba(201, 165, 92, 0.75) 2.2cqw 2.5cqw); -webkit-mask-image: linear-gradient(135deg, #000 40%, transparent 41%); mask-image: linear-gradient(135deg, #000 40%, transparent 41%); }
+.cp-deco.is-tl { left: 0; top: 0; }
+.cp-deco.is-tr { right: 0; top: 0; transform: scaleX(-1); }
+.cp-deco.is-bl { left: 0; bottom: 0; transform: scaleY(-1); }
+.cp-deco.is-br { right: 0; bottom: 0; transform: scale(-1, -1); }
+.cp-stars i { position: absolute; z-index: 2; width: 2.6cqw; height: 2.6cqw; background: #f2d790; clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%); animation: cp-twinkle 3s ease-in-out infinite; }
+.cp-stars i:nth-child(1) { left: 22%; top: 18%; }
+.cp-stars i:nth-child(2) { right: 20%; top: 26%; animation-delay: 1s; width: 1.8cqw; height: 1.8cqw; }
+.cp-stars i:nth-child(3) { left: 18%; bottom: 24%; animation-delay: 2s; width: 1.6cqw; height: 1.6cqw; }
+.cp-stars i:nth-child(4) { right: 23%; bottom: 18%; animation-delay: 0.5s; }
+@keyframes cp-twinkle { 0%, 100% { opacity: 0.25; transform: scale(0.6); } 50% { opacity: 1; transform: scale(1.1) rotate(45deg); } }
+.cp-black-tie-gala .cp-rule { background: linear-gradient(90deg, transparent, #c9a55c, transparent); width: 30cqw; }
+.cp-black-tie-gala .cp-dear { border-color: rgba(216, 184, 110, 0.5); }
+
+/* ---------------------------------------------------------------- 4. Blue Corporate Gradient */
+/* deep royal blue, a slowly moving cyan light, white type set left like a modern annual report */
+.cp-blue-gradient {
+  --cp-bg: linear-gradient(160deg, #0a2a9e 0%, #0b1f7a 55%, #071552 100%);
+  --cp-ink: #ffffff;
+  --cp-muted: rgba(226, 236, 255, 0.82);
+  --cp-accent: #5ee6ff;
+  --cp-line: rgba(255, 255, 255, 0.4);
+  --cp-gold: rgba(255, 255, 255, 0.35);
+  --cp-title: 'Montserrat', sans-serif;
+  text-align: left;
+}
+/* the light: soft coloured blobs that drift */
+.cp-mesh { position: absolute; inset: 0; z-index: 0; overflow: hidden; filter: blur(9cqw); }
+.cp-mesh i { position: absolute; border-radius: 50%; animation: cp-mesh 16s ease-in-out infinite alternate; }
+.cp-mesh i:nth-child(1) { right: -22cqw; top: -18cqw; width: 80cqw; height: 80cqw; background: #1e5bff; }
+.cp-mesh i:nth-child(2) { right: -6cqw; top: 6cqw; width: 46cqw; height: 46cqw; background: #19c6ea; opacity: 0.85; animation-duration: 12s; animation-delay: -4s; }
+.cp-mesh i:nth-child(3) { left: -30cqw; bottom: -26cqw; width: 70cqw; height: 70cqw; background: #2f4bff; opacity: 0.55; animation-duration: 18s; }
+.cp-mesh i:nth-child(4) { left: 30cqw; top: 30cqw; width: 30cqw; height: 30cqw; background: #6fe9ff; opacity: 0.35; animation-duration: 14s; animation-delay: -7s; }
+@keyframes cp-mesh { from { transform: translate(0, 0) scale(1); } to { transform: translate(-8cqw, 7cqw) scale(1.12); } }
+.cp-rings { position: absolute; right: 0; top: 0; z-index: 1; width: 62cqw; height: 62cqw; }
+.cp-rings .cp-draw { stroke: rgba(255, 255, 255, 0.4); }
+.cp-grid-dots { position: absolute; right: 9cqw; bottom: 18cqw; z-index: 1; width: 18cqw; height: 10cqw; background-image: radial-gradient(circle, rgba(255, 255, 255, 0.45) 0.45cqw, transparent 0.55cqw); background-size: 3.6cqw 3.6cqw; }
+.cp-blue-gradient .cp-in { align-items: stretch; justify-content: space-between; padding: 9cqw 9cqw 7cqw; }
+.cp-gb-top { display: flex; align-items: center; justify-content: space-between; gap: 3cqw; flex-wrap: wrap; }
+.cp-gb-top .cp-dear { margin-top: 0; border-color: rgba(255, 255, 255, 0.45); background: rgba(255, 255, 255, 0.08); backdrop-filter: blur(6px); }
+.cp-gb-main { margin: 10cqw 0 8cqw; }
+.cp-blue-gradient .cp-invites { margin-top: 0; letter-spacing: 0.2em; }
+.cp-blue-gradient .cp-title { margin-top: 3.4cqw; font-weight: 800; font-size: calc(11.5cqw * var(--cp-s, 1)); line-height: 1.02; letter-spacing: -0.02em; }
+.cp-accent-word { background: linear-gradient(90deg, #5ee6ff 0%, #a9f3ff 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.cp-blue-gradient .cp-note { font-family: 'Montserrat', sans-serif; font-style: normal; font-weight: 500; font-size: max(12px, 3cqw); }
+.cp-blue-gradient .cp-rule { width: 12cqw; height: 0.8cqw; margin: 6cqw 0 5cqw; border-radius: 1cqw; background: linear-gradient(90deg, #5ee6ff, #ffffff); transform-origin: left; }
+.cp-blue-gradient .cp-message { margin: 0; max-width: 70cqw; font-family: 'Montserrat', 'Noto Sans Sinhala', sans-serif; font-size: max(12.5px, 3.3cqw); line-height: 1.6; }
+.cp-blue-gradient .cp-line { font-family: 'Montserrat', sans-serif; font-size: max(12.5px, 3.3cqw); }
+.cp-gb-foot { display: flex; align-items: center; gap: 2.6cqw; padding-top: 4cqw; border-top: 1px solid rgba(255, 255, 255, 0.22); font-size: max(9px, 2.3cqw); font-weight: 700; letter-spacing: 0.3em; text-transform: uppercase; color: #ffffff; overflow-wrap: anywhere; }
+.cp-gb-mark { flex: none; width: 3cqw; height: 3cqw; background: linear-gradient(135deg, #5ee6ff, #1e5bff); }
+.cp:not(:lang(en)) .cp-gb-foot { letter-spacing: normal; text-transform: none; font-size: max(12px, 3cqw); }
+.cp-blue-gradient:not(:lang(en)) .cp-title { text-align: left; }
+
+/* ---------------------------------------------------------------- 5. Minimal Editorial */
+.cp-minimal-editorial {
+  --cp-bg: #ffffff;
+  --cp-ink: #111111;
+  --cp-muted: #555555;
+  --cp-accent: #7a7a7a;
+  --cp-line: #111111;
+  --cp-title: 'Bebas Neue', 'Montserrat', sans-serif;
+  text-align: left;
+  border: 1px solid #e3e3e1;
+}
+.cp-strip { position: absolute; left: 7cqw; top: 0; z-index: 2; width: 8cqw; height: 54%; display: grid; place-items: center; background: #111111; animation: cp-from-top 1s cubic-bezier(0.7, 0, 0.2, 1) both; }
+.cp-strip span { writing-mode: vertical-rl; transform: rotate(180deg); font-size: max(8px, 2.1cqw); font-weight: 600; letter-spacing: 0.4em; text-transform: uppercase; color: #ffffff; white-space: nowrap; overflow: hidden; max-height: 92%; }
+@keyframes cp-from-top { from { transform: translateY(-100%); } to { transform: none; } }
+.cp-minimal-editorial .cp-in { align-items: flex-start; justify-content: flex-start; padding: 14% 9% 12% 22%; }
+.cp-minimal-editorial .cp-dear { border-radius: 0; border-color: #111111; }
+.cp-minimal-editorial .cp-invites { color: #7a7a7a; letter-spacing: 0.22em; }
+.cp-minimal-editorial .cp-title { margin-top: 3cqw; font-size: calc(17cqw * var(--cp-s, 1)); line-height: 0.9; letter-spacing: 0.005em; }
+.cp-minimal-editorial .cp-title > span { display: inline; }
+/* the title appears word by word */
+.cp-word { display: inline-block; animation: cp-word 0.8s cubic-bezier(0.7, 0, 0.2, 1) both; animation-delay: calc(0.6s + var(--w, 0) * 0.18s); }
+@keyframes cp-word { from { opacity: 0; clip-path: inset(0 0 100% 0); transform: translateY(30%); } to { opacity: 1; clip-path: inset(-10% -10% -20% -10%); transform: none; } }
+.cp-minimal-editorial .cp-rule { width: 100%; margin: 6cqw 0 5cqw; background: #111111; }
+.cp-minimal-editorial .cp-message { margin: 0; font-family: 'Montserrat', 'Noto Sans Sinhala', sans-serif; font-size: max(12.5px, 3.3cqw); color: #333333; }
+.cp-minimal-editorial .cp-line { font-family: 'Montserrat', sans-serif; font-size: max(12.5px, 3.3cqw); }
+
+/* ---------------------------------------------------------------- 6. Emerald Prestige */
+.cp-emerald-prestige {
+  --cp-bg: radial-gradient(ellipse at 50% 30%, #145844 0%, #0c3a2d 55%, #072219 100%);
+  --cp-ink: #f6f0e2;
+  --cp-muted: rgba(246, 240, 226, 0.8);
+  --cp-accent: #dcc07c;
+  --cp-line: rgba(220, 192, 124, 0.5);
+  --cp-gold: #cfae66;
+  --cp-title: 'Great Vibes', 'Cormorant Garamond', serif;
+}
+.cp-emerald-prestige .cp-in { padding: 18% 15% 16%; }
+.cp-emerald-prestige .cp-title { font-size: calc(15cqw * var(--cp-s, 1)); line-height: 1.05; background: linear-gradient(100deg, #b08c45 10%, #f7e2a6 40%, #cfae66 60%, #f9e9b9 80%); -webkit-background-clip: text; background-clip: text; color: transparent; padding: 0 2cqw; }
+.cp-emerald-prestige .cp-art .d5 { opacity: 0.55; }
+.cp-sparks i { position: absolute; z-index: 2; left: var(--x); top: var(--y); width: 1.6cqw; height: 1.6cqw; border-radius: 50%; background: radial-gradient(circle, #fff6d6 0%, #e8c97f 50%, rgba(232, 201, 127, 0) 75%); box-shadow: 0 0 2.4cqw 0.6cqw rgba(232, 201, 127, 0.55); opacity: 0; animation: cp-glow 5.4s ease-in-out var(--d) infinite; }
+@keyframes cp-glow { 0%, 100% { opacity: 0; transform: translateY(0) scale(0.6); } 50% { opacity: 1; transform: translateY(-6cqw) scale(1); } }
+.cp-emerald-prestige .cp-rule { background: linear-gradient(90deg, transparent, #cfae66, transparent); width: 30cqw; }
+.cp-emerald-prestige .cp-dear { border-color: rgba(220, 192, 124, 0.55); }
+
+/* ---------------------------------------------------------------- 7. Technology & Innovation */
+.cp-tech-innovation {
+  --cp-bg: radial-gradient(ellipse at 85% 0%, rgba(139, 92, 246, 0.5) 0%, rgba(139, 92, 246, 0) 45%), radial-gradient(ellipse at 50% 35%, #172466 0%, #0a0f33 55%, #05081c 100%);
+  --cp-ink: #eef2ff;
+  --cp-muted: #b4bfe3;
+  --cp-accent: #6fb0ff;
+  --cp-line: rgba(111, 176, 255, 0.45);
+  --cp-title: 'Bebas Neue', 'Montserrat', sans-serif;
+}
+.cp-circuit { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; }
+.cp-circuit path { fill: none; stroke: #2f7bff; stroke-width: 2; opacity: 0.75; stroke-dasharray: 400; stroke-dashoffset: 400; animation: cp-trace 2.4s ease forwards; filter: drop-shadow(0 0 4px rgba(47, 123, 255, 0.9)); }
+.cp-circuit path:nth-child(2) { animation-delay: 0.3s; }
+.cp-circuit path:nth-child(3) { animation-delay: 0.6s; stroke: #8b5cf6; }
+.cp-circuit path:nth-child(4) { animation-delay: 0.45s; stroke: #8b5cf6; }
+.cp-circuit path:nth-child(5) { animation-delay: 0.75s; }
+@keyframes cp-trace { to { stroke-dashoffset: 0; } }
+.cp-circuit circle { fill: #9fc3ff; filter: drop-shadow(0 0 4px #2f7bff); animation: cp-pulse 2.2s ease-in-out infinite; }
+@keyframes cp-pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+.cp-ribbons { position: absolute; left: 0; right: 0; bottom: 0; z-index: 1; width: 100%; height: 34%; }
+.cp-ribbons path { fill: none; stroke: #8b5cf6; stroke-width: 1.2; vector-effect: non-scaling-stroke; opacity: 0.7; stroke-dasharray: 3 7; animation: cp-wave 5s linear infinite; }
+@keyframes cp-wave { to { stroke-dashoffset: -160; } }
+.cp-ribbons path:nth-child(3n) { stroke: #2f7bff; }
+.cp-ribbons path:nth-child(3n + 1) { stroke: #c08cff; animation-duration: 7s; }
+.cp-tech-innovation .cp-in { padding: 20% 12% 26%; }
+.cp-tech-innovation .cp-title { font-size: calc(16cqw * var(--cp-s, 1)); line-height: 0.92; letter-spacing: 0.01em; }
+.cp-tech-innovation .cp-head { color: #f3efe6; }
+.cp-tech-innovation .cp-tail { background: linear-gradient(95deg, #4b8dff 0%, #9d73ff 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.cp-tech-innovation .cp-message { font-family: 'Montserrat', 'Noto Sans Sinhala', sans-serif; font-size: max(12.5px, 3.2cqw); }
+.cp-tech-innovation .cp-rule { height: 2px; background: linear-gradient(90deg, #2f7bff, #8b5cf6); }
+.cp-tech-innovation .cp-dear { border-color: rgba(111, 176, 255, 0.5); background: rgba(47, 123, 255, 0.1); }
+
+/* ---------------------------------------------------------------- 8. Corporate Anniversary */
+.cp-corporate-anniversary {
+  --cp-bg: radial-gradient(ellipse at 50% 30%, #7a2533 0%, #5b1622 55%, #3f0d16 100%);
+  --cp-ink: #f3e7d3;
+  --cp-muted: rgba(243, 231, 211, 0.82);
+  --cp-accent: #d9dbe0;
+  --cp-line: rgba(217, 219, 224, 0.45);
+  --cp-title: 'Cormorant Garamond', serif;
+}
+.cp-corporate-anniversary .cp-frame { position: absolute; inset: 4cqw; z-index: 1; border: 1px solid rgba(217, 219, 224, 0.55); pointer-events: none; }
+.cp-tab { position: absolute; left: 50%; top: 0; z-index: 3; display: flex; flex-direction: column; align-items: center; width: 36cqw; padding: 5cqw 0 4cqw; transform: translateX(-50%); background: linear-gradient(160deg, #f6e9cf 0%, #d9bf8e 38%, #f4e4c4 55%, #c7a874 100%); color: #5b1622; box-shadow: 0 10px 24px -10px rgba(0, 0, 0, 0.55); animation: cp-tab 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) 0.1s both; }
+@keyframes cp-tab { from { transform: translate(-50%, -100%); } to { transform: translateX(-50%); } }
+.cp-tab-small { font-size: 2.1cqw; font-weight: 700; letter-spacing: 0.3em; text-transform: uppercase; padding-left: 0.3em; min-height: 2.6cqw; }
+.cp-number { font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 20cqw; line-height: 0.9; animation: cp-number 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) 0.7s both; }
+@keyframes cp-number { from { opacity: 0; transform: scale(0.7); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }
+.cp-sparkles i { position: absolute; width: 3cqw; height: 3cqw; background: #ffffff; clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%); opacity: 0; animation: cp-twinkle 2.6s ease-in-out infinite; filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.9)); }
+.cp-sparkles i:nth-child(1) { left: -6cqw; top: 20%; animation-delay: 1.2s; }
+.cp-sparkles i:nth-child(2) { right: -5cqw; top: 36%; animation-delay: 1.6s; width: 2cqw; height: 2cqw; }
+.cp-sparkles i:nth-child(3) { left: 10%; bottom: 8%; animation-delay: 2s; width: 2cqw; height: 2cqw; }
+.cp-sparkles i:nth-child(4) { right: 12%; top: 8%; animation-delay: 2.4s; }
+.cp-sparkles i:nth-child(5) { right: -8cqw; bottom: 10%; animation-delay: 2.8s; width: 2.4cqw; height: 2.4cqw; }
+.cp-corporate-anniversary .cp-in { padding: 52% 14% 14%; }
+.cp-corporate-anniversary .cp-in:only-child, .cp-frame + .cp-in { padding-top: 16%; }
+.cp-company { margin-top: 3cqw; font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: max(15px, 4.6cqw); color: #e9d3a8; overflow-wrap: anywhere; }
+.cp-corporate-anniversary .cp-title { font-weight: 500; font-size: calc(9cqw * var(--cp-s, 1)); text-transform: uppercase; letter-spacing: 0.06em; line-height: 1.12; color: #f1f2f5; }
+.cp-corporate-anniversary .cp-rule { background: linear-gradient(90deg, transparent, #d9bf8e, transparent); width: 30cqw; }
+.cp-corporate-anniversary .cp-dear { border-color: rgba(233, 211, 168, 0.55); }
+
+/* ---------------------------------------------------------------- 9. Product Launch */
+.cp-product-launch {
+  --cp-bg: radial-gradient(ellipse at 50% 120%, #1e1f22 0%, #050505 60%);
+  --cp-ink: #f5f5f5;
+  --cp-muted: #aeb2b9;
+  --cp-accent: #d4d7dc;
+  --cp-line: rgba(212, 215, 220, 0.4);
+  --cp-title: 'Montserrat', sans-serif;
+}
+.cp-halftone { position: absolute; left: 50%; top: 46%; z-index: 0; width: 86cqw; height: 86cqw; transform: translate(-50%, -50%); border-radius: 50%; background-image: radial-gradient(circle, rgba(212, 215, 220, 0.38) 0.45cqw, transparent 0.55cqw); background-size: 2.6cqw 2.6cqw; -webkit-mask-image: radial-gradient(circle at 38% 35%, #000 0%, rgba(0, 0, 0, 0.6) 40%, transparent 70%); mask-image: radial-gradient(circle at 38% 35%, #000 0%, rgba(0, 0, 0, 0.6) 40%, transparent 70%); animation: cp-spin 60s linear infinite; }
+@keyframes cp-spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+.cp-bars-line { display: flex; align-items: center; justify-content: center; gap: 30cqw; width: 100%; margin-top: 4cqw; }
+.cp-bars-line span { display: block; width: 14cqw; height: 1px; background: linear-gradient(90deg, transparent, #d4d7dc); }
+.cp-bars-line span:last-child { transform: scaleX(-1); }
+.cp-product-launch .cp-title { margin-top: -3cqw; font-weight: 800; font-size: calc(11cqw * var(--cp-s, 1)); text-transform: uppercase; letter-spacing: -0.01em; line-height: 1; background: linear-gradient(180deg, #ffffff 0%, #d4d7dc 45%, #8e939b 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.cp-product-launch .cp-message { font-family: 'Montserrat', 'Noto Sans Sinhala', sans-serif; font-size: max(12.5px, 3.2cqw); }
+.cp-product-launch .cp-rule { width: 30cqw; background: linear-gradient(90deg, transparent, #ffffff, transparent); }
+.cp-product-launch .cp-dear { border-color: rgba(212, 215, 220, 0.45); }
+
+/* ---------------------------------------------------------------- 10. Networking Cocktail Evening */
+.cp-networking-cocktail {
+  --cp-bg: linear-gradient(165deg, #5b2a4e 0%, #4a1023 55%, #2a0c1a 100%);
+  --cp-ink: #f7ead7;
+  --cp-muted: rgba(247, 234, 215, 0.8);
+  --cp-accent: #e8cfa3;
+  --cp-line: rgba(232, 207, 163, 0.5);
+  --cp-gold: #e8cfa3;
+  --cp-title: 'Playfair Display', serif;
+}
+.cp-orbs i { position: absolute; z-index: 0; border-radius: 50%; background: radial-gradient(circle, rgba(255, 220, 170, 0.5) 0%, rgba(232, 160, 170, 0.18) 45%, rgba(232, 160, 170, 0) 70%); animation: cp-drift 14s ease-in-out infinite alternate; }
+.cp-orbs i:nth-child(1) { left: -10cqw; top: 6%; width: 50cqw; height: 50cqw; }
+.cp-orbs i:nth-child(2) { right: -12cqw; top: 30%; width: 40cqw; height: 40cqw; animation-delay: -4s; }
+.cp-orbs i:nth-child(3) { left: 30%; top: 60%; width: 22cqw; height: 22cqw; animation-delay: -8s; }
+.cp-orbs i:nth-child(4) { right: 20%; top: 8%; width: 14cqw; height: 14cqw; animation-delay: -2s; }
+.cp-orbs i:nth-child(5) { left: 8%; bottom: 6%; width: 18cqw; height: 18cqw; animation-delay: -6s; }
+@keyframes cp-drift { from { transform: translate(0, 0); } to { transform: translate(5cqw, -6cqw); } }
+.cp-glass { position: absolute; right: 7cqw; bottom: 6cqw; z-index: 1; width: 16cqw; height: auto; opacity: 0.9; }
+.cp-glass .cp-draw { stroke-width: 1.4; }
+.cp-glass .g2 { animation-delay: 0.6s; }
+.cp-glass .g3 { animation-delay: 1s; }
+.cp-glass .g4 { animation-delay: 1.3s; }
+.cp-glass .g5 { animation-delay: 1.6s; }
+.cp-networking-cocktail .cp-in { padding: 16% 13% 18%; }
+.cp-script { margin-top: 4cqw; font-family: 'Great Vibes', 'Cormorant Garamond', serif; font-size: max(17px, 6cqw); line-height: 1.2; color: #e8cfa3; overflow-wrap: anywhere; }
+.cp:not(:lang(en)) .cp-script { font-family: 'Noto Serif Sinhala', 'Noto Serif Tamil', serif; font-size: max(14px, 3.6cqw); }
+.cp-networking-cocktail .cp-title { font-weight: 700; font-size: calc(10cqw * var(--cp-s, 1)); text-transform: uppercase; letter-spacing: 0.02em; line-height: 1.05; color: #fbf1e3; }
+.cp-networking-cocktail .cp-rule { background: linear-gradient(90deg, transparent, #e8cfa3, transparent); width: 30cqw; }
+.cp-networking-cocktail .cp-dear { border-color: rgba(232, 207, 163, 0.55); }
+
+/* ---------------------------------------------------------------- still: thumbnails and reduced motion */
+.cp.is-still *, .is-poster .cp * { animation: none !important; }
+.cp.is-still .cp-draw, .is-poster .cp .cp-draw, .cp.is-still .cp-circuit path, .is-poster .cp .cp-circuit path { stroke-dashoffset: 0; }
+.is-poster .cp .cp-sparks i { opacity: 0.8; }
+@media (prefers-reduced-motion: reduce) {
+  .cp * { animation: none !important; }
+  .cp .cp-draw, .cp .cp-circuit path { stroke-dashoffset: 0; }
+}
+
+/* dark fronts on a dark stage: a fine edge so the card reads as a card */
+.cp-black-tie-gala { box-shadow: 0 0 0 1px rgba(201, 165, 92, 0.4), 0 34px 70px -30px rgba(0, 0, 0, 0.9); }
+.cp-product-launch { box-shadow: 0 0 0 1px rgba(212, 215, 220, 0.22), 0 34px 70px -30px rgba(255, 255, 255, 0.12); }
+.cp-tech-innovation { box-shadow: 0 0 0 1px rgba(111, 176, 255, 0.35), 0 34px 70px -30px rgba(47, 123, 255, 0.45); }
+.cp-networking-cocktail { box-shadow: 0 0 0 1px rgba(232, 207, 163, 0.35), 0 34px 70px -34px rgba(0, 0, 0, 0.8); }

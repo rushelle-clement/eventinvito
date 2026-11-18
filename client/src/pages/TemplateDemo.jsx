@@ -2,7 +2,7 @@
 // opened from "Preview" in the Explore Invitations gallery.
 
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, RotateCcw } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
@@ -17,6 +17,7 @@ export default function TemplateDemo() {
   const { key } = useParams()
   const { user } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [params, setParams] = useSearchParams()
   const occasion = OCCASIONS.some((o) => o.value === params.get('occasion')) ? params.get('occasion') : 'wedding'
   const [run, setRun] = useState(0)
@@ -48,8 +49,8 @@ export default function TemplateDemo() {
   }
 
   const invitation = { ...sampleInvitation(key, occasion), musicTrack: SUGGESTED_TRACK[key] || '' }
-  // Birthday designs are only for birthdays, so there's no occasion to choose
-  const birthday = Boolean(THEMES[key].birthday)
+  // Birthday, corporate and Christmas designs make only their own kind of invitation, so there's no occasion to choose
+  const birthday = Boolean(THEMES[key].birthday || THEMES[key].corporate || THEMES[key].christmas)
 
   async function useDesign() {
     if (!user) {
@@ -70,7 +71,17 @@ export default function TemplateDemo() {
     <>
       <div className="fixed inset-x-0 top-0 z-[80] border-b border-bone bg-ivory/95 backdrop-blur" style={{ height: BAR_HEIGHT }}>
         <div className="mx-auto flex h-full max-w-5xl items-center gap-2 px-3 sm:gap-3">
-          <Link to="/templates" className="btn-secondary shrink-0 px-3 py-1.5 text-body-sm">
+          {/* From the gallery: go back to it, with its filters and scroll as they were */}
+          <Link
+            to="/templates"
+            onClick={(e) => {
+              if (location.state?.fromGallery) {
+                e.preventDefault()
+                navigate(-1)
+              }
+            }}
+            className="btn-secondary shrink-0 px-3 py-1.5 text-body-sm"
+          >
             <ArrowLeft size={15} aria-hidden="true" /> <span className="hidden sm:inline">All designs</span>
           </Link>
           <button type="button" onClick={() => setRun((n) => n + 1)} className="btn-secondary shrink-0 px-3 py-1.5 text-body-sm">
@@ -98,7 +109,15 @@ export default function TemplateDemo() {
           </button>
         </div>
       </div>
-      <InvitationExperience key={`${key}-${occasion}-${run}`} invitation={invitation} guestName={sampleGuestName(invitation.language)} topOffset={BAR_HEIGHT} />
+      <InvitationExperience
+        key={`${key}-${occasion}-${run}`}
+        invitation={invitation}
+        guestName={sampleGuestName(invitation.language)}
+        topOffset={BAR_HEIGHT}
+        // the animated wedding designs show the "Day plan" button with a sample plan
+        // (free cards and birthdays have none)
+        agendaHref={THEMES[key].free || birthday ? '' : `/templates/${key}/preview/agenda?occasion=${occasion}`}
+      />
     </>
   )
 }

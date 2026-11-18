@@ -1,0 +1,232 @@
+/* White Lily (wl-): black and white with white lilies. The opening plays on its own (seconds):
+   0.15 the eyebrow · 0.3 the bud rises in · 0.8 the names · 1.0 the date · 1.3 "Open Invitation".
+   After the tap ("is-opening"): the type fades · 0.2 the bud opens into a full lily · 0.9 five petals
+   drift away · 1.4 a soft white light fills the screen · 2.4 the invitation appears. */
+
+.wl-opening,
+.wl-invite {
+  font-variant-numeric: lining-nums;
+  --wl-black: #0e0e0e;
+  --wl-white: #ffffff;
+  --wl-paper: #f7f6f3;
+  --wl-ink: #111111;
+  --wl-muted: #5f5f5c;
+  --wl-pale: rgba(255, 255, 255, 0.72);
+  --wl-green: #4f7a3a;
+  --wl-line: rgba(17, 17, 17, 0.22);
+  --wl-line-light: rgba(255, 255, 255, 0.3);
+  --wl-serif: 'Cormorant Garamond', 'Playfair Display', 'Noto Serif Sinhala', 'Noto Serif Tamil', serif;
+  --wl-sans: 'Plus Jakarta Sans', 'Noto Sans Sinhala', 'Noto Sans Tamil', sans-serif;
+  font-family: var(--wl-sans);
+  color: var(--wl-ink);
+}
+
+/* the two papers: tall images on phones, wide ones on wide screens */
+.wl-dark { background: var(--wl-black) var(--wl-dark-tall) center / cover; color: var(--wl-white); }
+.wl-light { background: var(--wl-paper) var(--wl-light-tall) center / cover; }
+@media (min-aspect-ratio: 1/1) {
+  .wl-dark { background-image: var(--wl-dark); }
+  .wl-light { background-image: var(--wl-light); }
+}
+
+.wl-eyebrow { font-family: var(--wl-sans); font-size: 11px; font-weight: 600; letter-spacing: 0.34em; text-transform: uppercase; color: var(--wl-muted); }
+.wl-dark .wl-eyebrow, .wl-opening .wl-eyebrow { color: var(--wl-pale); }
+.wl-eyebrow.is-local { letter-spacing: normal; text-transform: none; font-size: 15px; }
+.wl-amp { font-family: 'Great Vibes', var(--wl-serif); font-weight: 400; }
+.wl-hair { display: inline-block; width: 44px; height: 1px; background: currentColor; opacity: 0.35; vertical-align: middle; }
+
+@keyframes wl-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes wl-fade { to { opacity: 0; visibility: hidden; } }
+
+/* ---------------------------------------------------------------- opening */
+.wl-opening {
+  position: fixed;
+  inset: var(--ei-top, 0px) 0 0 0;
+  z-index: 50;
+  display: grid;
+  place-items: safe center;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: var(--wl-black) var(--wl-dark-tall) center / cover;
+  color: var(--wl-white);
+  text-align: center;
+  /* the height left for the lily after the type and the button */
+  --wl-room: calc(calc(100 * var(--ei-vh, 1svh)) - var(--ei-top, 0px) - 290px);
+}
+@media (min-aspect-ratio: 1/1) { .wl-opening { background-image: var(--wl-dark); } }
+.wl-opening.is-leaving { animation: wl-fade 0.8s ease forwards; pointer-events: none; }
+.wl-opening.is-opening { overflow: hidden; }
+
+.wl-stage { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; padding: 24px 16px; }
+.wl-in-1 { opacity: 0; animation: wl-rise 0.9s ease 0.15s forwards; }
+.wl-in-2 { opacity: 0; animation: wl-rise 1s ease 0.8s forwards; }
+.wl-in-3 { opacity: 0; animation: wl-rise 1s ease 1s forwards; }
+
+/* the lily: the bud and the open flower stacked, the bloom hidden until the tap */
+.wl-flower {
+  position: relative;
+  height: max(170px, min(calc(46 * var(--ei-vh, 1svh)), 420px, var(--wl-room)));
+  aspect-ratio: 551 / 900;
+  margin-top: 16px;
+  opacity: 0;
+  animation: wl-flower-in 1.4s cubic-bezier(0.2, 0.7, 0.2, 1) 0.3s forwards;
+  filter: drop-shadow(0 26px 30px rgba(0, 0, 0, 0.55));
+}
+@keyframes wl-flower-in { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: none; } }
+.wl-flower > img { position: absolute; bottom: 0; left: 50%; height: 100%; width: auto; max-width: none; transform: translateX(-50%); }
+.wl-bloom { opacity: 0; transform-origin: 50% 30%; }
+/* a gentle sway while it waits */
+.wl-bud { transform-origin: 50% 100%; animation: wl-sway 5s ease-in-out 1.7s infinite; }
+@keyframes wl-sway { 0%, 100% { transform: translateX(-50%) rotate(0deg); } 50% { transform: translateX(-50%) rotate(1.4deg); } }
+
+.wl-petals { position: absolute; left: 50%; top: 27%; width: 0; height: 0; pointer-events: none; }
+.wl-petals img { position: absolute; left: 0; top: 0; width: clamp(64px, calc(18 * var(--ei-vw, 1vw)), 130px); height: auto; max-width: none; opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
+.wl-petals img:first-child { width: clamp(40px, calc(11 * var(--ei-vw, 1vw)), 80px); }
+
+.wl-open-names { margin-top: 22px; font-family: var(--wl-serif); font-weight: 300; font-size: clamp(34px, min(calc(9 * var(--ei-vw, 1vw)), calc(6.4 * var(--ei-vh, 1svh))), 54px); line-height: 1.1; overflow-wrap: anywhere; }
+.wl-open-names span { margin: 0 0.12em; }
+.wl-open-names .wl-amp { font-size: 0.8em; color: var(--wl-pale); }
+.wl-open-names:lang(si), .wl-open-names:lang(ta) { font-weight: 600; font-size: clamp(26px, calc(7 * var(--ei-vw, 1vw)), 38px); }
+.wl-open-date { display: flex; align-items: center; gap: 14px; margin-top: 10px; font-size: 12px; font-weight: 600; letter-spacing: 0.3em; text-transform: uppercase; color: var(--wl-pale); }
+.wl-open-date:lang(si), .wl-open-date:lang(ta) { letter-spacing: normal; text-transform: none; font-size: 15px; }
+.wl-open-btn {
+  margin-top: 22px;
+  padding: 14px 36px;
+  border: 1px solid var(--wl-white);
+  background: transparent;
+  color: var(--wl-white);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  box-shadow: 0 0 0 4px rgba(14, 14, 14, 0.6), 0 0 0 5px rgba(255, 255, 255, 0.28);
+  opacity: 0;
+  animation: wl-rise 0.9s ease 1.3s forwards;
+  transition: background 0.25s ease, color 0.25s ease;
+}
+.wl-open-btn:hover { background: var(--wl-white); color: var(--wl-ink); }
+.wl-open-btn:focus-visible { outline: 1px solid var(--wl-white); outline-offset: 8px; }
+.wl-open-btn:lang(si), .wl-open-btn:lang(ta) { letter-spacing: normal; text-transform: none; font-size: 15px; }
+
+/* the white light, from the heart of the lily */
+.wl-glow { position: absolute; left: 50%; top: 27%; z-index: 3; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%; background: radial-gradient(circle, #fff 0%, #fff 30%, rgba(255, 255, 255, 0.6) 50%, rgba(255, 255, 255, 0) 70%); opacity: 0; pointer-events: none; }
+
+/* after the tap */
+.is-opening .wl-fade, .is-opening .wl-open-btn { animation: none; opacity: 0; transition: opacity 0.35s ease; }
+.is-opening .wl-flower { animation: none; opacity: 1; }
+.is-opening .wl-bud { animation: wl-bud-out 1.1s ease 0.2s forwards; }
+.is-opening .wl-bloom { animation: wl-bloom-in 1.3s cubic-bezier(0.2, 0.7, 0.2, 1) 0.25s forwards; }
+@keyframes wl-bud-out { from { opacity: 1; transform: translateX(-50%) scale(1); } to { opacity: 0; transform: translateX(-50%) scale(1.06); } }
+@keyframes wl-bloom-in { 0% { opacity: 0; transform: translateX(-50%) scale(0.9); } 60% { opacity: 1; } 100% { opacity: 1; transform: translateX(-50%) scale(1.04); } }
+.is-opening .wl-petals img { animation: wl-petal 1.9s cubic-bezier(0.3, 0.1, 0.4, 1) forwards; }
+@keyframes wl-petal {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.4) rotate(0deg); }
+  15% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--x)), calc(-50% + var(--y))) scale(1) rotate(var(--r)); }
+}
+.is-opening .wl-glow { animation: wl-glow 1.2s cubic-bezier(0.5, 0, 0.3, 1) 1.3s forwards; }
+@keyframes wl-glow { from { opacity: 0; transform: scale(0.5); } 30% { opacity: 1; } to { opacity: 1; transform: scale(90); } }
+
+/* ---------------------------------------------------------------- the invitation */
+.wl-invite { background: var(--wl-paper); }
+.wl-invite.is-entering { animation: wl-rise 0.9s ease both; }
+
+.wl-hero { position: relative; overflow: hidden; min-height: calc(calc(100 * var(--ei-vh, 1svh)) - var(--ei-top, 0px)); display: grid; align-items: center; padding: 170px 22px 190px; text-align: center; }
+.wl-corner { position: absolute; z-index: 1; width: clamp(150px, calc(40 * var(--ei-vw, 1vw)), 300px); height: auto; pointer-events: none; filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.16)); }
+.wl-corner.is-left { left: 0; top: 0; }
+/* on phones the second spray sits in the opposite (bottom-right) corner */
+.wl-corner.is-right { right: 0; bottom: 0; transform: rotate(180deg); }
+@media (min-width: 760px) {
+  .wl-hero { padding: clamp(70px, calc(12 * var(--ei-vh, 1svh)), 120px) 22px; }
+  .wl-corner { width: clamp(220px, calc(24 * var(--ei-vw, 1vw)), 340px); }
+  .wl-corner.is-right { top: 0; bottom: auto; transform: scaleX(-1); }
+}
+.wl-hero-inner { position: relative; z-index: 2; width: 100%; max-width: 620px; margin: 0 auto; }
+
+.wl-blessing { margin-bottom: 10px; font-family: var(--wl-serif); font-style: italic; font-size: 17px; color: var(--wl-muted); }
+.wl-greeting { display: inline-block; margin-bottom: 16px; padding: 6px 18px; border: 1px solid var(--wl-ink); font-size: 13px; font-weight: 500; letter-spacing: 0.04em; background: var(--wl-white); }
+.wl-hostline { margin: 10px auto 0; max-width: 28rem; font-family: var(--wl-serif); font-style: italic; font-size: 18px; line-height: 1.5; color: var(--wl-muted); }
+
+.wl-names { margin-top: 18px; font-family: var(--wl-serif); font-weight: 300; line-height: 0.98; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.wl-names > span { display: block; }
+.wl-name { font-size: clamp(54px, calc(15 * var(--ei-vw, 1vw)), 104px); animation: wl-name 1.2s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.wl-names .wl-amp { font-size: clamp(38px, calc(9 * var(--ei-vw, 1vw)), 60px); line-height: 1.15; color: var(--wl-muted); animation: wl-name 1.2s ease both; }
+.wl-names:lang(si) .wl-name, .wl-names:lang(ta) .wl-name { font-weight: 600; font-size: clamp(36px, calc(10 * var(--ei-vw, 1vw)), 58px); line-height: 1.3; }
+.wl-name .ei-parents { font-family: var(--wl-sans); letter-spacing: normal; }
+@keyframes wl-name { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+
+.wl-rule { display: block; width: 64px; height: 1px; margin: 26px auto 22px; background: var(--wl-ink); }
+.wl-message { margin: 0 auto; max-width: 27rem; font-family: var(--wl-serif); font-size: 20px; line-height: 1.6; color: var(--wl-muted); }
+.wl-invite:not(:lang(en)) .wl-message { font-size: 17px; }
+.wl-hero .ei-invite-line { margin-top: 12px; color: var(--wl-ink); }
+
+/* the date: black type between fine rules */
+.wl-date { display: flex; align-items: center; justify-content: center; gap: clamp(12px, calc(3 * var(--ei-vw, 1vw)), 22px); margin: 30px auto 0; font-size: 11px; font-weight: 600; letter-spacing: 0.24em; text-transform: uppercase; }
+.wl-date > span:not(.wl-date-day) { min-width: 6.5em; padding: 10px 0; border-top: 1px solid var(--wl-ink); border-bottom: 1px solid var(--wl-ink); }
+.wl-date-day { font-family: var(--wl-serif); font-weight: 300; font-size: clamp(54px, calc(13 * var(--ei-vw, 1vw)), 72px); line-height: 1; letter-spacing: 0; }
+.wl-date.is-local { display: block; font-family: var(--wl-serif); font-weight: 600; font-size: 22px; letter-spacing: normal; text-transform: none; }
+.wl-time { margin-top: 12px; font-size: 14px; color: var(--wl-muted); }
+.wl-venue { margin-top: 10px; font-size: 12px; font-weight: 600; letter-spacing: 0.26em; text-transform: uppercase; }
+.wl-venue.is-local { letter-spacing: normal; text-transform: none; font-size: 15px; }
+
+/* one photo only: shown under the date */
+.wl-cover { width: min(calc(70 * var(--ei-vw, 1vw)), 300px); margin: 34px auto 0; aspect-ratio: 3 / 4; padding: 6px; background: var(--wl-white); box-shadow: 0 0 0 1px var(--wl-ink), 0 24px 40px -30px rgba(0, 0, 0, 0.6); border-radius: 50% 50% 2px 2px / 37.5% 37.5% 2px 2px; overflow: hidden; }
+.wl-cover img { width: 100%; height: 100%; object-fit: cover; border-radius: 50% 50% 0 0 / 36% 36% 0 0; }
+
+/* sections: full-width bands that alternate black and white */
+.wl-band { position: relative; }
+.wl-section { max-width: 960px; margin: 0 auto; padding: clamp(56px, calc(9 * var(--ei-vw, 1vw)), 84px) 20px; }
+.wl-end .wl-section { padding-bottom: 72px; }
+.wl-heading { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 30px; text-align: center; }
+
+/* the photos on black: white mats, three columns (two on phones), the middle column set lower */
+.wl-photos { display: grid; gap: clamp(10px, calc(2 * var(--ei-vw, 1vw)), 18px); grid-template-columns: repeat(2, 1fr); }
+@media (min-width: 640px) {
+  .wl-photos { grid-template-columns: repeat(3, 1fr); }
+  .wl-photos:not(.count-many):not(.count-1):not(.count-2) > :nth-child(3n + 2) { transform: translateY(36px); }
+  .wl-photos:not(.count-many):not(.count-1):not(.count-2) { padding-bottom: 36px; }
+}
+.wl-photos.count-2 { grid-template-columns: repeat(2, minmax(0, 380px)); justify-content: center; }
+.wl-photo { overflow: hidden; aspect-ratio: 3 / 4; background: var(--wl-white); padding: 6px; box-shadow: 0 26px 40px -24px rgba(0, 0, 0, 0.9); }
+.wl-photo img { width: 100%; height: 100%; object-fit: cover; filter: saturate(0.92); }
+
+/* details: white cards with a black hairline frame */
+.wl-details { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); }
+.wl-card { position: relative; padding: 38px 28px 34px; background: var(--wl-white); box-shadow: inset 0 0 0 1px var(--wl-ink), inset 0 0 0 7px var(--wl-white), inset 0 0 0 8px var(--wl-line); text-align: center; }
+.wl-card-title { margin-top: 10px; font-family: var(--wl-serif); font-weight: 500; font-size: 25px; line-height: 1.3; color: var(--wl-ink); }
+.wl-card-title.big { font-size: 30px; }
+.wl-invite:not(:lang(en)) .wl-card-title { font-weight: 600; font-size: 20px; }
+.wl-sub { display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; font-size: 14px; line-height: 1.55; color: var(--wl-muted); }
+.wl-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; font-size: 13px; font-weight: 600; color: var(--wl-ink); border-bottom: 1px solid currentColor; }
+.wl-dress { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 22px; font-size: 14px; color: var(--wl-muted); }
+
+/* the celebrations on black: a white timeline */
+.wl-timeline { position: relative; max-width: 560px; margin: 0 auto; padding-left: 34px; }
+.wl-timeline::before { content: ''; position: absolute; left: 7px; top: 8px; bottom: 8px; width: 1px; background: var(--wl-line-light); }
+.wl-timeline > li { position: relative; padding: 0 0 28px; text-align: left; }
+.wl-timeline > li::before { content: ''; position: absolute; left: -32px; top: 4px; width: 11px; height: 11px; border-radius: 50%; background: var(--wl-black); box-shadow: inset 0 0 0 2px var(--wl-white); }
+.wl-dark .wl-sub { justify-content: flex-start; color: var(--wl-pale); }
+.wl-cer-when { font-size: 11px; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: var(--wl-pale); }
+.wl-invite:not(:lang(en)) .wl-cer-when { letter-spacing: normal; text-transform: none; font-size: 14px; }
+.wl-cer-name { margin-top: 4px; font-family: var(--wl-serif); font-weight: 500; font-size: 24px; color: var(--wl-white); }
+
+/* sign-off: a lily, the couple's initials and names */
+.wl-sign-off { margin-top: 56px; text-align: center; }
+.wl-sign-lily { display: block; height: 150px; width: auto; margin: 0 auto; filter: drop-shadow(0 12px 14px rgba(0, 0, 0, 0.18)); }
+.wl-monogram { margin-top: 14px; font-family: var(--wl-serif); font-weight: 300; font-size: 40px; line-height: 1; }
+.wl-monogram .wl-amp { font-size: 0.6em; margin: 0 0.08em; color: var(--wl-muted); }
+.wl-sign { margin-top: 12px; font-family: var(--wl-serif); font-weight: 400; font-size: 30px; }
+.wl-sign .wl-amp { font-size: 0.85em; margin: 0 0.1em; color: var(--wl-muted); }
+.wl-invite:not(:lang(en)) .wl-sign { font-weight: 600; font-size: 24px; }
+.wl-note { max-width: 24rem; margin: 16px auto 0; font-size: 12px; color: var(--wl-muted); }
+
+/* ---------------------------------------------------------------- thumbnails, reduced motion */
+.is-poster .wl-opening { position: absolute; inset: 0; overflow: hidden; --wl-room: 330px; }
+.is-poster .wl-flower { height: 300px; }
+.is-poster .wl-bud { animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .wl-opening *, .wl-opening *::before, .wl-opening *::after { animation-duration: 0.01s !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition: none !important; }
+  .wl-name, .wl-names .wl-amp, .wl-invite.is-entering { animation: none; }
+}

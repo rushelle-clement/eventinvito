@@ -28,6 +28,39 @@ const STATIC_FIELDS = COMMON_FIELDS.filter((f) => f !== "rsvpDeadline");
 const BIRTHDAY_FIELDS = ["celebrant", "age", ...COMMON_FIELDS.filter((f) => !["partnerOne", "partnerTwo", "partnerOneParents", "partnerTwoParents"].includes(f))];
 const BIRTHDAY_STATIC_FIELDS = BIRTHDAY_FIELDS.filter((f) => f !== "rsvpDeadline");
 
+// Corporate events: a company, the event's title and logo (and for an anniversary, the years)
+const CORPORATE_FIELDS = ["companyName", "eventTitle", "milestone", "hostLine", "inviteLine", "message", "eventDate", "eventTime", "endTime", "venueName", "address", "mapUrl", "dressCode", "rsvpDeadline"];
+const CORPORATE_STATIC_FIELDS = CORPORATE_FIELDS.filter((f) => f !== "rsvpDeadline");
+const corporate = (tier, key, name, description, styleTags, palette, sortOrder) => ({
+    key,
+    name,
+    description,
+    eventType: "corporate",
+    styleTags,
+    palette,
+    supportedFields: tier === "free" ? CORPORATE_STATIC_FIELDS : CORPORATE_FIELDS,
+    tier,
+    status: "published",
+    version: 1,
+    sortOrder,
+});
+
+// Christmas parties: the party's title and its hosts (companyName holds the hosts)
+const CHRISTMAS_FIELDS = ["companyName", "eventTitle", "hostLine", "inviteLine", "message", "eventDate", "eventTime", "endTime", "venueName", "address", "mapUrl", "dressCode", "rsvpDeadline"];
+const christmas = (tier, key, name, description, styleTags, palette, sortOrder) => ({
+    key,
+    name,
+    description,
+    eventType: "christmas",
+    styleTags,
+    palette,
+    supportedFields: tier === "free" ? CHRISTMAS_FIELDS.filter((f) => f !== "rsvpDeadline") : CHRISTMAS_FIELDS,
+    tier,
+    status: "published",
+    version: 1,
+    sortOrder,
+});
+
 const birthdayPremium = (key, name, description, styleTags, palette, sortOrder) => ({
     key,
     name,
@@ -69,6 +102,45 @@ module.exports = [
         status: "published",
         version: 1,
         sortOrder: 6.5,
+    },
+    {
+        key: "white-lily",
+        name: "White Lily",
+        description: "Black and white with white lilies — a closed lily bud opens into full bloom, its petals drift away and soft light reveals your invitation.",
+        eventType: "wedding",
+        styleTags: ["Black & white", "Floral", "Photos"],
+        palette: ["#0e0e0e", "#f7f6f3", "#ffffff"],
+        supportedFields: COMMON_FIELDS,
+        tier: "premium",
+        status: "published",
+        version: 1,
+        sortOrder: 6.6,
+    },
+    {
+        key: "ratna-mahal",
+        name: "Ratna Mahal",
+        description: "A modern Indian wedding in ivory and gold with roses, jasmine, pearls and gems — a curtain of pearl strands parts inside a Mughal arch to reveal your invitation.",
+        eventType: "wedding",
+        styleTags: ["Modern Indian", "Floral", "Pearls"],
+        palette: ["#f8f1e6", "#e9b9c0", "#b48a45"],
+        supportedFields: COMMON_FIELDS,
+        tier: "premium",
+        status: "published",
+        version: 1,
+        sortOrder: 6.7,
+    },
+    {
+        key: "grace-chapel",
+        name: "Sage Promise",
+        description: "A church wedding in white, sage green and gold — a satin ribbon unties, two white doves fly up and a white-rose arch frames your names.",
+        eventType: "wedding",
+        styleTags: ["Church", "Floral", "Doves"],
+        palette: ["#fbf8f1", "#8c9c7e", "#b8964f"],
+        supportedFields: COMMON_FIELDS,
+        tier: "premium",
+        status: "published",
+        version: 1,
+        sortOrder: 6.8,
     },
     {
         key: "pure-elegance",
@@ -400,6 +472,30 @@ module.exports = [
         ["#fbf1ee", "#b9786a", "#4e2c2b"],
         24
     ),
+    birthdayPremium(
+        "midnight-glam",
+        "Midnight Glam",
+        "Black and champagne gold — a starry gold arch with a crescent moon; tap, and golden particles reveal the invitation.",
+        ["Adult", "Luxury", "Black & gold"],
+        ["#0b0a09", "#d8bc82", "#f4ead2"],
+        25
+    ),
+    birthdayPremium(
+        "disco-fever",
+        "Disco Fever",
+        "Hot pink, purple and electric blue — a mirror disco ball turns in coloured light; tap \"Let's dance!\" and the lights flash.",
+        ["Party", "Retro", "Disco"],
+        ["#1d0b33", "#ff3fa4", "#5aa8ff"],
+        26
+    ),
+    birthdayPremium(
+        "tropical-paradise",
+        "Tropical Paradise",
+        "Teal, coral and sunny yellow — palm leaves sway around a hibiscus card; tap, and the leaves part like a breeze.",
+        ["Summer", "Tropical", "Flowers"],
+        ["#2bb5a4", "#ff7a59", "#ffc93c"],
+        27
+    ),
 
     // ---- Birthdays: free cards ----
     birthdayCard(
@@ -442,4 +538,30 @@ module.exports = [
         ["#fbefec", "#c98b7a", "#6b3b39"],
         34
     ),
+
+    // ---- Corporate events: five Premium designs (animated opening, music, photos) ...
+    corporate("premium", "black-tie-gala", "Black Tie Gala", "Black, gold and ivory — a spotlight sweeps the dark and a gold shimmer reveals your gala night.", ["Gala", "Awards", "Gold"], ["#0d0d0f", "#c9a55c", "#f4ecdc"], 40),
+    corporate("premium", "tech-innovation", "Technology & Innovation", "Midnight blue, electric blue and violet — light trails race across a digital grid and your event powers on.", ["Tech", "Futuristic", "Launch"], ["#070b24", "#2f7bff", "#8b5cf6"], 41),
+    corporate("premium", "corporate-anniversary", "Corporate Anniversary", "Champagne, silver and burgundy — your anniversary number rises in with a subtle sparkle.", ["Anniversary", "Milestone", "Elegant"], ["#f3e9d8", "#b9bcc2", "#7a1f2b"], 42),
+    corporate("premium", "product-launch", "Product Launch", "Black, white and metallic silver — the curtain of light lifts to reveal your product, like a keynote.", ["Launch", "Dramatic", "Minimal"], ["#050505", "#ffffff", "#a9adb4"], 43),
+    corporate("premium", "networking-cocktail", "Networking Cocktail Evening", "Burgundy, plum and champagne — soft evening light glows in and your guests are welcomed in style.", ["Evening", "Networking", "Elegant"], ["#4a1023", "#5b2a4e", "#e8cfa3"], 44),
+    // ... and five free cards, each with a light animation of its own on the card
+    corporate("free", "corporate-elegance", "Corporate Elegance", "Ivory, champagne gold and charcoal — fine gold lines slowly draw a frame around your invitation.", ["Minimal", "Luxury", "Gala"], ["#f8f4ec", "#c8a96a", "#2c2c2e"], 45),
+    corporate("free", "modern-business", "Modern Business", "Navy, white and silver — bold type and geometric shapes slide into place.", ["Geometric", "Bold", "Conference"], ["#0f2341", "#ffffff", "#b8c0cc"], 46),
+    corporate("free", "blue-gradient", "Blue Corporate Gradient", "A royal-blue card with a slowly moving cyan light and clean modern type, for launches and summits.", ["Gradient", "Modern", "Tech"], ["#0a2a9e", "#19c6ea", "#ffffff"], 47),
+    corporate("free", "minimal-editorial", "Minimal Editorial", "White, black and grey Swiss typography with lots of space; the text appears line by line.", ["Minimal", "Editorial", "Swiss"], ["#ffffff", "#111111", "#8a8a8a"], 48),
+    corporate("free", "emerald-prestige", "Emerald Prestige", "Emerald green, gold and ivory with softly glowing gold particles.", ["Premium", "Emerald", "Gold"], ["#0d3b2e", "#c9a55c", "#f6f0e2"], 49),
+
+    // ---- Christmas parties: free cards (a light animation on the card) ----
+    christmas("free", "classic-noel", "Classic Noël", "Ivory, Christmas red and pine green with holly and gold — snow falls gently over the card.", ["Classic", "Red & green", "Holly"], ["#fbf6ec", "#b3202e", "#1f5a3a"], 60),
+    christmas("free", "candy-cane", "Candy Cane Lane", "Red and white candy stripes and peppermint swirls — playful and bright, for a family party.", ["Fun", "Candy cane", "Family"], ["#ffffff", "#d7263d", "#2f8f5b"], 61),
+    christmas("free", "nordic-pine", "Nordic Pine", "Linen, sage and charcoal — a row of fine-line pine trees draws itself in. Calm and modern.", ["Minimal", "Scandi", "Modern"], ["#f4f1ea", "#7d9a83", "#2f3437"], 62),
+    christmas("free", "golden-star", "Starlight", "Midnight navy with a glowing gold star and twinkling stars — elegant for an evening party.", ["Elegant", "Navy & gold", "Stars"], ["#101a3a", "#d9b768", "#f5ecd6"], 63),
+    christmas("free", "silent-night", "Silent Night", "A snowy village at night under falling snow, its windows glowing warm.", ["Snow", "Night", "Cosy"], ["#13234a", "#f3c969", "#e8f0fb"], 64),
+    // ---- Christmas parties: animated (Premium) ----
+    christmas("premium", "christmas-elegance", "Christmas Elegance", "Forest green, burgundy and champagne gold with a garland of ornaments — golden snowflakes drift down, and a flurry reveals the invitation.", ["Luxury", "Traditional", "Green & gold"], ["#0f2a1f", "#8e1f2f", "#d8bc82"], 65),
+    christmas("premium", "pink-christmas", "Pink Christmas", "Blush and baby pink — a pink tree, candy canes and a present pop in; tap, and the bow unties and the present bursts open.", ["Cute", "Modern", "Pink"], ["#fbe8ee", "#d46a8c", "#ffffff"], 66),
+    christmas("premium", "winter-wonderland", "Winter Wonderland", "Icy blue, silver and white — a frosted arch in a snowy forest; tap, and the snow thickens into a magical glow.", ["Dreamy", "Snow", "Icy blue"], ["#e9f1fb", "#5b8cc9", "#c9d6e6"], 67),
+    christmas("premium", "cosy-christmas", "Cosy Christmas", "Warm beige, cinnamon and red plaid — a gingerbread wreath slowly forms around the invitation. Rustic and cosy.", ["Rustic", "Cosy", "Gingerbread"], ["#efe4d2", "#a3262f", "#8f5a33"], 68),
+    christmas("premium", "christmas-after-dark", "Christmas After Dark", "A black chalkboard framed in pine, candy canes and red baubles — the title is chalked in by hand and the baubles swing.", ["Party", "Chalkboard", "Red & green"], ["#151617", "#d9334a", "#2f6b45"], 69),
 ];

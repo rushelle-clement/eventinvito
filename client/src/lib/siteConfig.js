@@ -5,14 +5,14 @@
 import { useEffect, useState } from 'react'
 import { api } from './api'
 
-const DEFAULTS = { signupOpen: true, contact: { email: '', phone: '' }, loaded: false }
+const DEFAULTS = { signupOpen: true, contact: { email: '', phone: '' }, passwordReset: false, loaded: false }
 let cached = null
 let pending = null
 
 function load() {
   if (cached) return Promise.resolve(cached)
   pending ??= api('/config', { auth: false })
-    .then((d) => (cached = { signupOpen: Boolean(d.signupOpen), contact: d.contact || DEFAULTS.contact, loaded: true }))
+    .then((d) => (cached = { signupOpen: Boolean(d.signupOpen), contact: d.contact || DEFAULTS.contact, passwordReset: Boolean(d.passwordReset), loaded: true }))
     .catch(() => ({ ...DEFAULTS, loaded: true }))
     .finally(() => {
       pending = null

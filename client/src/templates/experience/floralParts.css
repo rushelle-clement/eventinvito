@@ -20,19 +20,19 @@
   0% { transform: translateX(var(--fx)); opacity: 0; animation-timing-function: cubic-bezier(0.25, 0.6, 0.3, 1); }
   8% { opacity: 1; }
   42% { transform: translateX(var(--hx)); animation-timing-function: ease-in-out; }
-  54% { transform: translateX(calc(var(--hx) + 2.5vmin)); animation-timing-function: ease-in-out; }
+  54% { transform: translateX(calc(var(--hx) + calc(2.5 * var(--ei-vmin, 1vmin)))); animation-timing-function: ease-in-out; }
   66% { transform: translateX(var(--hx)); animation-timing-function: cubic-bezier(0.55, 0, 0.8, 0.6); }
   92% { opacity: 1; }
   100% { transform: translateX(var(--ex)); opacity: 0; }
 }
 @keyframes fl-fly-y {
   0% { transform: translateY(var(--fy)); animation-timing-function: ease-out; }
-  22% { transform: translateY(calc(var(--hy) - 9vmin)); animation-timing-function: ease-in-out; }
+  22% { transform: translateY(calc(var(--hy) - calc(9 * var(--ei-vmin, 1vmin)))); animation-timing-function: ease-in-out; }
   42% { transform: translateY(var(--hy)); animation-timing-function: ease-in-out; }
-  50% { transform: translateY(calc(var(--hy) - 2.5vmin)); animation-timing-function: ease-in-out; }
-  59% { transform: translateY(calc(var(--hy) + 1.5vmin)); animation-timing-function: ease-in-out; }
+  50% { transform: translateY(calc(var(--hy) - calc(2.5 * var(--ei-vmin, 1vmin)))); animation-timing-function: ease-in-out; }
+  59% { transform: translateY(calc(var(--hy) + calc(1.5 * var(--ei-vmin, 1vmin)))); animation-timing-function: ease-in-out; }
   66% { transform: translateY(var(--hy)); animation-timing-function: ease-in; }
-  80% { transform: translateY(calc(var(--hy) + (var(--ey) - var(--hy)) * 0.3 - 6vmin)); }
+  80% { transform: translateY(calc(var(--hy) + (var(--ey) - var(--hy)) * 0.3 - calc(6 * var(--ei-vmin, 1vmin)))); }
   100% { transform: translateY(var(--ey)); }
 }
 .fl-wings { display: block; width: 100%; filter: drop-shadow(0 6px 8px rgba(90, 80, 110, 0.22)); transform-origin: 50% 50%; }

@@ -3,7 +3,7 @@
 // How an upload works:
 //   1. The editor asks our API for a *signature* (POST /api/invitations/:id/photos/signature).
 //      The signature only allows: images, into this invitation's own folder, shrunk to at most
-//      2400px. The secret never leaves the server.
+//      2000px. The secret never leaves the server.
 //   2. The browser sends the file straight to Cloudinary with that signature (fast, and large
 //      files never pass through our server).
 //   3. The editor tells our API about the new photo (POST /api/invitations/:id/photos). We check
@@ -15,13 +15,16 @@
 const crypto = require("node:crypto");
 
 const ALLOWED_FORMATS = ["jpg", "jpeg", "png", "webp", "heic", "avif"];
-const MAX_BYTES = 10 * 1024 * 1024;
-const INCOMING_RESIZE = "c_limit,w_2400,h_2400"; // store at most 2400px — plenty for phones and saves space
+// The editor shrinks JPG/PNG/WebP photos in the browser first (to about 0.5–1 MB), so 5 MB is
+// only reached by iPhone HEIC photos, which Cloudinary converts and shrinks on arrival.
+const MAX_BYTES = 5 * 1024 * 1024;
+const INCOMING_RESIZE = "c_limit,w_2000,h_2000"; // store at most 2000px — sharp on any screen, saves space
 
 // Couple's own music. Cloudinary keeps audio under its "video" resource type.
 const AUDIO_FORMATS = ["mp3", "m4a", "aac", "wav", "ogg", "oga", "flac"];
-const AUDIO_MAX_BYTES = 15 * 1024 * 1024;
-const AUDIO_MAX_SECONDS = 10 * 60;
+// A 4–6 minute song as a normal MP3 is about 4–7 MB
+const AUDIO_MAX_BYTES = 8 * 1024 * 1024;
+const AUDIO_MAX_SECONDS = 6 * 60;
 
 function config() {
     const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
@@ -109,6 +112,14 @@ function imageUrl(photo, width = 1600) {
     return `https://res.cloudinary.com/${cloud}/image/upload/f_auto,q_auto,c_limit,w_${width}/v${photo.version}/${photo.publicId}`;
 }
 
+// A photo cropped to the 1200 × 630 link-preview size (WhatsApp, Facebook…), as a JPEG under ~200 KB.
+// g_auto keeps the faces in the crop.
+function shareImageUrl(photo) {
+    const cloud = process.env.CLOUDINARY_CLOUD_NAME;
+    if (!cloud || !photo?.publicId) return null;
+    return `https://res.cloudinary.com/${cloud}/image/upload/c_fill,g_auto,w_1200,h_630,f_jpg,q_auto:good/v${photo.version}/${photo.publicId}`;
+}
+
 // Music is delivered as MP3 at 128 kbps, whatever format was uploaded, so every phone can play it
 function audioUrl(music) {
     const cloud = process.env.CLOUDINARY_CLOUD_NAME;
@@ -117,6 +128,7 @@ function audioUrl(music) {
 }
 
 module.exports = {
+    shareImageUrl,
     isConfigured,
     getResource,
     deleteResource,

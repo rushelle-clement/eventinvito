@@ -7,7 +7,7 @@ import { LinkIcon, Clock, Heart } from 'lucide-react'
 import { api } from '../lib/api'
 import InvitationExperience from '../templates/experience/InvitationExperience'
 import RsvpForm from '../templates/RsvpForm'
-import { invitationTitle, isBirthday, stringsFor } from '../templates/strings'
+import { invitationTitle, isBirthday, isChristmas, isCorporate, stringsFor } from '../templates/strings'
 
 function StatePage({ icon: Icon, title, message, lang }) {
   return (
@@ -40,7 +40,9 @@ export default function GuestInvite() {
   }, [])
 
   useEffect(() => {
-    api(`/invite/${encodeURIComponent(token)}`, { auth: false })
+    // Sent with the couple's sign-in when they open a guest's link themselves, so it isn't counted
+    // as the guest opening it (guests have no sign-in, so nothing is sent for them)
+    api(`/invite/${encodeURIComponent(token)}`)
       .then((data) => {
         setState({ status: 'ready', ...data })
         document.title = `${invitationTitle(data.invitation, data.invitation.language)} — Invitation`
@@ -72,7 +74,7 @@ export default function GuestInvite() {
       const e = state.ended || {}
       const t = stringsFor(e.language, e.eventType)
       // "Thank you for celebrating with Amaya & Nuwan" / "… with Kavindi"
-      const couple = isBirthday(e) ? e.celebrant || '' : [e.partnerOne, e.partnerTwo].filter(Boolean).join(` ${t.and} `)
+      const couple = isBirthday(e) ? e.celebrant || '' : isCorporate(e) || isChristmas(e) ? e.eventTitle || e.companyName || '' : [e.partnerOne, e.partnerTwo].filter(Boolean).join(` ${t.and} `)
       return <StatePage icon={Heart} title={t.endedTitle} message={couple ? t.endedMessage(couple) : state.message} lang={e.language || 'en'} />
     }
     if (state.code === 'invalid') return <StatePage icon={LinkIcon} title="This link isn’t valid" message={state.message} />
@@ -87,6 +89,7 @@ export default function GuestInvite() {
     <InvitationExperience
       invitation={invitation}
       guestName={guest.name}
+      agendaHref={invitation.agenda?.length ? `/i/${encodeURIComponent(token)}/agenda` : ''}
       rsvp={<RsvpForm token={token} invitation={invitation} rsvp={rsvp} onChange={setRsvp} />}
     />
   )

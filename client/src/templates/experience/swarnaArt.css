@@ -17,6 +17,6 @@
 
 /* divider: rule — lotus — rule */
 .sn-divider { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 14px auto; }
-.sn-divider-rule { width: min(70px, 18vw); height: 1px; background: linear-gradient(90deg, transparent, var(--sn-gold, #b08a3e)); }
+.sn-divider-rule { width: min(70px, calc(18 * var(--ei-vw, 1vw))); height: 1px; background: linear-gradient(90deg, transparent, var(--sn-gold, #b08a3e)); }
 .sn-divider-rule:last-child { background: linear-gradient(90deg, var(--sn-gold, #b08a3e), transparent); }
 .sn-divider-lotus { width: 44px; }

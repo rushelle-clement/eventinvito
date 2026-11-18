@@ -23,6 +23,9 @@ import {
   EyeOff,
   Music,
   ImageIcon,
+  CalendarClock,
+  QrCode,
+  Sparkles,
 } from 'lucide-react'
 import { api } from '../lib/api'
 import FormAlert from '../components/FormAlert'
@@ -39,17 +42,22 @@ import ContactLine from '../components/ContactLine'
 import MusicChooser from '../components/editor/MusicChooser'
 import PhotosSection from '../components/editor/PhotosSection'
 import CeremoniesEditor from '../components/editor/CeremoniesEditor'
+import AgendaEditor from '../components/editor/AgendaEditor'
+import LogoSection from '../components/editor/LogoSection'
 
 // The fields this screen edits, in the order the server expects
 const FIELDS = [
-  'partnerOne', 'partnerTwo', 'celebrant', 'age', 'blessing', 'ceremonies', 'hostLine', 'partnerOneParents', 'partnerTwoParents', 'message', 'inviteLine', 'eventDate', 'eventTime', 'endTime',
+  'partnerOne', 'partnerTwo', 'celebrant', 'age', 'companyName', 'eventTitle', 'milestone', 'logoStyle', 'blessing', 'ceremonies', 'hostLine', 'partnerOneParents', 'partnerTwoParents', 'message', 'inviteLine', 'eventDate', 'eventTime', 'endTime',
   'venueName', 'address', 'mapUrl', 'dressCode', 'rsvpDeadline', 'language', 'eventType', 'templateKey', 'musicTrack',
+  'agenda', 'agendaVisible',
 ]
 
 const FIELD_LABELS = {
   partnerOne: 'First partner’s name',
   partnerTwo: 'Second partner’s name',
   celebrant: 'Birthday person’s name',
+  companyName: 'Company name',
+  eventTitle: 'Event title',
   eventDate: 'Event date',
   eventTime: 'Start time',
   venueName: 'Venue name',
@@ -57,9 +65,12 @@ const FIELD_LABELS = {
   rsvpDeadline: 'RSVP deadline',
 }
 
+// Fields that aren't text, and what they are when empty
+const LIST_DEFAULTS = { ceremonies: [], agenda: [], agendaVisible: false, eventType: 'wedding', logoStyle: 'original' }
+
 function pickFields(inv) {
   return Object.fromEntries(
-    FIELDS.map((f) => [f, f === 'age' ? (inv?.age == null ? '' : String(inv.age)) : (inv?.[f] ?? (f === 'ceremonies' ? [] : f === 'eventType' ? 'wedding' : ''))]),
+    FIELDS.map((f) => [f, f === 'age' || f === 'milestone' ? (inv?.[f] == null ? '' : String(inv[f])) : (inv?.[f] ?? LIST_DEFAULTS[f] ?? '')]),
   )
 }
 
@@ -203,6 +214,11 @@ export default function InvitationEditor() {
       setStatus({ type: 'saved', message: 'All changes saved' })
       return true
     }
+    // Printed cards moving to online invitations: once published, that uses a Premium invitation
+    if (saved.printed && 'templateKey' in changes && saved.paid) {
+      const ok = window.confirm('Move these printed cards to online invitations? This uses 1 of your Premium invitations. Your guests, replies and QR code are kept.')
+      if (!ok) return false
+    }
     setStatus({ type: 'saving', message: 'Saving…' })
     try {
       const data = await api(`/invitations/${id}`, { method: 'PATCH', body: changes })
@@ -232,6 +248,11 @@ export default function InvitationEditor() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [save])
+
+  async function openAgendaPreview() {
+    if (dirty && !(await save())) return
+    navigate(`/invitations/${id}/preview/agenda`)
+  }
 
   async function openPreview() {
     if (dirty && !(await save())) return
@@ -298,14 +319,25 @@ export default function InvitationEditor() {
   }
 
   const missing = saved.missingForPublish || []
-  // Free designs are static cards: no photos, music or online RSVP
-  const freeDesign = (templates.find((t) => t.key === form.templateKey)?.tier || saved.tier) === 'free'
+  // Printed Cards package: no online design, guests reply with the QR code on their paper card
+  const printed = Boolean(saved.printed)
+  // Free designs are static cards: no photos, music or reply-by date (guests still reply)
+  // (printed cards keep a free design only for a later upgrade: they have a reply-by date)
+  const freeDesign = !printed && (templates.find((t) => t.key === form.templateKey)?.tier || saved.tier) === 'free'
   const isLive = saved.status === 'published'
   const ended = isLive && saved.ended
   const until = onlineUntil(form) // follows the dates as they are typed
   // Birthdays are for one person and their age instead of a couple
   const birthday = form.eventType === 'birthday'
-  const title = form.partnerOne || form.partnerTwo || form.celebrant ? invitationTitle({ ...form, age: form.age === '' ? null : Number(form.age) }) : 'Untitled invitation'
+  // Corporate events: a company, the event's title and logo instead of a couple
+  const corporate = form.eventType === 'corporate'
+  // Christmas parties: the party's title and its hosts (stored as eventTitle and companyName)
+  const christmas = form.eventType === 'christmas'
+  const kindOf = (eventType) => (['birthday', 'corporate', 'christmas'].includes(eventType) ? eventType : 'couple')
+  const title =
+    form.partnerOne || form.partnerTwo || form.celebrant || form.eventTitle || form.companyName
+      ? invitationTitle({ ...form, age: form.age === '' ? null : Number(form.age) })
+      : 'Untitled invitation'
   const theme = getTheme(form.templateKey)
   // Photos and the couple's music are saved immediately, so they come from the saved copy
   const previewGuest = previewGuestInput ?? sampleGuestName(form.language)
@@ -372,7 +404,7 @@ export default function InvitationEditor() {
             <span className={`rounded-full px-2.5 py-0.5 text-label-sm uppercase ${isLive ? 'bg-[#e3f4e8] text-[#1e6b3a]' : 'bg-surface-container text-on-surface-variant'}`}>
               {ended ? 'ended' : saved.status}
             </span>
-            <span>{saved.templateName || form.templateKey}</span>
+            <span>{printed ? 'Printed cards with QR' : saved.templateName || form.templateKey}</span>
             <span aria-hidden="true">•</span>
             <span role="status" aria-live="polite" className={status.type === 'error' ? 'text-error' : ''}>
               {status.type === 'saving' ? 'Saving…' : dirty ? 'Unsaved changes' : 'All changes saved'}
@@ -381,9 +413,11 @@ export default function InvitationEditor() {
         </div>
         {/* On phones each button gets its own full-width line */}
         <div className="flex flex-col gap-2.5 sm:flex-row sm:gap-3">
-          <button type="button" className="btn-secondary" onClick={openPreview}>
-            <Eye size={16} aria-hidden="true" /> Preview
-          </button>
+          {!printed && (
+            <button type="button" className="btn-secondary" onClick={openPreview}>
+              <Eye size={16} aria-hidden="true" /> Preview
+            </button>
+          )}
           <button type="button" className={`${isLive ? 'btn-primary' : 'btn-secondary'} px-5 py-2.5`} onClick={save} disabled={!dirty || status.type === 'saving'}>
             <Save size={16} aria-hidden="true" /> {status.type === 'saving' ? 'Saving…' : isLive ? 'Save changes' : 'Save Draft'}
           </button>
@@ -410,7 +444,16 @@ export default function InvitationEditor() {
         const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
         let note = null
         let blocked = false
-        if (saved.paid) {
+        const printedLeft = user?.printedCredits || 0
+        if (printed) {
+          if (!saved.paid) {
+            if (printedLeft > 0) note = `Publishing these printed cards uses 1 of your ${plural(printedLeft, 'Printed Cards invitation')}. After that you can still edit it, unpublish it and publish it again.`
+            else {
+              blocked = true
+              note = 'Publishing printed cards with a QR code needs the Printed Cards package (Rs. 500).'
+            }
+          }
+        } else if (saved.paid) {
           // Published as a free card, now switched to an animated design
           if (saved.paidKind === 'free' && !freeDesign) {
             blocked = premium === 0
@@ -451,7 +494,15 @@ export default function InvitationEditor() {
       {justPublished ? (
         <div className="mt-4 flex flex-col gap-3 rounded-lg border border-[#b7e0c4] bg-[#e3f4e8] px-5 py-4 sm:flex-row sm:items-center sm:justify-between" role="status">
           <p className="text-body-md text-[#1e6b3a]">
-            <strong>Your invitation is live.</strong> Guests can open it until {untilText(saved.onlineUntil || until)}, the day after your last event. Next, add your guests to get their personal links.
+            {printed ? (
+              <>
+                <strong>Your QR reply page is live.</strong> Next, add your guests and download your QR code from the guest list to print on your cards.
+              </>
+            ) : (
+              <>
+                <strong>Your invitation is live.</strong> Guests can open it until {untilText(saved.onlineUntil || until)}, the day after your last event. Next, add your guests to get their personal links.
+              </>
+            )}
           </p>
           <Link to={`/invitations/${id}/guests`} className="btn-primary shrink-0">
             <Users size={16} aria-hidden="true" /> Add guests
@@ -461,7 +512,11 @@ export default function InvitationEditor() {
         isLive && (
           <div className="mt-4 flex flex-col gap-3 rounded-lg bg-blush-tint px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-body-sm text-espresso">
-              {ended
+              {printed
+                ? ended
+                  ? `Your event was on ${untilText(saved.eventDate)}. The QR reply page is closed.`
+                  : 'Your QR reply page is live. Changes you save show on it straight away.'
+                : ended
                 ? `This invitation ended on ${untilText(saved.onlineUntil)}. Guests who open their link now see a short note that it has ended.`
                 : `This invitation is live until ${untilText(saved.onlineUntil || until)}, the day after your last event. Changes you save will show to every guest straight away.`}
             </p>
@@ -524,11 +579,71 @@ export default function InvitationEditor() {
             icon={CalendarDays}
             number={2}
             title="Event Details"
-            subtitle={birthday ? 'Name, age, date, time and dress code' : 'Occasion, names, date, time and dress code'}
+            subtitle={birthday ? 'Name, age, date, time and dress code' : corporate ? 'Company, event title, logo, date and time' : christmas ? 'Party title, hosts, date and time' : 'Occasion, names, date, time and dress code'}
             open={open === 'details'}
             onToggle={toggle}
           >
-            {birthday ? (
+            {christmas ? (
+              <>
+                <Field
+                  label="Party title"
+                  name="eventTitle"
+                  value={form.eventTitle}
+                  onChange={update}
+                  error={errors.eventTitle}
+                  maxLength={100}
+                  required
+                  placeholder="e.g. Christmas Party"
+                  hint="The main heading of your invitation."
+                />
+                <Field
+                  label="Hosted by"
+                  name="companyName"
+                  value={form.companyName}
+                  onChange={update}
+                  error={errors.companyName}
+                  maxLength={80}
+                  required
+                  placeholder="e.g. The Perera family"
+                  hint="A family, a group of friends, a club or a company."
+                />
+              </>
+            ) : corporate ? (
+              <>
+                <Field label="Company name" name="companyName" value={form.companyName} onChange={update} error={errors.companyName} maxLength={80} required placeholder="e.g. Lumora Holdings" />
+                <Field
+                  label="Event title"
+                  name="eventTitle"
+                  value={form.eventTitle}
+                  onChange={update}
+                  error={errors.eventTitle}
+                  maxLength={100}
+                  required
+                  placeholder="e.g. Annual Awards Night 2026"
+                  hint="The main heading of your invitation."
+                />
+                {!printed && <LogoSection
+                  invitationId={id}
+                  logo={saved.logo}
+                  onChange={(logo) => setSaved((prev) => ({ ...prev, logo }))}
+                  logoStyle={form.logoStyle || 'original'}
+                  onStyle={(v) => update('logoStyle', v)}
+                />}
+                <Field
+                  label="Anniversary (years)"
+                  name="milestone"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={500}
+                  value={form.milestone}
+                  onChange={update}
+                  error={errors.milestone}
+                  placeholder="e.g. 25"
+                  hint={form.templateKey === 'corporate-anniversary' ? 'The big number on this design, e.g. 25 for a 25th anniversary.' : 'Optional. Only for a company anniversary; the Corporate Anniversary design shows it as a big number.'}
+                />
+              </>
+            ) : birthday ? (
               <div className="grid gap-5 sm:grid-cols-[1fr_9rem]">
                 <Field
                   label="Birthday person"
@@ -601,8 +716,20 @@ export default function InvitationEditor() {
 
           <Section id="venue" icon={MapPin} number={3} title="Venue" subtitle="Where guests should go" open={open === 'venue'} onToggle={toggle}>
             <Field label="Venue name" name="venueName" value={form.venueName} onChange={update} error={errors.venueName} maxLength={120} required placeholder="e.g. Mount Lavinia Hotel" />
-            <Field label="Address" name="address" as="textarea" rows={2} value={form.address} onChange={update} error={errors.address} maxLength={250} required placeholder="Street, city" />
             <Field
+              label="Address"
+              name="address"
+              as="textarea"
+              rows={2}
+              value={form.address}
+              onChange={update}
+              error={errors.address}
+              maxLength={250}
+              required={!printed}
+              placeholder="Street, city"
+              hint={printed ? 'Optional: it’s on your printed card. Guests see only the venue name on the reply page.' : undefined}
+            />
+            {!printed && <Field
               label="Map link"
               name="mapUrl"
               type="url"
@@ -612,19 +739,20 @@ export default function InvitationEditor() {
               maxLength={500}
               placeholder="https://maps.google.com/…"
               hint="Optional. Paste a Google Maps link so guests can find the venue."
-            />
+            />}
           </Section>
 
+          {!printed && (<>
           <Section id="wording" icon={NotebookPen} number={4} title="Wording" subtitle="The words on your invitation" open={open === 'wording'} onToggle={toggle}>
-            {form.language === 'si' && !birthday && <SinhalaWordingFill form={form} update={update} />}
+            {form.language === 'si' && !birthday && !corporate && !christmas && <SinhalaWordingFill form={form} update={update} />}
             <Field
-              label="Opening blessing"
+              label={corporate || christmas ? 'Top line' : 'Opening blessing'}
               name="blessing"
               value={form.blessing}
               onChange={update}
               error={errors.blessing}
               maxLength={140}
-              placeholder="e.g. ॥ श्री गणेशाय नमः ॥ or a line of scripture"
+              placeholder={corporate ? 'e.g. Celebrating 25 years of excellence' : christmas ? 'e.g. ‘Glory to God in the highest’ — Luke 2:14' : 'e.g. ॥ श्री गणेशाय नमः ॥ or a line of scripture'}
               hint="Optional. Printed in small type at the very top, in any language or script."
             />
             <Field
@@ -636,10 +764,18 @@ export default function InvitationEditor() {
               onChange={update}
               error={errors.hostLine}
               maxLength={200}
-              placeholder={birthday ? 'e.g. Mr. & Mrs. Perera invite you to celebrate their daughter’s birthday' : 'e.g. Mr. & Mrs. Perera request the honour of your presence'}
+              placeholder={
+                birthday
+                  ? 'e.g. Mr. & Mrs. Perera invite you to celebrate their daughter’s birthday'
+                  : corporate
+                    ? 'e.g. The Chairman and Board of Directors of Lumora Holdings cordially invite you to'
+                    : christmas
+                      ? 'e.g. The Perera family warmly invite you to'
+                      : 'e.g. Mr. & Mrs. Perera request the honour of your presence'
+              }
               hint={`Optional. ${form.hostLine.length}/200`}
             />
-            {!birthday && (
+            {!birthday && !corporate && !christmas && (
               <>
             <Field
               label={`Line above ${form.partnerOne.trim() || 'the first partner'}’s name`}
@@ -693,13 +829,13 @@ export default function InvitationEditor() {
                   : 'Optional. Write {name} where each guest’s name should go. When you use {name}, the “Dear …” greeting is left out.'
               }
             />
-            <CeremoniesEditor value={form.ceremonies} templateKey={form.templateKey} onChange={(list) => update('ceremonies', list)} error={errors.ceremonies} />
+            <CeremoniesEditor value={form.ceremonies} templateKey={form.templateKey} corporate={corporate} christmas={christmas} onChange={(list) => update('ceremonies', list)} error={errors.ceremonies} />
           </Section>
 
           <Section id="design" icon={LayoutTemplate} number={5} title="Design" subtitle="Switch to another template" open={open === 'design'} onToggle={toggle}>
             <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Template">
-              {/* Birthday invitations switch between birthday designs; couple invitations between couple designs */}
-              {templates.filter((t) => (t.eventType === 'birthday') === birthday).map((t) => (
+              {/* Birthday, corporate and couple invitations each switch between their own designs */}
+              {templates.filter((t) => kindOf(t.eventType) === kindOf(form.eventType)).map((t) => (
                 <button
                   key={t.key}
                   type="button"
@@ -746,10 +882,19 @@ export default function InvitationEditor() {
               />
             )}
           </Section>
+          </>)}
 
-          <Section id="rsvp" icon={TicketCheck} number={8} title="RSVP Settings" subtitle="When guests must reply by" open={open === 'rsvp'} onToggle={toggle}>
+          <Section id="rsvp" icon={TicketCheck} number={printed ? 4 : 8} title="RSVP Settings" subtitle={freeDesign ? 'Guests reply on your card' : 'When guests must reply by'} open={open === 'rsvp'} onToggle={toggle}>
             {freeDesign ? (
-              <PremiumOnly>Online RSVP comes with the Premium designs. Guests see your free invitation without a reply form.</PremiumOnly>
+              <>
+                <p className="rounded-lg bg-surface-container-low px-4 py-3 text-body-sm text-on-surface-variant">
+                  Guests reply on your card (attending or not attending), and you see their answers on your guest list. Replies stay open until your event.
+                  Each guest replies only for themselves.
+                </p>
+                <div className="mt-3">
+                  <PremiumOnly>A reply-by date comes with the Premium designs.</PremiumOnly>
+                </div>
+              </>
             ) : (
               <>
                 <Field
@@ -765,11 +910,73 @@ export default function InvitationEditor() {
                   hint="Guests can reply or change their answer until the end of this day."
                 />
                 <p className="rounded-lg bg-surface-container-low px-4 py-3 text-body-sm text-on-surface-variant">
-                  Each guest replies only for themselves. Plus-ones can’t be added.
+                  {printed
+                    ? 'Guests scan the QR code on their card, find their name and reply. Each name replies only for itself; plus-ones can’t be added.'
+                    : 'Each guest replies only for themselves. Plus-ones can’t be added.'}
                 </p>
               </>
             )}
           </Section>
+
+          {/* The day plan is for weddings, engagements, homecomings and corporate events (not birthdays) */}
+          {printed && (
+            <Section id="design" icon={Sparkles} number={5} title="Online invitations" subtitle="Add an animated invitation later" open={open === 'design'} onToggle={toggle}>
+              <p className="text-body-sm text-on-surface-variant">
+                Want to send some guests an online invitation too? Upgrade to Premium Plus (you only pay the difference), then choose a design here and save. Your guests, replies and QR code stay as they are.
+              </p>
+              {(!saved.paid || (user?.publishCredits || 0) > 0) ? (
+                <div className="mt-4 grid grid-cols-2 gap-3" role="radiogroup" aria-label="Template">
+                  {templates.filter((t) => kindOf(t.eventType) === kindOf(form.eventType)).map((t) => (
+                    <button
+                      key={t.key}
+                      type="button"
+                      role="radio"
+                      aria-checked={form.templateKey === t.key && form.templateKey !== saved.templateKey}
+                      onClick={() => update('templateKey', t.key)}
+                      className={`overflow-hidden rounded-lg border-2 text-left transition-colors ${form.templateKey === t.key && form.templateKey !== saved.templateKey ? 'border-gold' : 'border-bone hover:border-gold/50'}`}
+                    >
+                      <span className="relative block">
+                        <TemplateThumbnail templateKey={t.key} invitation={previewInvitation} height={150} />
+                        <TierBadge tier={t.tier} custom={t.custom} className="absolute top-2 left-2" />
+                      </span>
+                      <span className="block px-3 py-2 text-body-sm font-semibold text-espresso">{t.name}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-3 rounded-lg border border-gold/40 bg-blush-tint px-4 py-3 text-body-sm text-espresso">
+                  <p>Contact us to upgrade:</p>
+                  <ContactLine className="mt-1" />
+                </div>
+              )}
+              {errors.templateKey && <p className="mt-2 text-body-sm text-error">{errors.templateKey}</p>}
+            </Section>
+          )}
+
+          {form.eventType !== 'birthday' && !christmas && !printed && (
+          <Section
+            id="agenda"
+            icon={CalendarClock}
+            number={9}
+            title={corporate ? 'Event agenda' : 'Wedding day agenda'}
+            subtitle="A timed plan of the day for your guests"
+            open={open === 'agenda'}
+            onToggle={toggle}
+          >
+            <AgendaEditor
+              value={form.agenda}
+              visible={form.agendaVisible}
+              onChange={(list) => update('agenda', list)}
+              onVisible={(on) => update('agendaVisible', on)}
+              error={errors.agenda || errors.agendaVisible}
+              allowed={saved.limits?.agenda === true}
+              planName={saved.limits?.planName}
+              eventDate={form.eventDate}
+              corporate={corporate}
+              onPreview={openAgendaPreview}
+            />
+          </Section>
+          )}
 
           {/* Publish checklist */}
           <section className="card p-5" aria-labelledby="ready-heading">
@@ -787,17 +994,47 @@ export default function InvitationEditor() {
             ) : (
               <p className="mt-2 flex items-center gap-2 text-body-sm text-on-surface-variant">
                 <CheckCircle2 size={16} className="text-gold-text" aria-hidden="true" />
-                {isLive ? 'Guests can open their personal links.' : 'All required details are filled in. Press Publish when you’re happy with it.'}
+                {isLive ? (printed ? 'Guests can reply with the QR code on their card.' : 'Guests can open their personal links.') : 'All required details are filled in. Press Publish when you’re happy with it.'}
               </p>
             )}
             <p className="mt-3 text-body-sm text-on-surface-variant">Based on your last saved version.</p>
           </section>
         </div>
 
-        {/* Live preview (desktop) */}
-        <div className="hidden lg:block">
-          <div className="sticky top-24">{preview}</div>
-        </div>
+        {/* Live preview (desktop); printed cards have no online design, so how the QR works instead */}
+        {printed ? (
+          <div>
+            <section className="card sticky top-24 p-6" aria-labelledby="printed-h">
+              <span className="grid h-12 w-12 place-items-center rounded-full bg-blush-tint text-gold-text" aria-hidden="true">
+                <QrCode size={22} />
+              </span>
+              <h2 id="printed-h" className="mt-4 font-serif text-headline-sm text-espresso">
+                Printed cards with a QR code
+              </h2>
+              <ol className="mt-4 space-y-3 text-body-md text-espresso">
+                {[
+                  'Fill in your event details and reply-by date, then publish.',
+                  'Add your guests one by one or import them from Excel, using the names written on their cards.',
+                  'Download your QR code from the guest list and print it on every card.',
+                  'Guests scan it, type their name, tap it and reply. You see every reply on your guest list.',
+                ].map((t, i) => (
+                  <li key={t} className="flex gap-3">
+                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-gold/20 text-label-sm text-espresso">{i + 1}</span>
+                    <span>{t}</span>
+                  </li>
+                ))}
+              </ol>
+              <p className="mt-4 text-body-sm text-on-surface-variant">The reply page shows your names, date, time and venue name, then the reply form.</p>
+              <Link to={`/invitations/${id}/guests`} className="btn-secondary mt-5">
+                <Users size={16} aria-hidden="true" /> Guests and QR code
+              </Link>
+            </section>
+          </div>
+        ) : (
+          <div className="hidden lg:block">
+            <div className="sticky top-24">{preview}</div>
+          </div>
+        )}
       </div>
 
       {confirmUnpublish && (
@@ -816,17 +1053,19 @@ export default function InvitationEditor() {
           }
         >
           <p className="px-5 py-5 text-body-md text-on-surface-variant">
-            Guests who open their link will see “not available” until you publish again. Their links and replies are kept.
+            {printed
+              ? 'Guests who scan the QR code will be asked to contact you until you publish again. Their replies are kept.'
+              : 'Guests who open their link will see “not available” until you publish again. Their links and replies are kept.'}
           </p>
         </Modal>
       )}
 
       {/* Mobile: preview toggle */}
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-bone bg-ivory/95 p-3 backdrop-blur lg:hidden">
+      {!printed && <div className="fixed inset-x-0 bottom-0 z-20 border-t border-bone bg-ivory/95 p-3 backdrop-blur lg:hidden">
         <button type="button" className="btn-secondary w-full" onClick={() => setShowPreviewMobile(true)}>
           <Eye size={16} aria-hidden="true" /> Show live preview
         </button>
-      </div>
+      </div>}
       {showPreviewMobile && (
         <div className="fixed inset-0 z-40 overflow-y-auto bg-ivory p-3 lg:hidden" role="dialog" aria-modal="true" aria-label="Live preview">
           <button type="button" className="btn-secondary mb-3" onClick={() => setShowPreviewMobile(false)}>
@@ -842,12 +1081,13 @@ export default function InvitationEditor() {
 // Which accordion section contains a field
 function sectionFor(field) {
   if (['venueName', 'address', 'mapUrl'].includes(field)) return 'venue'
-  if (['celebrant', 'age'].includes(field)) return 'details'
+  if (['celebrant', 'age', 'companyName', 'eventTitle', 'milestone'].includes(field)) return 'details'
   if (['hostLine', 'partnerOneParents', 'partnerTwoParents', 'message', 'inviteLine', 'blessing', 'ceremonies'].includes(field)) return 'wording'
   if (field === 'templateKey') return 'design'
   if (field === 'language') return 'language'
   if (field === 'musicTrack') return 'music'
   if (field === 'rsvpDeadline') return 'rsvp'
+  if (field === 'agenda' || field === 'agendaVisible') return 'agenda'
   return 'details'
 }
 
@@ -883,7 +1123,7 @@ function SinhalaWordingFill({ form, update }) {
   )
 }
 
-// Shown in place of a step a free design doesn't have (photos, music, RSVP)
+// Shown in place of a step a free design doesn't have (photos, music, a reply-by date)
 function PremiumOnly({ children }) {
   return (
     <div className="flex items-start gap-3 rounded-lg border border-bone bg-surface-container-low px-4 py-3">

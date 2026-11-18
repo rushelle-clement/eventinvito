@@ -148,7 +148,7 @@ export default function MusicChooser({ invitationId, templateKey, value, customM
       {ownMusic ? (
         <div className="mt-4 rounded-lg border border-bone bg-surface-container-low p-4">
           <p className="text-title-md text-espresso">{customMusic ? 'Replace your music' : 'Use your own music'}</p>
-          <p className="mt-1 text-body-sm text-on-surface-variant">MP3, M4A, WAV, OGG or FLAC · under 15 MB · up to 10 minutes. Guests hear it as a 128 kbps MP3.</p>
+          <p className="mt-1 text-body-sm text-on-surface-variant">MP3, M4A, WAV, OGG or FLAC · under 8 MB · up to 6 minutes. Guests hear it as a 128 kbps MP3.</p>
           <label htmlFor="music-title" className="mt-3 block text-label-md text-espresso uppercase">
             Song title (optional)
           </label>

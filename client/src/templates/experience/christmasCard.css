@@ -1,0 +1,178 @@
+/* The free Christmas party cards (xc-): the card's front, then the panel from corporate.css.
+   Sizes follow the card's width (cqw), so it looks the same everywhere. */
+
+.xc {
+  --xc-w: min(calc(92 * var(--ei-vw, 1vw)), 460px);
+  position: relative;
+  container-type: inline-size;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  width: var(--xc-w);
+  min-height: calc(var(--xc-w) * 1.4);
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--xc-bg);
+  color: var(--xc-ink);
+  text-align: center;
+  font-family: 'Plus Jakarta Sans', 'Noto Sans Sinhala', 'Noto Sans Tamil', sans-serif;
+  box-shadow: 0 34px 70px -38px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+.cx-page.is-embedded { container-type: inline-size; }
+.cx-page.is-embedded .xc { --xc-w: min(calc(100cqw - 20px), 460px); }
+.xc-in { position: relative; z-index: 3; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 22% 14% 22%; }
+
+.xc-blessing { font-family: 'Cormorant Garamond', 'Noto Serif Sinhala', serif; font-style: italic; font-size: max(13px, 3.4cqw); color: var(--xc-muted); }
+.xc-dear { margin-top: 3cqw; padding: 1.2cqw 3.4cqw; border: 1px solid var(--xc-line); border-radius: 99px; font-size: max(11px, 2.8cqw); font-weight: 500; overflow-wrap: anywhere; }
+.xc-invites { margin-top: 4cqw; font-size: max(9.5px, 2.3cqw); font-weight: 600; letter-spacing: 0.24em; text-transform: uppercase; color: var(--xc-accent-2); overflow-wrap: anywhere; }
+.xc-title { margin-top: 2cqw; display: flex; flex-direction: column; align-items: center; line-height: 1; overflow-wrap: break-word; }
+.xc-script { white-space: nowrap; }
+.xc-page:not(:lang(en)) .xc-script { white-space: normal; }
+.xc-pre { font-family: 'Cinzel', serif; font-weight: 500; font-size: 4.2cqw; letter-spacing: 0.22em; text-transform: uppercase; color: var(--xc-ink); padding-left: 0.22em; }
+.xc-script { font-family: 'Great Vibes', 'Cormorant Garamond', serif; font-size: 19cqw; line-height: 1.05; color: var(--xc-accent); padding: 0 2cqw; }
+.xc-post { margin-top: -1cqw; font-family: 'Cinzel', serif; font-weight: 600; font-size: 7.6cqw; letter-spacing: 0.24em; text-transform: uppercase; color: var(--xc-ink); padding-left: 0.24em; }
+.xc-rule { display: block; width: 18cqw; height: 1px; margin: 5cqw auto 4cqw; background: var(--xc-accent-2); }
+.xc-message { max-width: 66cqw; font-family: 'Cormorant Garamond', 'Noto Serif Sinhala', 'Noto Serif Tamil', serif; font-size: max(14px, 3.9cqw); line-height: 1.55; color: var(--xc-muted); }
+.xc-line { margin-top: 2cqw; font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: max(14px, 3.9cqw); color: var(--xc-ink); }
+/* Sinhala and Tamil: no script face, capitals or wide spacing */
+.xc:not(:lang(en)) .xc-invites { letter-spacing: normal; text-transform: none; font-size: max(13px, 3.2cqw); }
+.xc-page:not(:lang(en)) .xc-pre, .xc-page:not(:lang(en)) .xc-script, .xc-page:not(:lang(en)) .xc-post { font-family: 'Noto Serif Sinhala', 'Noto Serif Tamil', serif; letter-spacing: normal; text-transform: none; font-weight: 600; font-size: 8cqw; line-height: 1.3; }
+
+/* the words come in one after another */
+.xc-in > * { animation: xc-in 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.xc-in > :nth-child(1) { animation-delay: 0.2s; }
+.xc-in > :nth-child(2) { animation-delay: 0.35s; }
+.xc-in > :nth-child(3) { animation-delay: 0.5s; }
+.xc-in > :nth-child(4) { animation-delay: 0.65s; }
+.xc-in > :nth-child(5) { animation-delay: 0.8s; }
+.xc-in > :nth-child(n + 6) { animation-delay: 0.95s; }
+@keyframes xc-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+/* falling snow */
+.xc-snow { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
+.xc-snow i { position: absolute; top: -10px; border-radius: 50%; background: var(--xc-snow, #ffffff); opacity: 0.85; animation: xc-fall linear infinite; }
+@keyframes xc-fall { from { transform: translate(0, -10px); } to { transform: translate(var(--drift), calc(var(--xc-w) * 1.5)); } }
+
+/* a fine frame inside the card edge */
+.xc-frame { position: absolute; inset: 3.4cqw; z-index: 1; border: 1px solid var(--xc-line); pointer-events: none; }
+.xc-frame::after { content: ''; position: absolute; inset: 1.4cqw; border: 1px solid var(--xc-line); }
+
+/* ---------------------------------------------------------------- 1. Classic Noël */
+.xc-classic-noel {
+  --xc-bg: radial-gradient(ellipse at 50% 35%, #fffdf7 0%, #fbf6ec 60%, #f2e8d6 100%);
+  --xc-ink: #24432f;
+  --xc-muted: #6f5d50;
+  --xc-accent: #b3202e;
+  --xc-accent-2: #a8863f;
+  --xc-line: rgba(168, 134, 63, 0.55);
+  --xc-snow: #d9c7a3;
+}
+.xc-holly { position: absolute; z-index: 2; width: 40cqw; }
+.xc-holly.tl { left: -2cqw; top: 0; transform: rotate(-12deg); animation: xc-sway 6s ease-in-out infinite; transform-origin: 10% 10%; }
+.xc-holly.br { right: -2cqw; bottom: 0; transform: rotate(168deg); animation: xc-sway-r 7s ease-in-out infinite; transform-origin: 50% 50%; }
+@keyframes xc-sway { 0%, 100% { transform: rotate(-12deg); } 50% { transform: rotate(-9deg); } }
+@keyframes xc-sway-r { 0%, 100% { transform: rotate(168deg); } 50% { transform: rotate(171deg); } }
+.xc-berries { animation: xc-berry 3s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes xc-berry { 0%, 100% { filter: none; } 50% { filter: brightness(1.25) drop-shadow(0 0 2px rgba(220, 40, 50, 0.6)); } }
+
+/* ---------------------------------------------------------------- 2. Candy Cane Lane */
+.xc-candy-cane {
+  --xc-bg: #ffffff;
+  --xc-ink: #2f8f5b;
+  --xc-muted: #6d5157;
+  --xc-accent: #d7263d;
+  --xc-accent-2: #2f8f5b;
+  --xc-line: rgba(215, 38, 61, 0.5);
+}
+.xc-stripes { position: absolute; inset: 0; z-index: 1; padding: 3.6cqw; background: repeating-linear-gradient(45deg, #d7263d 0 3cqw, #ffffff 3cqw 6cqw); background-size: 8.49cqw 8.49cqw; -webkit-mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); animation: xc-stripe 6s linear infinite; }
+@keyframes xc-stripe { to { background-position: 8.49cqw 0; } }
+.xc-mints i { position: absolute; z-index: 2; width: 13cqw; height: 13cqw; border-radius: 50%; background: radial-gradient(circle, #ffffff 0 20%, transparent 21%), repeating-conic-gradient(#d7263d 0 22.5deg, #ffffff 22.5deg 45deg); box-shadow: 0 0 0 1cqw #ffffff, 0 4px 10px rgba(120, 20, 30, 0.25); animation: xc-turn 10s linear infinite; }
+.xc-mints i:nth-child(1) { left: 1.6cqw; top: 1.6cqw; }
+.xc-mints i:nth-child(2) { right: 1.6cqw; top: 1.6cqw; animation-direction: reverse; }
+.xc-mints i:nth-child(3) { left: 1.6cqw; bottom: 1.6cqw; animation-direction: reverse; }
+.xc-mints i:nth-child(4) { right: 1.6cqw; bottom: 1.6cqw; }
+@keyframes xc-turn { to { transform: rotate(360deg); } }
+.xc-canes { position: absolute; z-index: 2; left: 50%; top: 7cqw; width: 38cqw; transform: translateX(-50%); }
+.xc-candy-cane .xc-in { padding-top: 32%; }
+.xc-candy-cane .xc-script { font-family: 'Fredoka', 'Great Vibes', sans-serif; font-weight: 700; font-size: 11.5cqw; text-transform: uppercase; letter-spacing: 0.02em; color: #d7263d; text-shadow: 0.6cqw 0.6cqw 0 #fbd3d8; }
+.xc-candy-cane .xc-post, .xc-candy-cane .xc-pre { font-family: 'Fredoka', sans-serif; font-weight: 700; color: #2f8f5b; }
+.xc-candy-cane .xc-message { font-family: 'Plus Jakarta Sans', 'Noto Sans Sinhala', sans-serif; font-size: max(13px, 3.4cqw); }
+.xc-candy-cane .xc-rule { height: 0.8cqw; width: 22cqw; border-radius: 1cqw; background: repeating-linear-gradient(45deg, #d7263d 0 1.4cqw, #ffffff 1.4cqw 2.8cqw); box-shadow: 0 0 0 1px #f3b3bb; }
+
+/* ---------------------------------------------------------------- 3. Nordic Pine */
+.xc-nordic-pine {
+  --xc-bg: #f4f1ea;
+  --xc-ink: #2f3437;
+  --xc-muted: #5e635f;
+  --xc-accent: #5f7d66;
+  --xc-accent-2: #5f7d66;
+  --xc-line: rgba(47, 52, 55, 0.35);
+  --xc-snow: #c9c4b8;
+}
+.xc-forest { position: absolute; z-index: 1; left: 0; right: 0; bottom: 0; width: 100%; height: 40%; }
+.xc-forest path { fill: none; stroke: #2f3437; stroke-width: 0.4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: xc-draw 1.6s cubic-bezier(0.6, 0, 0.3, 1) forwards; animation-delay: calc(0.2s + var(--i, 0) * 0.18s); }
+.xc-tree:nth-child(even) path { stroke: #5f7d66; }
+.xc-ground { animation-delay: 0.1s !important; stroke: #9aa39b !important; }
+.xc-tree-star { fill: #c9a35e; opacity: 0; animation: xc-pop 0.6s ease forwards; animation-delay: calc(1.4s + var(--i, 0) * 0.18s); transform-box: fill-box; transform-origin: center; }
+@keyframes xc-draw { to { stroke-dashoffset: 0; } }
+@keyframes xc-pop { from { opacity: 0; transform: scale(0.2); } to { opacity: 1; transform: none; } }
+.xc-nordic-pine .xc-in { justify-content: flex-start; padding-top: 16%; padding-bottom: 42%; }
+.xc-nordic-pine .xc-script { font-family: 'Italiana', serif; font-size: 10.4cqw; text-transform: uppercase; letter-spacing: 0.08em; color: #2f3437; }
+.xc-nordic-pine .xc-pre, .xc-nordic-pine .xc-post { font-family: 'Italiana', serif; font-weight: 400; color: #5f7d66; }
+.xc-nordic-pine .xc-post { margin-top: 1cqw; font-size: 6cqw; }
+.xc-nordic-pine .xc-message { font-family: 'Plus Jakarta Sans', 'Noto Sans Sinhala', sans-serif; font-size: max(12.5px, 3.2cqw); }
+
+/* ---------------------------------------------------------------- 4. Starlight */
+.xc-golden-star {
+  --xc-bg: radial-gradient(ellipse at 50% 22%, #1c2a5c 0%, #101a3a 55%, #0a1128 100%);
+  --xc-ink: #f5ecd6;
+  --xc-muted: rgba(245, 236, 214, 0.8);
+  --xc-accent: #e6c77f;
+  --xc-accent-2: #d9b768;
+  --xc-line: rgba(217, 183, 104, 0.5);
+}
+.xc-star { position: absolute; z-index: 1; left: 50%; top: 2cqw; width: 52cqw; transform: translateX(-50%); }
+.xc-glow { animation: xc-glow 4s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+@keyframes xc-glow { 0%, 100% { opacity: 0.6; transform: scale(0.92); } 50% { opacity: 1; transform: scale(1.05); } }
+.xc-rays { animation: xc-turn 60s linear infinite; transform-origin: 50px 50px; }
+.xc-twinkles { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; }
+.xc-twinkles polygon { fill: #f3dd9e; transform-box: fill-box; transform-origin: center; animation: xc-twinkle 3.4s ease-in-out infinite; }
+@keyframes xc-twinkle { 0%, 100% { opacity: 0.3; transform: scale(0.6); } 50% { opacity: 1; transform: scale(1.1); } }
+.xc-golden-star .xc-in { padding-top: 46%; padding-bottom: 16%; }
+.xc-golden-star .xc-script { background: linear-gradient(100deg, #a8823f 10%, #fbe7ae 40%, #d9b768 60%, #fff1c9 80%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.xc-golden-star .xc-dear { border-color: rgba(217, 183, 104, 0.55); }
+
+/* ---------------------------------------------------------------- 5. Silent Night */
+.xc-silent-night {
+  --xc-bg: linear-gradient(180deg, #0c1733 0%, #13234a 55%, #1d3366 100%);
+  --xc-ink: #eef3fb;
+  --xc-muted: rgba(220, 230, 248, 0.82);
+  --xc-accent: #f3c969;
+  --xc-accent-2: #a9c3ea;
+  --xc-line: rgba(169, 195, 234, 0.45);
+}
+.xc-moon { position: absolute; z-index: 1; right: 10cqw; top: 8cqw; width: 12cqw; height: 12cqw; border-radius: 50%; background: radial-gradient(circle at 40% 40%, #fffbe9, #f0e2b8 70%); box-shadow: 0 0 6cqw 1cqw rgba(255, 244, 200, 0.35); }
+.xc-village { position: absolute; z-index: 1; left: 0; right: 0; bottom: 0; width: 100%; height: 30%; }
+.xc-windows rect, .xc-windows path { fill: #f3c969; animation: xc-window 5s ease-in-out infinite; }
+@keyframes xc-window { 0%, 100% { opacity: 1; filter: drop-shadow(0 0 1px #f3c969); } 45% { opacity: 0.75; } 55% { opacity: 1; } }
+.xc-silent-night .xc-in { padding-top: 20%; padding-bottom: 34%; }
+.xc-silent-night .xc-script { color: #f3c969; text-shadow: 0 0 4cqw rgba(243, 201, 105, 0.35); }
+
+/* ---------------------------------------------------------------- the panel under the card (corporate.css) */
+.xc-classic-noel.cx-page { --cx-bg: linear-gradient(180deg, #efe6d6, #e6dac3); --cx-paper: #fbf6ec; --cx-ink: #24432f; --cx-muted: #6f5d50; --cx-accent: #b3202e; --cx-line: rgba(168, 134, 63, 0.45); --cx-title-font: 'Cormorant Garamond', serif; --cx-title-weight: 600; }
+.xc-candy-cane.cx-page { --cx-bg: repeating-linear-gradient(45deg, #fde9ea 0 18px, #fff6f6 18px 36px); --cx-paper: #ffffff; --cx-ink: #3a1f24; --cx-muted: #7a5a5f; --cx-accent: #d7263d; --cx-line: rgba(215, 38, 61, 0.35); --cx-title-font: 'Fredoka', sans-serif; --cx-title-weight: 600; }
+.xc-nordic-pine.cx-page { --cx-bg: #e7e3da; --cx-paper: #f4f1ea; --cx-ink: #2f3437; --cx-muted: #6b7069; --cx-accent: #5f7d66; --cx-line: rgba(47, 52, 55, 0.25); --cx-title-font: 'Cormorant Garamond', serif; --cx-title-weight: 600; }
+.xc-golden-star.cx-page { --cx-bg: radial-gradient(ellipse at 50% 0%, #16224a, #0a1128 70%); --cx-paper: #101a3a; --cx-ink: #f5ecd6; --cx-muted: #bdb6a2; --cx-accent: #e6c77f; --cx-line: rgba(217, 183, 104, 0.4); --cx-note: #bdb6a2; --cx-title-font: 'Cormorant Garamond', serif; --cx-title-weight: 600; }
+.xc-silent-night.cx-page { --cx-bg: linear-gradient(180deg, #0c1733, #13234a); --cx-paper: #13234a; --cx-ink: #eef3fb; --cx-muted: #b6c3dc; --cx-accent: #f3c969; --cx-line: rgba(169, 195, 234, 0.35); --cx-note: #b6c3dc; --cx-title-font: 'Cormorant Garamond', serif; --cx-title-weight: 600; }
+
+/* thumbnails and reduced motion */
+.xc-page.is-still .xc *, .is-poster .xc * { animation: none !important; }
+.is-poster .xc-forest path { stroke-dashoffset: 0; }
+.is-poster .xc-tree-star { opacity: 1; }
+.is-poster .xc-snow i { top: var(--y); }
+@media (prefers-reduced-motion: reduce) {
+  .xc * { animation: none !important; }
+  .xc-forest path { stroke-dashoffset: 0; }
+  .xc-tree-star { opacity: 1; }
+}

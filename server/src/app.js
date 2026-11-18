@@ -9,6 +9,7 @@ const templateRoutes = require("./routes/templateRoutes");
 const invitationRoutes = require("./routes/invitationRoutes");
 const publicInviteRoutes = require("./routes/publicInviteRoutes");
 const adminRoutes = require("./routes/adminRoutes");
+const qrRoutes = require("./routes/qrRoutes");
 const { notFound, errorHandler } = require("./middleware/errorHandler");
 
 const app = express();
@@ -71,6 +72,8 @@ app.get("/api/config", (req, res) => {
         success: true,
         signupOpen: process.env.ALLOW_SIGNUP !== "false",
         contact: { email: process.env.CONTACT_EMAIL || "", phone: process.env.CONTACT_PHONE || "" },
+        // Reset emails can be sent (Brevo is set up): shows "Forgot password?" on the sign-in page
+        passwordReset: require("./utils/email").emailConfigured(),
     });
 });
 
@@ -79,6 +82,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/templates", templateRoutes);
 app.use("/api/invitations", invitationRoutes);
 app.use("/api/invite", publicInviteRoutes);
+app.use("/api/qr", qrRoutes); // printed cards: reply by QR code
 
 // Unknown /api/... addresses get a JSON 404
 app.use("/api", notFound);

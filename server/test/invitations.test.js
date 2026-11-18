@@ -137,7 +137,7 @@ describe("Invitations", () => {
         assert.equal(tiers["ivory-classic"], "free");
         assert.equal(tiers["midnight-rose"], "free");
         assert.equal(tiers["noir-rouge"], "premium");
-        assert.equal(list.body.templates.filter((t) => t.tier === "free").length, 12, "7 couple cards and 5 birthday cards");
+        assert.equal(list.body.templates.filter((t) => t.tier === "free").length, 22, "7 couple cards, 5 birthday cards, 5 corporate cards and 5 Christmas cards");
 
         const { rsvpDeadline, ...rest } = COMPLETE();
         assert.ok(rsvpDeadline);

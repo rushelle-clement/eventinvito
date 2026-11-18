@@ -23,13 +23,13 @@ function requireConfigured() {
 const photosJSON = (invitation) => invitation.toOwnerJSON().photos;
 const { limitsFor } = require("../utils/packages");
 
-// The package's photo limit (6 for Premium, 12 for Premium Plus and Signature)
+// The package's photo limit (3 for Premium, 6 for Premium Plus and Signature)
 function photoLimit(invitation, user) {
     const { photos, planName } = limitsFor(invitation, user);
     return {
         max: photos,
         message: photos
-            ? `${planName} includes up to ${photos} photos.${photos < 12 ? " Premium Plus includes up to 12." : ""}`
+            ? `${planName} includes up to ${photos} photos.${photos < 6 ? " Premium Plus includes up to 6." : ""}`
             : "Photos are part of the Premium packages.",
     };
 }
@@ -70,7 +70,7 @@ async function addPhoto(req, res) {
     const format = String(info.format || "").toLowerCase();
     if (!cloudinary.ALLOWED_FORMATS.includes(format) || info.bytes > cloudinary.MAX_BYTES) {
         await cloudinary.deleteImage(publicId).catch(() => {});
-        throw new AppError(400, "Please upload a JPG, PNG, WebP or HEIC photo under 10 MB.");
+        throw new AppError(400, "Please upload a JPG, PNG, WebP or HEIC photo under 5 MB.");
     }
 
     invitation.photos.push({ publicId, version: Number(info.version || version), width: info.width, height: info.height, format, bytes: info.bytes });

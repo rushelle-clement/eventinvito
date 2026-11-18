@@ -1,0 +1,94 @@
+/* Tropical Paradise (bt-): teal, coral and sunny yellow. A teal card framed by palm and monstera
+   leaves that sway in a breeze, with hibiscus. After the tap the leaves part (they swing away to
+   the corners), the flowers fly off, and coral and yellow confetti falls. */
+
+.bp-tropical-paradise {
+  --bp-page: #e9f7f4;
+  --bp-card: #ffffff;
+  --bp-ink: #14514c;
+  --bp-muted: #4b7c76;
+  --bp-accent: #ff7a59;
+  --bp-accent-2: #2bb5a4;
+  --bp-on-accent: #ffffff;
+  --bp-hero-ink: #ffffff;
+  --bp-hero-veil: radial-gradient(ellipse 62% 48% at 50% 50%, rgba(28, 130, 120, 0.42), rgba(28, 130, 120, 0) 78%);
+  --bp-name-font: 'Playfair Display', 'Noto Serif Sinhala', 'Noto Serif Tamil', serif;
+  --bp-head: 'Playfair Display', 'Noto Serif Sinhala', 'Noto Serif Tamil', serif;
+  --bp-body: 'Plus Jakarta Sans', 'Noto Sans Sinhala', 'Noto Sans Tamil', sans-serif;
+  --bp-flash: #f2fffc;
+}
+.bp-floaters.sunny span { background: radial-gradient(circle, rgba(255, 236, 160, 0.95), rgba(255, 201, 60, 0.4) 40%, transparent 70%); }
+
+/* ---------------------------------------------------------------- the card */
+.bt-card {
+  position: relative;
+  display: block;
+  width: min(calc(76 * var(--ei-vw, 1vw)), 360px, calc((calc(100 * var(--ei-vh, 1svh)) - var(--ei-top, 0px) - 150px) * 5 / 7));
+  aspect-ratio: 5 / 7;
+  margin: 0 auto;
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 50%, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0) 70%),
+    linear-gradient(165deg, #8fdcd0 0%, #5fc4b6 50%, #3fae9f 100%);
+  box-shadow: 0 30px 60px -30px rgba(10, 70, 64, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.5), inset 0 0 0 9px rgba(255, 255, 255, 0.0), inset 0 0 0 10px rgba(255, 255, 255, 0.55);
+}
+.bt-card-in { position: absolute; inset: 24% 14% 22%; z-index: 3; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.bt-card .bp-tag .bp-eyebrow { color: #ffffff; opacity: 0.9; font-size: 10px; letter-spacing: 0.28em; }
+.bt-card .bp-tag .bp-eyebrow.is-local { font-size: 13px; letter-spacing: normal; }
+.bp-tropical-paradise .bp-tag-name { margin-top: 8px; font-weight: 600; color: #ffffff; text-shadow: 0 2px 14px rgba(10, 80, 72, 0.45); font-size: clamp(30px, min(calc(10 * var(--ei-vw, 1vw)), calc(6 * var(--ei-vh, 1svh))), 50px); }
+.bp-tropical-paradise .bp-tag-age.bc-age { flex-direction: column; align-items: center; gap: 0; margin-top: 4px; }
+.bp-tropical-paradise .bp-tag-age .bc-age-num { font-family: 'Playfair Display', serif; font-weight: 600; font-size: clamp(34px, calc(10 * var(--ei-vw, 1vw)), 50px); color: #ffc93c; text-shadow: 0 2px 10px rgba(10, 80, 72, 0.35); }
+.bp-tropical-paradise .bp-tag-age .bc-age-sfx { color: #ffc93c; }
+.bp-tropical-paradise .bp-tag-age .bc-age-cap { font-family: 'Great Vibes', var(--bp-head); font-size: clamp(24px, calc(7 * var(--ei-vw, 1vw)), 32px); color: #ffffff; }
+.bp-tropical-paradise .bp-stage:not(:lang(en)) .bc-age-cap { font-family: var(--bp-head); font-size: 17px; }
+
+/* leaves and flowers around the card, swaying in the breeze */
+.bt-leaves, .bt-bouquet, .bt-flower { position: absolute; z-index: 2; pointer-events: none; max-width: none; }
+.bt-card .bt-leaves.tl { left: -16%; top: -12%; width: 74%; transform-origin: 0 0; animation: bt-sway 6s ease-in-out infinite; }
+.bt-card .bt-leaves.br { right: -16%; bottom: -12%; width: 76%; transform-origin: 100% 100%; animation: bt-sway 7s ease-in-out -2s infinite reverse; }
+.bt-card .bt-bouquet { right: -12%; top: -9%; width: 52%; transform-origin: 70% 30%; animation: bt-bob 5.5s ease-in-out infinite; }
+.bt-card .bt-flower { left: -10%; bottom: -6%; width: 34%; transform-origin: 50% 50%; animation: bt-bob 6.5s ease-in-out -3s infinite; }
+@keyframes bt-sway { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(3.2deg); } }
+@keyframes bt-bob { 0%, 100% { transform: rotate(-2deg) translateY(0); } 50% { transform: rotate(2.5deg) translateY(-4px); } }
+
+.bp-opening.bp-tropical-paradise .bp-scene { margin: 6px 0 4px; }
+.bp-opening.bp-tropical-paradise .bp-stage { padding-top: 30px; }
+.bp-tropical-paradise .bp-open-btn { margin-top: 26px; background: linear-gradient(95deg, #ff7a59, #ff9e6b); font-weight: 700; letter-spacing: 0.02em; box-shadow: 0 14px 28px -12px rgba(232, 97, 63, 0.7); }
+
+/* after the tap: the leaves part, the flowers fly off, the card opens out */
+.bp-tropical-paradise.is-opening .bt-card .bt-leaves.tl { animation: bt-part-tl 1.5s cubic-bezier(0.5, 0, 0.3, 1) forwards; }
+.bp-tropical-paradise.is-opening .bt-card .bt-leaves.br { animation: bt-part-br 1.5s cubic-bezier(0.5, 0, 0.3, 1) forwards; }
+.bp-tropical-paradise.is-opening .bt-card .bt-bouquet { animation: bt-fly-tr 1.4s cubic-bezier(0.5, 0, 0.3, 1) 0.1s forwards; }
+.bp-tropical-paradise.is-opening .bt-card .bt-flower { animation: bt-fly-bl 1.4s cubic-bezier(0.5, 0, 0.3, 1) 0.15s forwards; }
+.bp-tropical-paradise.is-opening .bt-card { animation: bt-card-open 1.6s ease 0.5s forwards; }
+.bp-tropical-paradise.is-opening .bp-flash { animation: bp-flash-in 0.7s ease 1.45s forwards; }
+@keyframes bt-part-tl { 20% { transform: rotate(8deg); } 100% { transform: translate(-70%, -60%) rotate(-30deg); opacity: 0; } }
+@keyframes bt-part-br { 20% { transform: rotate(-8deg); } 100% { transform: translate(70%, 60%) rotate(30deg); opacity: 0; } }
+@keyframes bt-fly-tr { 100% { transform: translate(60%, -90%) rotate(40deg) scale(1.2); opacity: 0; } }
+@keyframes bt-fly-bl { 100% { transform: translate(-80%, 80%) rotate(-50deg) scale(1.2); opacity: 0; } }
+@keyframes bt-card-open { 100% { transform: scale(1.12); opacity: 0.2; } }
+
+/* ---------------------------------------------------------------- the invitation */
+.bp-invite.bp-tropical-paradise .bp-hero { padding-top: clamp(130px, calc(24 * var(--ei-vh, 1svh)), 200px); padding-bottom: clamp(130px, calc(22 * var(--ei-vh, 1svh)), 190px); }
+.bp-hero .bt-leaves.tl { left: -6%; top: -4%; width: min(calc(62 * var(--ei-vw, 1vw)), 460px); transform-origin: 0 0; animation: bt-sway 6s ease-in-out infinite; }
+.bp-hero .bt-leaves.br { right: -6%; bottom: -3%; width: min(calc(64 * var(--ei-vw, 1vw)), 480px); transform-origin: 100% 100%; animation: bt-sway 7s ease-in-out -2s infinite reverse; }
+.bp-hero .bt-bouquet { right: -5%; top: 2%; width: min(calc(44 * var(--ei-vw, 1vw)), 320px); transform-origin: 70% 30%; animation: bt-bob 5.5s ease-in-out infinite; }
+.bp-hero .bt-flower { left: -4%; bottom: 4%; width: min(calc(28 * var(--ei-vw, 1vw)), 200px); animation: bt-bob 6.5s ease-in-out -3s infinite; }
+.bp-tropical-paradise .bp-greeting { background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.55); color: #ffffff; }
+.bp-tropical-paradise .bp-hero .bp-eyebrow { color: #ffffff; opacity: 0.95; }
+.bp-tropical-paradise .bp-name { font-weight: 600; color: #ffffff; text-shadow: 0 3px 20px rgba(10, 80, 72, 0.45); }
+.bp-tropical-paradise .bp-age .bc-age-num { font-family: 'Playfair Display', serif; color: #ffc93c; text-shadow: 0 4px 22px rgba(10, 80, 72, 0.35); }
+.bp-tropical-paradise .bp-age .bc-age-cap { font-family: 'Great Vibes', var(--bp-head); font-weight: 400; font-size: clamp(32px, calc(9 * var(--ei-vw, 1vw)), 46px); color: #ffffff; }
+.bp-invite.bp-tropical-paradise:not(:lang(en)) .bp-age .bc-age-cap { font-family: var(--bp-head); font-size: 22px; }
+.bp-tropical-paradise .bp-hero .bp-message, .bp-tropical-paradise .bp-hero .bp-date, .bp-tropical-paradise .bp-hero .bp-time, .bp-tropical-paradise .bp-hero .bp-venue { color: #ffffff; text-shadow: 0 1px 10px rgba(10, 80, 72, 0.4); }
+.bp-tropical-paradise .bp-panel { border-radius: 18px; box-shadow: 0 20px 40px -30px rgba(10, 80, 72, 0.5), inset 0 0 0 1px #d4eee9; }
+.bp-tropical-paradise .bp-panel .bp-eyebrow, .bp-tropical-paradise .bp-section .bp-eyebrow { color: #2bb5a4; }
+.bp-tropical-paradise .bp-sign { color: #ff7a59; }
+
+/* thumbnails, reduced motion */
+.is-poster .bp-tropical-paradise .bp-stage { transform: scale(0.74); }
+.is-poster .bt-leaves, .is-poster .bt-bouquet, .is-poster .bt-flower { animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .bt-leaves, .bt-bouquet, .bt-flower { animation: none !important; }
+}
+/* the hero's watercolour is deepened to teal so the white words read clearly */
+.bp-tropical-paradise .bp-hero .bp-backdrop::after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse 75% 60% at 50% 50%, rgba(22, 128, 118, 0.72), rgba(31, 150, 138, 0.5) 70%, rgba(31, 150, 138, 0.35)); }

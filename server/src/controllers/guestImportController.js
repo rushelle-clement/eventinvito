@@ -4,7 +4,11 @@
 // again here, because the browser can't be trusted (NFR-003):
 //
 //   POST /api/invitations/:id/guests/import
-//   { rows: [{ row, name, email, phone, notes, action? }], dryRun: true|false }
+//   { rows: [{ row, name, email, phone, notes, action? }], dryRun: true|false, cardType?: "online"|"physical" }
+//
+// cardType: the whole file is online-card guests (personal links) or physical-card guests
+// (printed cards that reply through the QR code). Physical-card guests get no phone number,
+// and two of them can't have the same name, because they find themselves by name.
 //
 // dryRun: true  → nothing is saved; returns each row's problems, duplicates and the action
 //                 that would be taken. Used for the preview/review screens.
@@ -21,9 +25,10 @@ const mongoose = require("mongoose");
 const Guest = require("../models/Guest");
 const AppError = require("../utils/AppError");
 const { findOwned } = require("./invitationController");
-const { readGuest, MAX_GUESTS_PER_INVITATION, guestLimitMessage } = require("./guestController");
+const { readGuest, canonicalGroup, requireFeature, MAX_GUESTS_PER_INVITATION, guestLimitMessage } = require("./guestController");
 const { limitsFor } = require("../utils/packages");
 const { newGuestToken } = require("../utils/guestToken");
+const qrNames = require("../utils/qrNames");
 
 const MAX_ROWS = 1000;
 const ACTIONS = ["add", "update", "skip", "exclude"];
@@ -32,7 +37,14 @@ const nameKey = (s) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
 // Compare phones by their last 9 digits so 0771234567 and +94771234567 match
 const phoneKey = (s) => (s || "").replace(/\D/g, "").slice(-9);
 
-function analyse(rows, existing) {
+function analyse(rows, existing, cardType = "online") {
+    const physical = cardType === "physical";
+    // Physical-card guests already on the list, by the name they'd type on the QR page
+    const physicalByName = new Map();
+    for (const g of existing) if (g.cardType === "physical") physicalByName.set(qrNames.nameKey(g.name), g);
+    const physicalSeen = new Map();
+    // Groups already used on the list, then new ones from this file, so "office" and "Office" become one
+    const groupNames = [...new Set(existing.map((g) => g.group).filter(Boolean))];
     const byPhone = new Map();
     const byEmail = new Map();
     const byName = new Map();
@@ -50,8 +62,9 @@ function analyse(rows, existing) {
             name: typeof input?.name === "string" ? input.name.replace(/\s+/g, " ") : input?.name,
             displayName: typeof input?.displayName === "string" ? input.displayName.replace(/\s+/g, " ") : input?.displayName ?? "",
             email: input?.email ?? "",
-            phone: input?.phone == null ? "" : String(input.phone),
+            phone: physical || input?.phone == null ? "" : String(input.phone),
             notes: input?.notes ?? "",
+            group: typeof input?.group === "string" ? input.group : input?.group == null ? "" : String(input.group),
         };
         const { values, errors: fieldErrors } = readGuest(raw);
 
@@ -60,6 +73,7 @@ function analyse(rows, existing) {
         const warnings = {};
         if (fieldErrors.name) errors.name = fieldErrors.name;
         if (fieldErrors.notes) errors.notes = fieldErrors.notes;
+        if (fieldErrors.group) warnings.group = "Group is too long (40 characters at most) — the guest will be imported without it.";
         if (fieldErrors.displayName) errors.displayName = fieldErrors.displayName;
         if (fieldErrors.email) warnings.email = "Not a valid email — the guest will be imported without it.";
         if (fieldErrors.phone) warnings.phone = "Not a valid phone number — the guest will be imported without it.";
@@ -70,7 +84,10 @@ function analyse(rows, existing) {
             email: fieldErrors.email ? "" : values.email || "",
             phone: fieldErrors.phone ? "" : values.phone || "",
             notes: values.notes || "",
+            group: fieldErrors.group ? "" : canonicalGroup(values.group || "", groupNames),
         };
+
+        if (clean.group && !groupNames.includes(clean.group)) groupNames.push(clean.group);
 
         // Duplicates: against the existing list first, then earlier rows in this file
         let duplicate = null;
@@ -101,9 +118,25 @@ function analyse(rows, existing) {
             if (!seen.name.has(nameKey(clean.name))) seen.name.set(nameKey(clean.name), rowNumber);
         }
 
+        // Physical cards: the same name as another physical-card guest can't be added
+        if (physical && !errors.name) {
+            const key = qrNames.nameKey(clean.name);
+            const clash = physicalByName.get(key);
+            if (clash) {
+                duplicate = { type: "existing", on: "name", physical: true, guestId: clash._id.toString(), guestName: clash.name, guestPhone: "", guestEmail: clash.email };
+            } else if (key && physicalSeen.has(key)) {
+                duplicate = { type: "file", on: "name", physical: true, row: physicalSeen.get(key) };
+            }
+            if (key && !physicalSeen.has(key)) physicalSeen.set(key, rowNumber);
+        }
+
         // Decide the action: the user's choice if it's allowed, otherwise a safe default
         const hasErrors = Object.keys(errors).length > 0;
-        const allowed = hasErrors ? ["exclude"] : duplicate?.type === "existing" ? ["skip", "update", "add"] : duplicate ? ["skip", "add"] : ["add", "exclude"];
+        const allowed = hasErrors
+            ? ["exclude"]
+            : duplicate?.physical
+              ? duplicate.type === "existing" ? ["skip", "update"] : ["skip"]
+              : duplicate?.type === "existing" ? ["skip", "update", "add"] : duplicate ? ["skip", "add"] : ["add", "exclude"];
         const requested = ACTIONS.includes(input?.action) ? input.action : null;
         const action = requested && allowed.includes(requested) ? requested : allowed[0];
 
@@ -127,13 +160,18 @@ function summarise(analysed) {
 
 async function importGuests(req, res) {
     const invitation = await findOwned(req);
+    requireFeature(limitsFor(invitation, req.user), "import", "Importing guests from Excel or CSV is part of Premium and above.");
     const { rows, dryRun } = req.body || {};
+    // Printed Cards: every guest has a physical card, whatever was sent
+    const cardType = limitsFor(invitation, req.user).onlineCards === false ? "physical" : req.body?.cardType ?? "online";
+    if (!["online", "physical"].includes(cardType)) throw new AppError(400, "Choose online or physical cards.");
+    if (cardType === "physical") requireFeature(limitsFor(invitation, req.user), "qrRsvp", "Physical cards with a QR code are part of Premium Plus and Signature.");
 
     if (!Array.isArray(rows) || rows.length === 0) throw new AppError(400, "The file has no guest rows to import.");
     if (rows.length > MAX_ROWS) throw new AppError(400, `Please import up to ${MAX_ROWS} rows at a time. Split larger lists into several files.`);
 
-    const existing = await Guest.find({ invitation: invitation._id, owner: req.user._id }).select("name displayName email phone notes");
-    const analysed = analyse(rows, existing);
+    const existing = await Guest.find({ invitation: invitation._id, owner: req.user._id }).select("name displayName email phone notes group cardType");
+    const analysed = analyse(rows, existing, cardType);
     const summary = summarise(analysed);
 
     const { guests: planLimit, planName } = limitsFor(invitation, req.user);
@@ -148,7 +186,7 @@ async function importGuests(req, res) {
     }
 
     if (dryRun !== false) {
-        return res.json({ success: true, dryRun: true, summary, rows: analysed });
+        return res.json({ success: true, dryRun: true, cardType, summary, rows: analysed });
     }
 
     // ---- Apply ----
@@ -162,6 +200,7 @@ async function importGuests(req, res) {
         return {
             _id: new mongoose.Types.ObjectId(),
             ...r.values,
+            cardType,
             invitation: invitation._id,
             owner: req.user._id,
             tokenHash,
@@ -171,7 +210,7 @@ async function importGuests(req, res) {
     const originals = toUpdate
         .map((r) => existingById.get(r.duplicate.guestId))
         .filter(Boolean)
-        .map((g) => ({ _id: g._id, displayName: g.displayName, phone: g.phone, email: g.email, notes: g.notes }));
+        .map((g) => ({ _id: g._id, displayName: g.displayName, phone: g.phone, email: g.email, notes: g.notes, group: g.group, cardType: g.cardType || "online" }));
 
     let added = 0;
     try {
@@ -185,13 +224,17 @@ async function importGuests(req, res) {
             if (r.values.email) guest.email = r.values.email;
             if (r.values.notes) guest.notes = r.values.notes;
             if (r.values.displayName) guest.displayName = r.values.displayName;
+            if (r.values.group) guest.group = r.values.group;
+            // The guest moves to this file's card type (physical cards have no phone)
+            guest.cardType = cardType;
+            if (cardType === "physical") guest.phone = "";
             await guest.save();
         }
     } catch (err) {
         // Undo everything so the list isn't left half-imported
         await Guest.deleteMany({ _id: { $in: newDocs.map((d) => d._id) } }).catch(() => {});
         for (const o of originals) {
-            await Guest.updateOne({ _id: o._id }, { $set: { displayName: o.displayName || "", phone: o.phone, email: o.email, notes: o.notes } }).catch(() => {});
+            await Guest.updateOne({ _id: o._id }, { $set: { displayName: o.displayName || "", phone: o.phone, email: o.email, notes: o.notes, group: o.group || "", cardType: o.cardType } }).catch(() => {});
         }
         console.error("[guest import] failed:", err.message);
         throw new AppError(
@@ -206,6 +249,7 @@ async function importGuests(req, res) {
         success: true,
         dryRun: false,
         summary: { ...summary, added, updated: originals.length },
+        cardType,
         rows: analysed,
     });
 }

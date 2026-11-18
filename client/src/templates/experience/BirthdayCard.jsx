@@ -1,5 +1,6 @@
 // The five free birthday designs: one static card for one person, with their age as the
-// centrepiece. No opening animation, music, photos or RSVP (those come with Premium).
+// centrepiece. Guests reply on the card (no deadline). No opening animation, music or photos
+// (those come with Premium).
 // Each design is a variant (its template key) with its own colours, type and drawn artwork.
 
 import { CalendarDays, Clock, MapPin, Shirt } from 'lucide-react'
@@ -27,7 +28,7 @@ export function AgeMark({ age, t, latin, className = '' }) {
   )
 }
 
-export default function BirthdayCard({ invitation, guestName, t, lang, embedded = false }) {
+export default function BirthdayCard({ invitation, guestName, rsvp, t, lang, embedded = false }) {
   const variant = BIRTHDAY_ART[invitation.templateKey] ? invitation.templateKey : 'confetti-pop'
   const Art = BIRTHDAY_ART[variant]
   const latin = lang === 'en'
@@ -97,6 +98,15 @@ export default function BirthdayCard({ invitation, guestName, t, lang, embedded 
                   </li>
                 ))}
               </ol>
+            </section>
+          )}
+
+          {rsvp && !embedded && (
+            <section className="bc-rsvp" aria-labelledby="bc-rsvp-h">
+              <h2 id="bc-rsvp-h" className={`bc-label ${local}`}>
+                {t.rsvpPrompt}
+              </h2>
+              {rsvp}
             </section>
           )}
         </div>

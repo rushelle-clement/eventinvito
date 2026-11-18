@@ -98,7 +98,7 @@ describe("RSVP", () => {
         assert.equal((await rsvp(g.token, "attending")).status, 403);
     });
 
-    it("free designs take no replies and send no music or photos to guests", async () => {
+    it("free designs take replies with no deadline, and send no music or photos to guests", async () => {
         const { rsvpDeadline, ...fields } = COMPLETE();
         void rsvpDeadline;
         const id = await createInvitation(owner.token, { ...fields, musicTrack: "piano-romance" }, "ivory-classic");
@@ -106,13 +106,14 @@ describe("RSVP", () => {
         const g = await addGuest(owner.token, id);
         const view = await api().get(`/api/invite/${g.token}`);
         assert.equal(view.status, 200);
-        assert.equal(view.body.rsvp.available, false);
-        assert.equal(view.body.rsvp.open, false);
+        assert.equal(view.body.rsvp.available, true);
+        assert.equal(view.body.rsvp.open, true);
+        assert.equal(view.body.invitation.rsvpDeadline, "");
         assert.equal(view.body.invitation.musicTrack, "");
         assert.deepEqual(view.body.invitation.photos, []);
         const res = await rsvp(g.token, "attending");
-        assert.equal(res.status, 403);
-        assert.equal((await models.Guest.findById(g.id)).rsvpStatus, "pending");
+        assert.equal(res.status, 200);
+        assert.equal((await models.Guest.findById(g.id)).rsvpStatus, "attending");
     });
     it("keeps the invitation online until the day after the last event, then shows only a short note", async () => {
         const id = await createPublishedInvitation(owner.token, {

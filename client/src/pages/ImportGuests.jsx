@@ -22,6 +22,8 @@ import {
   UserPlus,
   Users,
   XCircle,
+  Link2,
+  Printer,
 } from 'lucide-react'
 import { api } from '../lib/api'
 import FormAlert from '../components/FormAlert'
@@ -81,11 +83,19 @@ function Stat({ label, value, note, tone = '' }) {
   )
 }
 
-const NoAutoSend = () => (
+const NoAutoSend = ({ physical = false }) => (
   <p className="flex items-start gap-2 rounded-lg bg-blush-tint px-4 py-3 text-body-sm text-espresso">
     <ShieldCheck size={18} className="mt-0.5 shrink-0 text-gold-text" aria-hidden="true" />
     <span>
-      <strong>Invitations are not sent automatically.</strong> Importing only adds guests to your list. You choose when to share each personal link.
+      {physical ? (
+        <>
+          <strong>Nothing is sent to anyone.</strong> Importing only adds guests to your list, so they can find their name when they scan your QR code.
+        </>
+      ) : (
+        <>
+          <strong>Invitations are not sent automatically.</strong> Importing only adds guests to your list. You choose when to share each personal link.
+        </>
+      )}
     </span>
   </p>
 )
@@ -98,6 +108,19 @@ function issueText(r) {
   if (r.errors.name) return { tone: 'error', title: r.errors.name.includes('100') ? 'Name too long' : 'Missing guest name', text: r.errors.name }
   if (r.errors.notes) return { tone: 'error', title: 'Notes too long', text: r.errors.notes }
   if (r.errors.displayName) return { tone: 'error', title: 'Name on invitation too long', text: r.errors.displayName }
+  // Physical cards: guests find themselves by name, so the same name can't be added twice
+  if (r.duplicate?.physical && r.duplicate.type === 'existing')
+    return {
+      tone: 'dup',
+      title: 'Already has a physical card',
+      text: `“${r.duplicate.guestName}” is already on your list with a physical card. Skip it, update that guest, or change the name in your file (e.g. add their town).`,
+    }
+  if (r.duplicate?.physical)
+    return {
+      tone: 'dup',
+      title: 'Same name as another physical card',
+      text: `Same name as row ${r.duplicate.row}. Guests find themselves by name on the QR page, so give one of them a different name in your file (e.g. “Amal Perera (Kandy)”) and upload it again.`,
+    }
   if (r.duplicate?.type === 'existing')
     return {
       tone: 'dup',
@@ -120,6 +143,12 @@ export default function ImportGuests() {
   const [loadError, setLoadError] = useState('')
 
   const [step, setStep] = useState(1)
+  // Online-card and physical-card guests are imported from separate files
+  const [cardType, setCardType] = useState(() => (new URLSearchParams(window.location.search).get('card') === 'physical' ? 'physical' : 'online'))
+  // Printed Cards package: every guest has a physical card
+  const physicalOnly = invitation?.limits?.onlineCards === false
+  const physical = physicalOnly || cardType === 'physical'
+  const fields = physical ? FIELDS.filter((f) => f.key !== 'phone') : FIELDS
   const [file, setFile] = useState(null) // { name, size }
   const [sheet, setSheet] = useState(null) // { headers, rows }
   const [fileError, setFileError] = useState('')
@@ -186,7 +215,7 @@ export default function ImportGuests() {
     setChecking(true)
     setError('')
     try {
-      const data = await api(`/invitations/${id}/guests/import`, { method: 'POST', body: { rows: nextRows, dryRun: true } })
+      const data = await api(`/invitations/${id}/guests/import`, { method: 'POST', body: { rows: nextRows, dryRun: true, cardType: physical ? 'physical' : 'online' } })
       setAnalysis(data)
       // keep the server's resolved action on each row
       setRows(nextRows.map((r, i) => ({ ...r, action: data.rows[i].action })))
@@ -260,7 +289,7 @@ export default function ImportGuests() {
     setImporting(true)
     setFailed('')
     try {
-      const data = await api(`/invitations/${id}/guests/import`, { method: 'POST', body: { rows, dryRun: false } })
+      const data = await api(`/invitations/${id}/guests/import`, { method: 'POST', body: { rows, dryRun: false, cardType: physical ? 'physical' : 'online' } })
       setResult(data)
       setStep(5)
     } catch (err) {
@@ -303,6 +332,27 @@ export default function ImportGuests() {
 
   const names = invitationTitle(invitation)
   const guestsUrl = `/invitations/${id}/guests`
+
+  // Importing from Excel or CSV is part of Premium and above (Simple Card adds guests one by one)
+  if (invitation.limits && !invitation.limits.import) {
+    return (
+      <div className="mx-auto max-w-xl px-margin-mobile py-16 text-center">
+        <h1 className="font-serif text-headline-md text-espresso">Import guests from Excel</h1>
+        <p className="mt-3 text-body-md text-on-surface-variant">
+          Importing a guest list from Excel or CSV is part of Premium and above. Your package is {invitation.limits.planName}, so add guests one at a time from your guest
+          list.
+        </p>
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
+          <Link to={guestsUrl} className="btn-secondary">
+            Back to guests
+          </Link>
+          <a href="/#pricing" className="btn-primary">
+            See the packages
+          </a>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="mx-auto max-w-[1100px] px-margin-mobile py-10 md:px-margin">
@@ -348,14 +398,18 @@ export default function ImportGuests() {
             </div>
             <h3 className="mt-6 text-label-md text-espresso uppercase">Columns</h3>
             <ul className="mt-2 divide-y divide-bone rounded-lg border border-bone">
-              {FIELDS.map((f) => (
+              {fields.map((f) => (
                 <li key={f.key} className="flex items-center justify-between px-4 py-2.5 text-body-sm">
                   <span className="text-espresso">{f.label}</span>
                   <span className={f.required ? 'font-semibold text-gold-text' : 'text-on-surface-variant'}>{f.required ? 'Required' : 'Optional'}</span>
                 </li>
               ))}
             </ul>
-            <p className="mt-3 text-body-sm text-on-surface-variant">One person per row. Plus-ones can’t be added. Add a phone number to share by WhatsApp.</p>
+            <p className="mt-3 text-body-sm text-on-surface-variant">
+              {physical
+                ? 'One card per row. Use each name as written on the card: guests type it to find themselves. No phone numbers needed.'
+                : 'One person per row. Plus-ones can’t be added. Add a phone number to share by WhatsApp.'}
+            </p>
           </section>
 
           <section className="card p-6" aria-labelledby="up-h">
@@ -363,6 +417,31 @@ export default function ImportGuests() {
             <h2 id="up-h" className="mt-2 font-serif text-headline-sm text-espresso">
               Upload your guest list
             </h2>
+
+            {!physicalOnly && (invitation?.limits?.qrRsvp || physical) && (
+              <fieldset className="mt-5">
+                <legend className="text-label-md text-espresso uppercase">Who is in this file?</legend>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {[
+                    { value: 'online', label: 'Online-card guests', note: 'Each gets a personal link', Icon: Link2 },
+                    { value: 'physical', label: 'Physical-card guests', note: 'They reply by the QR code', Icon: Printer },
+                  ].map((o) => (
+                    <label
+                      key={o.value}
+                      className={`flex cursor-pointer items-start gap-2.5 rounded-lg border px-3.5 py-3 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-gold ${cardType === o.value ? 'border-gold bg-gold/10' : 'border-bone bg-white hover:border-gold'}`}
+                    >
+                      <input type="radio" name="cardType" value={o.value} checked={cardType === o.value} onChange={() => setCardType(o.value)} className="sr-only" />
+                      <o.Icon size={17} className="mt-0.5 shrink-0 text-gold-text" aria-hidden="true" />
+                      <span>
+                        <span className="block text-title-md text-espresso">{o.label}</span>
+                        <span className="block text-body-sm text-on-surface-variant">{o.note}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                <p className="mt-2 text-body-sm text-on-surface-variant">Import online and physical-card guests from separate files.</p>
+              </fieldset>
+            )}
 
             <label
               onDragOver={(e) => {
@@ -410,7 +489,7 @@ export default function ImportGuests() {
             )}
 
             <div className="mt-5">
-              <NoAutoSend />
+              <NoAutoSend physical={physical} />
             </div>
 
             <div className="mt-5 flex justify-end gap-3">
@@ -446,10 +525,10 @@ export default function ImportGuests() {
           </div>
 
           <div className="card mt-4 divide-y divide-bone">
-            {FIELDS.map((f) => {
+            {fields.map((f) => {
               const col = mapping[f.key]
               const samples = col >= 0 ? sheet.rows.map((r) => r.cells[col]).filter(Boolean).slice(0, 3) : []
-              const takenBy = (i) => FIELDS.find((o) => o.key !== f.key && mapping[o.key] === i)
+              const takenBy = (i) => fields.find((o) => o.key !== f.key && mapping[o.key] === i)
               return (
                 <div key={f.key} className="grid gap-3 px-5 py-4 md:grid-cols-[200px_260px_1fr] md:items-center">
                   <label htmlFor={`map-${f.key}`} className="text-title-md text-espresso">
@@ -474,9 +553,9 @@ export default function ImportGuests() {
               )
             })}
           </div>
-          {mapping.group >= 0 && mapping.notes >= 0 && (
+          {mapping.group >= 0 && (
             <p className="mt-3 flex items-center gap-2 text-body-sm text-on-surface-variant">
-              <Info size={15} aria-hidden="true" /> Group and notes will be combined into the guest’s private notes.
+              <Info size={15} aria-hidden="true" /> Guests are put in the group from that column (e.g. “Bride’s family”), so you can filter and count them by group.
             </p>
           )}
 
@@ -573,7 +652,7 @@ export default function ImportGuests() {
                     <div className="min-w-0">
                       {isEditing ? (
                         <div className="space-y-2">
-                          {['name', 'phone', 'email'].map((k) => (
+                          {(physical ? ['name', 'email'] : ['name', 'phone', 'email']).map((k) => (
                             <label key={k} className="block">
                               <span className="text-label-sm text-on-surface-variant uppercase">{k === 'name' ? 'Guest name' : k}</span>
                               <input
@@ -596,8 +675,9 @@ export default function ImportGuests() {
                         <>
                           <p className={`truncate text-title-md ${r.values.name ? 'text-espresso' : 'text-error italic'}`}>{r.values.name || raw.name || '[No name]'}</p>
                           {raw.displayName && <p className="truncate text-body-sm text-espresso">{raw.displayName}</p>}
-                          <p className={`truncate text-body-sm ${r.warnings.phone ? 'text-error line-through' : 'text-on-surface-variant'}`}>{raw.phone || '—'}</p>
+                          {!physical && <p className={`truncate text-body-sm ${r.warnings.phone ? 'text-error line-through' : 'text-on-surface-variant'}`}>{raw.phone || '—'}</p>}
                           <p className={`truncate text-body-sm ${r.warnings.email ? 'text-error line-through' : 'text-on-surface-variant'}`}>{raw.email || ''}</p>
+                          {r.values.group && <p className="truncate text-body-sm text-gold-text">Group: {r.values.group}</p>}
                           {raw.notes && <p className="truncate text-body-sm text-on-surface-variant italic">{raw.notes}</p>}
                         </>
                       )}
@@ -678,12 +758,12 @@ export default function ImportGuests() {
             Ready to import?
           </h2>
           <p className="mt-1 text-body-md text-on-surface-variant">
-            From <strong>{file.name}</strong> into {names}’s guest list.
+            From <strong>{file.name}</strong> into {names}’s guest list{physical && !physicalOnly ? ', as physical-card guests' : ''}.
           </p>
 
           <div className="mt-6 grid gap-4 sm:grid-cols-3">
-            <Stat label="New guests to add" value={counts.add} note="Each gets a personal link" />
-            <Stat label="Existing guests to update" value={counts.update} note="Phone, email or notes filled in" />
+            <Stat label="New guests to add" value={counts.add} note={physical ? 'They reply by the QR code' : 'Each gets a personal link'} />
+            <Stat label="Existing guests to update" value={counts.update} note={physical ? 'Moved to physical card; email, group or notes filled in' : 'Phone, email, group or notes filled in'} />
             <Stat label="Rows left out" value={counts.skip} note="Skipped duplicates and errors" />
           </div>
           <p className="mt-4 text-center text-body-md text-espresso" aria-label={`${counts.add} add plus ${counts.update} update plus ${counts.skip} left out equals ${counts.total} rows`}>
@@ -691,7 +771,7 @@ export default function ImportGuests() {
           </p>
 
           <div className="mt-6">
-            <NoAutoSend />
+            <NoAutoSend physical={physical} />
           </div>
 
           {counts.skip > 0 && (
@@ -740,11 +820,13 @@ export default function ImportGuests() {
             {file.name} · {result.summary.total} rows
           </p>
           <div className="mt-8 grid gap-4 text-left sm:grid-cols-3">
-            <Stat label="Guests added" value={result.summary.added} note="With their own personal links" />
+            <Stat label="Guests added" value={result.summary.added} note={physical ? 'With physical cards' : 'With their own personal links'} />
             <Stat label="Guests updated" value={result.summary.updated} />
             <Stat label="Rows left out" value={result.summary.skip} />
           </div>
-          <p className="mt-6 text-body-md text-on-surface-variant">No invitations have been sent. Share each guest’s link from your guest list when you’re ready.</p>
+          <p className="mt-6 text-body-md text-on-surface-variant">{physical
+              ? 'They can reply by scanning the QR code on their card. Download the code from your guest list.'
+              : 'No invitations have been sent. Share each guest’s link from your guest list when you’re ready.'}</p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <Link to={guestsUrl} className="btn-primary">
               <Users size={16} aria-hidden="true" /> Go to guest list

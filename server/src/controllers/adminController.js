@@ -38,6 +38,7 @@ function invitationSummary(i) {
         status: i.status,
         paid: i.isPaid(),
         paidKind: i.paidKind(),
+        printed: Boolean(i.printed),
         eventDate: i.eventDate,
         onlineUntil: i.onlineUntil(),
         ended: i.hasEnded(),
@@ -75,7 +76,7 @@ async function listAccounts(req, res) {
         .skip((page - 1) * limit)
         .limit(limit);
     const invitations = await Invitation.find({ owner: { $in: users.map((u) => u._id) }, status: { $ne: "archived" } }).select(
-        "owner partnerOne partnerTwo celebrant age eventType status eventDate ceremonies timeZone creditUsed creditKind publishedAt"
+        "owner partnerOne partnerTwo celebrant age companyName eventTitle eventType status eventDate ceremonies timeZone creditUsed creditKind publishedAt printed"
     );
     const customs = await Template.find({ reservedFor: { $in: users.map((u) => String(u.email).toLowerCase()) } });
     res.json({
@@ -103,11 +104,12 @@ async function createUserAccount(req, res) {
     const plan = planFrom(req.body?.plan ?? "premium");
     const credits = creditsFrom(req.body?.credits ?? PLAN_CREDITS[plan]);
     const freeCredits = "freeCredits" in (req.body || {}) ? creditsFrom(req.body.freeCredits) : 1;
-    const user = await createAccount({ name, email, password, publishCredits: credits, freeCredits, plan });
+    const printedCredits = "printedCredits" in (req.body || {}) ? creditsFrom(req.body.printedCredits) : 0;
+    const user = await createAccount({ name, email, password, publishCredits: credits, freeCredits, printedCredits, plan });
     res.status(201).json({ success: true, user: await accountJSON(user, []) });
 }
 
-// PATCH /api/admin/users/:id  { plan?, credits?, freeCredits?, disabled?, keepAccess?, password?, name? }
+// PATCH /api/admin/users/:id  { plan?, credits?, freeCredits?, printedCredits?, disabled?, keepAccess?, password?, name? }
 async function updateUserAccount(req, res) {
     if (!mongoose.isValidObjectId(req.params.id)) throw new AppError(404, "Account not found.");
     const user = await User.findById(req.params.id);
@@ -118,6 +120,7 @@ async function updateUserAccount(req, res) {
     if ("plan" in body) user.plan = planFrom(body.plan);
     if ("credits" in body) user.publishCredits = creditsFrom(body.credits);
     if ("freeCredits" in body) user.freeCredits = creditsFrom(body.freeCredits);
+    if ("printedCredits" in body) user.printedCredits = creditsFrom(body.printedCredits);
     if ("disabled" in body) {
         if (typeof body.disabled !== "boolean") throw new AppError(400, "disabled must be true or false.");
         if (self && body.disabled) throw new AppError(400, "You can't turn off your own account.");
@@ -136,11 +139,12 @@ async function updateUserAccount(req, res) {
         const password = typeof body.password === "string" ? body.password : "";
         if (password.length < 8 || password.length > 128) throw new AppError(400, "Password must be 8 to 128 characters.", { password: "8 to 128 characters." });
         user.passwordHash = await bcrypt.hash(password, 12);
+        user.passwordChangedAt = new Date(Date.now() - 1000); // signs out the account's other sessions
     }
     await user.save();
 
     const invitations = await Invitation.find({ owner: user._id, status: { $ne: "archived" } }).select(
-        "owner partnerOne partnerTwo celebrant age eventType status eventDate ceremonies timeZone creditUsed creditKind publishedAt"
+        "owner partnerOne partnerTwo celebrant age companyName eventTitle eventType status eventDate ceremonies timeZone creditUsed creditKind publishedAt printed"
     );
     const customs = await Template.find({ reservedFor: String(user.email).toLowerCase() });
     res.json({ success: true, user: await accountJSON(user, invitations, customs) });

@@ -1,0 +1,162 @@
+/* The birthday designs drawn in code (bd-): Midnight Glam and Disco Fever. Layout and the
+   invitation's sections come from birthdayParty.css; this file adds their colours and artwork. */
+
+/* ---------------------------------------------------------------- palettes */
+.bp-midnight-glam {
+  --bp-page: #0b0a09;
+  --bp-card: #15130f;
+  --bp-ink: #f4ead2;
+  --bp-muted: #b5aa93;
+  --bp-accent: #d8bc82;
+  --bp-accent-2: #f1dca6;
+  --bp-on-accent: #0b0a09;
+  --bp-hero-ink: #f4ead2;
+  --bp-hero-veil: radial-gradient(ellipse 60% 50% at 50% 50%, rgba(11, 10, 9, 0.6), rgba(11, 10, 9, 0) 75%);
+  --bp-name-font: 'Italiana', 'Noto Serif Sinhala', 'Noto Serif Tamil', serif;
+  --bp-head: 'Cormorant Garamond', 'Noto Serif Sinhala', 'Noto Serif Tamil', serif;
+  --bp-body: 'Montserrat', 'Noto Sans Sinhala', 'Noto Sans Tamil', sans-serif;
+  --bp-flash: #f6e4b4;
+}
+.bp-disco-fever {
+  --bp-page: #1d0b33;
+  --bp-card: #2a1046;
+  --bp-ink: #fff3fb;
+  --bp-muted: #d9b9e8;
+  --bp-accent: #ff3fa4;
+  --bp-accent-2: #5aa8ff;
+  --bp-on-accent: #ffffff;
+  --bp-hero-ink: #fff3fb;
+  --bp-hero-veil: radial-gradient(ellipse 70% 52% at 50% 60%, rgba(29, 11, 51, 0.7), rgba(29, 11, 51, 0) 78%);
+  --bp-name-font: 'Montserrat', 'Noto Sans Sinhala', 'Noto Sans Tamil', sans-serif;
+  --bp-head: 'Montserrat', 'Noto Sans Sinhala', 'Noto Sans Tamil', sans-serif;
+  --bp-body: 'Montserrat', 'Noto Sans Sinhala', 'Noto Sans Tamil', sans-serif;
+  --bp-flash: #f3b6ff;
+}
+
+/* ---------------------------------------------------------------- backgrounds */
+.bd-bg { overflow: hidden; }
+.bd-bg-glam { background: radial-gradient(ellipse 80% 60% at 50% 40%, #1c1813 0%, #0b0a09 70%); }
+.bd-sky { position: absolute; inset: 0; }
+.bd-sky i { position: absolute; border-radius: 50%; background: #e9d29d; opacity: 0.55; animation: bd-twinkle 4.5s ease-in-out infinite; }
+.bd-sky i.is-star { border-radius: 0; background: linear-gradient(135deg, #fbecc4, #c9a35e); clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%); opacity: 0.8; }
+@keyframes bd-twinkle { 0%, 100% { opacity: 0.25; transform: scale(0.7); } 50% { opacity: 0.95; transform: scale(1.1); } }
+
+.bd-bg-disco { background: radial-gradient(ellipse 90% 70% at 50% 18%, #6a1a7a 0%, #3a0f5c 38%, #1d0b33 72%), radial-gradient(ellipse 70% 50% at 50% 100%, rgba(40, 80, 220, 0.45), transparent 70%), #1d0b33; background-blend-mode: normal, screen; }
+.bd-lights { position: absolute; inset: 0; }
+/* beams of light sweeping out from the ball (top centre) */
+.bd-beams { position: absolute; left: 50%; top: 22%; width: 260vmax; height: 260vmax; margin: -130vmax 0 0 -130vmax; background: repeating-conic-gradient(from 0deg, rgba(255, 63, 164, 0.22) 0deg 4deg, transparent 4deg 26deg, rgba(178, 107, 255, 0.2) 26deg 30deg, transparent 30deg 52deg, rgba(80, 150, 255, 0.24) 52deg 56deg, transparent 56deg 78deg); -webkit-mask-image: radial-gradient(circle, #000 0%, rgba(0, 0, 0, 0.5) 20%, transparent 45%); mask-image: radial-gradient(circle, #000 0%, rgba(0, 0, 0, 0.5) 20%, transparent 45%); animation: bd-sweep 18s linear infinite; mix-blend-mode: screen; }
+.bd-beams.is-two { animation-duration: 26s; animation-direction: reverse; opacity: 0.6; transform: rotate(13deg); }
+@keyframes bd-sweep { to { transform: rotate(360deg); } }
+.bd-lights > i { position: absolute; border-radius: 50%; opacity: 0; filter: blur(0.5px); box-shadow: 0 0 10px 2px currentColor; animation: bd-spot 9s linear infinite; }
+@keyframes bd-spot { 0% { opacity: 0; transform: translateX(-30px); } 15% { opacity: 0.85; } 85% { opacity: 0.85; } 100% { opacity: 0; transform: translateX(140px); } }
+
+/* ---------------------------------------------------------------- Midnight Glam: the arch */
+.bd-arch { position: relative; display: block; width: min(calc(78 * var(--ei-vw, 1vw)), 340px); aspect-ratio: 300 / 440; }
+.bd-arch svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.bd-sparks path { transform-box: fill-box; transform-origin: center; animation: bd-twinkle 3.6s ease-in-out infinite; }
+.bd-edge { stroke-dasharray: 1; stroke-dashoffset: 1; animation: bd-draw 2.4s cubic-bezier(0.6, 0, 0.3, 1) 0.3s forwards; }
+.bd-edge.d2 { animation-delay: 0.6s; }
+@keyframes bd-draw { to { stroke-dashoffset: 0; } }
+/* the doorway: name and age inside */
+.bd-arch-in { position: absolute; left: 22%; right: 22%; top: 30%; bottom: 6%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.bp-opening.bp-midnight-glam { --bp-room: calc(calc(100 * var(--ei-vh, 1svh)) - var(--ei-top, 0px) - 150px); }
+.bp-opening.bp-midnight-glam .bp-scene { margin-top: 0; }
+.bp-midnight-glam .bd-arch { width: min(calc(80 * var(--ei-vw, 1vw)), 360px, calc((calc(100 * var(--ei-vh, 1svh)) - var(--ei-top, 0px) - 130px) * 300 / 440)); }
+.bp-midnight-glam .bp-tag .bp-eyebrow { color: var(--bp-muted); font-size: 10px; letter-spacing: 0.3em; }
+.bp-midnight-glam .bp-tag .bp-eyebrow.is-local { font-size: 13px; letter-spacing: normal; }
+.bp-midnight-glam .bp-tag-name { margin-top: 10px; font-weight: 400; font-size: clamp(28px, min(calc(9.4 * var(--ei-vw, 1vw)), calc(5.8 * var(--ei-vh, 1svh))), 46px); line-height: 1.02; text-transform: uppercase; letter-spacing: 0.04em; background: linear-gradient(170deg, #fbecc4 0%, #d8bc82 45%, #a8823f 80%, #f1dca6 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.bp-midnight-glam:not(:lang(en)) .bp-tag-name, .bp-midnight-glam .bp-stage:not(:lang(en)) .bp-tag-name { font-family: var(--bp-head); font-weight: 600; text-transform: none; letter-spacing: normal; font-size: clamp(24px, calc(7 * var(--ei-vw, 1vw)), 34px); }
+.bp-midnight-glam .bp-tag-age { margin-top: 12px; }
+.bp-midnight-glam .bp-tag-age.bc-age { flex-direction: column; align-items: center; gap: 0; }
+.bp-midnight-glam .bp-tag-age .bc-age-num { font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 500; font-size: clamp(40px, calc(12 * var(--ei-vw, 1vw)), 64px); background: linear-gradient(170deg, #fbecc4, #d8bc82 50%, #a8823f); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.bp-midnight-glam .bp-tag-age .bc-age-sfx { -webkit-text-fill-color: #d8bc82; }
+.bp-midnight-glam .bp-tag-age .bc-age-cap { font-family: var(--bp-body); font-size: 10px; font-weight: 600; letter-spacing: 0.32em; text-transform: uppercase; color: var(--bp-accent); }
+.bp-midnight-glam .bp-stage:not(:lang(en)) .bc-age-cap { letter-spacing: normal; text-transform: none; font-size: 13px; }
+.bp-midnight-glam .bp-open-btn { margin-top: 16px; border-radius: 2px; background: linear-gradient(100deg, #a8823f 0%, #f1dca6 35%, #c9a35e 60%, #fbecc4 85%); color: #0b0a09; font-family: var(--bp-body); font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase; }
+.bp-midnight-glam .bp-stage:not(:lang(en)) .bp-open-btn { letter-spacing: normal; text-transform: none; font-size: 15px; }
+/* after the tap: the arch's stars flare, the doorway fills with gold light */
+.bp-midnight-glam.is-opening .bd-dust { animation: bd-flare 1.6s ease forwards; }
+.bp-midnight-glam.is-opening .bd-arch { animation: bd-arch-glow 1.8s ease forwards; }
+@keyframes bd-flare { 40% { filter: brightness(2.2); } 100% { filter: brightness(1.4); } }
+@keyframes bd-arch-glow { 0% { filter: none; } 50% { filter: drop-shadow(0 0 24px rgba(241, 220, 166, 0.8)); } 100% { filter: drop-shadow(0 0 60px rgba(241, 220, 166, 1)); transform: scale(1.06); } }
+.bp-midnight-glam.is-opening .bp-tag { animation: bd-tag-out 1.2s ease 0.3s forwards; }
+@keyframes bd-tag-out { from { opacity: 1; } to { opacity: 0; transform: scale(1.08); } }
+.bp-midnight-glam.is-opening .bp-flash { animation: bp-flash-in 0.7s ease 1.55s forwards; }
+
+/* gold (or coloured) particles bursting out from the middle */
+.bd-burst { position: absolute; inset: 0; z-index: 5; pointer-events: none; overflow: hidden; }
+.bd-burst i { position: absolute; left: 50%; top: 48%; border-radius: 50%; opacity: 0; box-shadow: 0 0 8px rgba(255, 236, 180, 0.8); animation: bd-burst cubic-bezier(0.15, 0.6, 0.3, 1) forwards; }
+.bd-burst i.is-star { border-radius: 0; clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%); transform: scale(1.6); }
+@keyframes bd-burst { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); } 12% { opacity: 1; } 100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1); } }
+
+/* ---------------------------------------------------------------- Disco Fever: the ball */
+.bd-ball { position: relative; display: block; width: min(calc(60 * var(--ei-vw, 1vw)), 250px, calc(var(--bp-room) * 0.92)); aspect-ratio: 1; filter: drop-shadow(0 18px 40px rgba(255, 63, 164, 0.35)); }
+.bd-ball svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.bd-cord { position: absolute; left: 50%; bottom: 97%; width: 2px; height: 50vh; margin-left: -1px; background: linear-gradient(to top, #cfc7d8, rgba(207, 199, 216, 0.2)); }
+.bd-twinkles i { position: absolute; width: 16%; aspect-ratio: 1; background: #ffffff; clip-path: polygon(50% 0, 56% 44%, 100% 50%, 56% 56%, 50% 100%, 44% 56%, 0 50%, 44% 44%); filter: drop-shadow(0 0 6px #ffffff); opacity: 0; animation: bd-glint 2.8s ease-in-out infinite; }
+.bd-twinkles i:nth-child(1) { left: 14%; top: 10%; }
+.bd-twinkles i:nth-child(2) { right: 4%; top: 42%; width: 11%; animation-delay: 1s; }
+.bd-twinkles i:nth-child(3) { left: 30%; bottom: 6%; width: 9%; animation-delay: 1.9s; }
+@keyframes bd-glint { 0%, 100% { opacity: 0; transform: scale(0.4) rotate(0); } 50% { opacity: 1; transform: scale(1) rotate(45deg); } }
+.bp-opening.bp-disco-fever .bp-stage { padding-top: 40px; }
+.bp-opening.bp-disco-fever .bp-scene { order: -1; margin: 0 0 18px; }
+.bp-disco-fever .bp-tag .bp-eyebrow { color: #9fd0ff; letter-spacing: 0.3em; }
+.bp-disco-fever .bp-tag-name, .bp-disco-fever .bp-name { font-weight: 900; text-transform: uppercase; letter-spacing: 0.01em; color: #ffffff; text-shadow: 3px 3px 0 #ff3fa4, 6px 6px 0 #7a2cff; }
+.bp-disco-fever .bp-tag-name { font-size: clamp(32px, min(calc(11 * var(--ei-vw, 1vw)), calc(6.6 * var(--ei-vh, 1svh))), 56px); }
+.bp-disco-fever:not(:lang(en)) .bp-tag-name, .bp-disco-fever .bp-stage:not(:lang(en)) .bp-tag-name { text-transform: none; font-weight: 700; }
+.bp-disco-fever .bp-tag-age .bc-age-num, .bp-disco-fever .bp-age .bc-age-num { font-weight: 900; background: linear-gradient(180deg, #ffffff 0%, #ff7ad1 35%, #b26bff 70%, #5aa8ff 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.bp-disco-fever .bp-tag-age .bc-age-sfx, .bp-disco-fever .bp-age .bc-age-sfx { -webkit-text-fill-color: #ff7ad1; }
+.bp-disco-fever .bp-tag-age .bc-age-cap, .bp-disco-fever .bp-age .bc-age-cap { color: #ffffff; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; font-size: clamp(13px, calc(3.6 * var(--ei-vw, 1vw)), 16px); }
+.bp-disco-fever:not(:lang(en)) .bc-age-cap, .bp-disco-fever .bp-stage:not(:lang(en)) .bc-age-cap { letter-spacing: normal; text-transform: none; }
+.bp-disco-fever .bp-open-btn { background: linear-gradient(95deg, #ff3fa4 0%, #b26bff 55%, #5aa8ff 100%); font-family: var(--bp-body); font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.15), 0 14px 30px -10px rgba(255, 63, 164, 0.8); }
+.bp-disco-fever .bp-stage:not(:lang(en)) .bp-open-btn { text-transform: none; letter-spacing: normal; }
+/* after the tap: the ball spins fast, the room strobes in colour */
+.bp-disco-fever.is-opening .bd-bg-disco { animation: bd-strobe 0.36s steps(1) 0s 5; }
+@keyframes bd-strobe { 0% { filter: brightness(1.5) saturate(1.2); } 33% { filter: brightness(0.8); } 66% { filter: brightness(1.8) saturate(1.3); } }
+.bp-disco-fever.is-opening .bd-beams { animation-duration: 1.6s; }
+.bp-disco-fever.is-opening .bd-bg-disco::after { content: ''; position: absolute; inset: 0; mix-blend-mode: screen; animation: bd-colour-flash 0.5s steps(1) 0s 4; }
+@keyframes bd-colour-flash { 0% { background: rgba(255, 63, 164, 0.45); } 33% { background: rgba(122, 44, 255, 0.5); } 66% { background: rgba(60, 130, 255, 0.45); } 100% { background: transparent; } }
+.bp-disco-fever.is-opening .bp-tag { animation: bd-tag-out 1s ease 0.6s forwards; }
+.bp-disco-fever.is-opening .bd-ball { animation: bd-ball-up 1.8s cubic-bezier(0.5, 0, 0.3, 1) 0.2s forwards; }
+@keyframes bd-ball-up { 60% { transform: scale(1.12); } 100% { transform: scale(1.5); filter: drop-shadow(0 0 60px rgba(255, 140, 204, 1)); } }
+.bp-disco-fever.is-opening .bp-flash { animation: bp-flash-in 0.7s ease 1.65s forwards; }
+
+/* ---------------------------------------------------------------- the invitation */
+.bp-invite.bp-midnight-glam .bp-hero { padding-top: clamp(150px, calc(28 * var(--ei-vh, 1svh)), 220px); }
+.bd-hero-arch, .bd-hero-ball { position: absolute !important; z-index: 2; }
+.bd-hero-arch { left: 50%; top: 20px; width: min(calc(94 * var(--ei-vw, 1vw)), 560px) !important; transform: translateX(-50%); opacity: 0.95; }
+.bd-hero-arch .bd-arch-in { display: none; }
+.bp-midnight-glam .bp-hero-inner { max-width: min(calc(56 * var(--ei-vw, 1vw)), 330px); }
+.bp-midnight-glam .bp-greeting { background: transparent; border: 1px solid rgba(216, 188, 130, 0.6); border-radius: 0; font-family: var(--bp-body); font-size: 13px; }
+.bp-midnight-glam .bp-eyebrow { color: var(--bp-accent); }
+.bp-midnight-glam .bp-name { font-weight: 400; text-transform: uppercase; letter-spacing: 0.04em; font-size: clamp(40px, calc(12 * var(--ei-vw, 1vw)), 72px); line-height: 1; background: linear-gradient(170deg, #fbecc4 0%, #d8bc82 45%, #a8823f 80%, #f1dca6 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.bp-invite.bp-midnight-glam:not(:lang(en)) .bp-name { text-transform: none; letter-spacing: normal; font-weight: 600; }
+.bp-midnight-glam .bp-age .bc-age-num { font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 500; background: linear-gradient(170deg, #fbecc4, #d8bc82 50%, #a8823f); -webkit-background-clip: text; background-clip: text; color: transparent; font-size: clamp(90px, calc(26 * var(--ei-vw, 1vw)), 150px); }
+.bp-midnight-glam .bp-age .bc-age-sfx { -webkit-text-fill-color: #d8bc82; }
+.bp-midnight-glam .bp-age .bc-age-cap { font-family: var(--bp-body); font-size: 12px; font-weight: 600; letter-spacing: 0.36em; text-transform: uppercase; color: var(--bp-accent); }
+.bp-invite.bp-midnight-glam:not(:lang(en)) .bp-age .bc-age-cap { letter-spacing: normal; text-transform: none; font-size: 16px; }
+.bp-midnight-glam .bp-message { font-family: var(--bp-head); font-size: 19px; }
+.bp-midnight-glam .bp-date { font-family: var(--bp-head); }
+.bp-midnight-glam .bp-panel { border-radius: 0; background: #15130f; box-shadow: inset 0 0 0 1px rgba(216, 188, 130, 0.5); }
+.bp-midnight-glam .bp-sign { font-family: 'Italiana', var(--bp-head); text-transform: uppercase; letter-spacing: 0.06em; color: var(--bp-accent-2); }
+
+.bp-invite.bp-disco-fever .bp-hero { padding-top: clamp(230px, calc(40 * var(--ei-vh, 1svh)), 320px); }
+.bd-hero-ball { left: 50%; top: 40px; width: min(calc(46 * var(--ei-vw, 1vw)), 220px) !important; transform: translateX(-50%); }
+.bp-disco-fever .bp-greeting { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.35); }
+.bp-disco-fever .bp-eyebrow { color: #9fd0ff; }
+.bp-disco-fever .bp-name { font-size: clamp(46px, calc(13 * var(--ei-vw, 1vw)), 84px); line-height: 0.98; }
+.bp-disco-fever .bp-age .bc-age-num { font-size: clamp(100px, calc(30 * var(--ei-vw, 1vw)), 170px); }
+.bp-disco-fever .bp-panel { border-radius: 20px; background: linear-gradient(160deg, rgba(122, 44, 255, 0.3), rgba(60, 120, 255, 0.16) 60%, rgba(255, 63, 164, 0.14)); box-shadow: inset 0 0 0 1px rgba(255, 140, 204, 0.4); backdrop-filter: blur(6px); }
+.bp-disco-fever .bp-icon { color: #ff7ad1; }
+.bp-disco-fever .bp-sign { font-weight: 900; text-transform: uppercase; color: #ffffff; text-shadow: 2px 2px 0 #ff3fa4, 4px 4px 0 #7a2cff; }
+.bp-invite.bp-disco-fever .bp-section, .bp-invite.bp-midnight-glam .bp-section { position: relative; z-index: 1; }
+
+/* ---------------------------------------------------------------- thumbnails, reduced motion */
+.is-poster .bd-edge { animation: none; stroke-dashoffset: 0; }
+.is-poster .bd-beams, .is-poster .bd-lights > i, .is-poster .bd-sky i { animation: none; opacity: 0.7; }
+.is-poster .bp-midnight-glam .bp-stage { transform: scale(0.72); }
+.is-poster .bp-disco-fever .bp-stage { transform: scale(0.86); }
+@media (prefers-reduced-motion: reduce) {
+  .bd-beams, .bd-lights > i, .bd-sky i, .bd-sparks path, .bd-twinkles i { animation: none !important; }
+  .bd-edge { animation: none; stroke-dashoffset: 0; }
+}

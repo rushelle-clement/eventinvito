@@ -71,7 +71,14 @@ export default function InvitationPreview() {
         </div>
       </div>
 
-      <InvitationExperience key={run} invitation={invitation} guestName={guest.trim()} topOffset={BAR_HEIGHT} />
+      <InvitationExperience
+        key={run}
+        invitation={invitation}
+        guestName={guest.trim()}
+        topOffset={BAR_HEIGHT}
+        // the "Day plan" button, as guests will see it (only when it's switched on and in the package)
+        agendaHref={invitation.agendaVisible && invitation.limits?.agenda && invitation.agenda?.length ? `/invitations/${id}/preview/agenda` : ''}
+      />
     </>
   )
 }

@@ -47,6 +47,13 @@ export function AuthProvider({ children }) {
     return data.user
   }, [])
 
+  // After a password reset: the server signs this device in with a fresh token
+  const signInWithToken = useCallback((token, nextUser) => {
+    saveToken(token, true)
+    setNotice('')
+    setUser(nextUser)
+  }, [])
+
   const signOut = useCallback(async () => {
     try {
       await api('/auth/logout', { method: 'POST' })
@@ -61,8 +68,8 @@ export function AuthProvider({ children }) {
   const updateUser = useCallback((next) => next && setUser(next), [])
 
   const value = useMemo(
-    () => ({ user, status, notice, signIn, signUp, signOut, updateUser }),
-    [user, status, notice, signIn, signUp, signOut, updateUser],
+    () => ({ user, status, notice, signIn, signUp, signInWithToken, signOut, updateUser }),
+    [user, status, notice, signIn, signUp, signInWithToken, signOut, updateUser],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

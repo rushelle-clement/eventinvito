@@ -38,6 +38,7 @@ export const STRINGS = {
     thanksNo: 'Thank you for letting us know. You’ll be missed.',
     yourAnswer: (a) => `Your reply: ${a}`,
     canChangeUntil: (d) => `You can change your answer until ${d}.`,
+    canChangeAnytime: 'You can change your answer any time before the event.',
     closed: 'Replies have closed. Please contact the couple directly if anything has changed.',
     noReplyClosed: 'Replies have closed and we didn’t receive an answer from you. Please contact the couple directly.',
     personalNote: (n) => `This invitation is personal to ${n}. Please don’t forward the link.`,
@@ -92,6 +93,7 @@ export const STRINGS = {
     thanksNo: 'දැනුම් දීම ගැන ස්තූතියි. අපට ඔබව මග හැරෙනු ඇත.',
     yourAnswer: (a) => `ඔබගේ පිළිතුර: ${a}`,
     canChangeUntil: (d) => `${d} දක්වා ඔබට පිළිතුර වෙනස් කළ හැක.`,
+    canChangeAnytime: 'උත්සවයට පෙර ඕනෑම වේලාවක ඔබට පිළිතුර වෙනස් කළ හැක.',
     closed: 'පිළිතුරු ලබා ගැනීම අවසන්. කිසියම් වෙනසක් ඇත්නම් කරුණාකර යුවළ හා කෙලින්ම සම්බන්ධ වන්න.',
     noReplyClosed: 'පිළිතුරු ලබා ගැනීම අවසන් අතර ඔබගෙන් පිළිතුරක් ලැබී නැත. කරුණාකර යුවළ හා කෙලින්ම සම්බන්ධ වන්න.',
     personalNote: (n) => `මෙම ආරාධනය ${n} සඳහා පමණි. කරුණාකර මෙම සබැඳිය වෙනත් අයට යොමු නොකරන්න.`,
@@ -146,6 +148,7 @@ export const STRINGS = {
     thanksNo: 'தெரிவித்தமைக்கு நன்றி. உங்களை நாங்கள் மிஸ் செய்வோம்.',
     yourAnswer: (a) => `உங்கள் பதில்: ${a}`,
     canChangeUntil: (d) => `${d} வரை உங்கள் பதிலை மாற்றலாம்.`,
+    canChangeAnytime: 'நிகழ்வுக்கு முன் எப்போது வேண்டுமானாலும் உங்கள் பதிலை மாற்றலாம்.',
     closed: 'பதில் அளிக்கும் காலம் முடிந்துவிட்டது. ஏதேனும் மாற்றம் இருந்தால் தம்பதியரை நேரடியாகத் தொடர்புகொள்ளவும்.',
     noReplyClosed: 'பதில் அளிக்கும் காலம் முடிந்துவிட்டது, உங்களிடமிருந்து பதில் கிடைக்கவில்லை. தம்பதியரை நேரடியாகத் தொடர்புகொள்ளவும்.',
     personalNote: (n) => `இந்த அழைப்பிதழ் ${n} அவர்களுக்கு மட்டுமானது. இந்த இணைப்பைப் பிறருக்கு அனுப்ப வேண்டாம்.`,
@@ -238,6 +241,9 @@ OCCASION_STRINGS.birthday = {
     openGate: 'Open the garden gate',
     openGift: 'Open your gift',
     openWish: 'Make a wish',
+    openStars: 'Let the stars shine',
+    openDisco: 'Let’s dance!',
+    openTropical: 'Step into paradise',
     bdaySignoff: 'See you at the party!',
     defaultInvite: 'Come and celebrate with cake, laughter and lots of fun!',
     theWeddingOf: 'The birthday of',
@@ -262,6 +268,9 @@ OCCASION_STRINGS.birthday = {
     openGate: 'උයනේ දොරටුව විවෘත කරන්න',
     openGift: 'ඔබගේ තෑග්ග විවෘත කරන්න',
     openWish: 'පැතුමක් පතන්න',
+    openStars: 'තරු බබළන්නට ඉඩ දෙන්න',
+    openDisco: 'නටමු!',
+    openTropical: 'ආරාධනය විවෘත කරන්න',
     bdaySignoff: 'සාදයේදී හමුවෙමු!',
     defaultInvite: 'කේක්, සිනහව සහ සතුටින් පිරි මේ සැමරුමට ඔබටත් ආදරයෙන් ආරාධනා කරමු',
     theWeddingOf: 'උපන්දින සැමරුම',
@@ -284,6 +293,9 @@ OCCASION_STRINGS.birthday = {
     openGate: 'தோட்ட வாயிலைத் திறக்கவும்',
     openGift: 'உங்கள் பரிசைத் திறக்கவும்',
     openWish: 'ஒரு வேண்டுதல் செய்யுங்கள்',
+    openStars: 'நட்சத்திரங்கள் ஒளிரட்டும்',
+    openDisco: 'ஆடலாம்!',
+    openTropical: 'அழைப்பிதழைத் திறக்கவும்',
     bdaySignoff: 'விழாவில் சந்திப்போம்!',
     defaultInvite: 'கேக், சிரிப்பு மற்றும் மகிழ்ச்சி நிறைந்த இந்தக் கொண்டாட்டத்தில் கலந்துகொள்ள அன்புடன் அழைக்கிறோம்',
     theWeddingOf: 'பிறந்தநாள் விழா',
@@ -297,6 +309,127 @@ OCCASION_STRINGS.birthday = {
   },
 }
 
+// Corporate events: a company's event (title, company and logo). The "couple" in share messages is
+// the event title. Sinhala and Tamil are drafts to be checked.
+OCCASION_STRINGS.corporate = {
+  en: {
+    together: 'You are cordially invited to',
+    corpInvites: (company) => `${company} cordially invites you to`,
+    corpPresents: 'presents',
+    corpYears: 'Years',
+    corpYearsOf: (n) => `${n} years of excellence`,
+    defaultInvite: 'We would be honoured by your presence and look forward to welcoming you.',
+    theWeddingOf: 'You are invited',
+    thanksYes: 'Thank you! We look forward to welcoming you.',
+    thanksNo: 'Thank you for letting us know. You’ll be missed.',
+    closed: 'Replies have closed. Please contact the organisers directly if anything has changed.',
+    noReplyClosed: 'Replies have closed and we didn’t receive an answer from you. Please contact the organisers directly.',
+    accept: 'Yes, I will attend',
+    decline: 'Sorry, I can’t attend',
+    programme: 'Programme',
+    ourMoments: 'Highlights',
+    openInvitation: 'Open Invitation',
+    shareDefault: 'Dear {name}, you are cordially invited to {couple}. Please open your personal invitation and let us know if you can attend:',
+    endedMessage: (title) => `Thank you for your interest in ${title}. This invitation is no longer available.`,
+  },
+  si: {
+    together: 'ඔබට ගෞරවයෙන් ආරාධනා කරමු',
+    corpInvites: (company) => `${company} ඔබට ගෞරවයෙන් ආරාධනා කරයි`,
+    corpPresents: 'ඉදිරිපත් කරයි',
+    corpYears: 'වසර',
+    corpYearsOf: (n) => `විශිෂ්ටත්වයේ වසර ${n}`,
+    defaultInvite: 'ඔබගේ පැමිණීම අපට මහත් ගෞරවයකි. ඔබව පිළිගැනීමට අපි බලාපොරොත්තු වෙමු.',
+    theWeddingOf: 'ඔබට ආරාධනා කරමු',
+    thanksYes: 'ස්තූතියි! ඔබව පිළිගැනීමට අපි බලාපොරොත්තු වෙමු.',
+    thanksNo: 'දැනුම් දීම ගැන ස්තූතියි.',
+    closed: 'පිළිතුරු ලබා ගැනීම අවසන්. කිසියම් වෙනසක් ඇත්නම් කරුණාකර සංවිධායකයින් හා කෙලින්ම සම්බන්ධ වන්න.',
+    noReplyClosed: 'පිළිතුරු ලබා ගැනීම අවසන් අතර ඔබගෙන් පිළිතුරක් ලැබී නැත. කරුණාකර සංවිධායකයින් හා කෙලින්ම සම්බන්ධ වන්න.',
+    accept: 'මම සහභාගී වෙමි',
+    decline: 'කණගාටුයි, සහභාගී විය නොහැක',
+    programme: 'වැඩසටහන',
+    ourMoments: 'විශේෂාංග',
+    shareDefault: 'ආදරණීය {name}, {couple} සඳහා ඔබට ගෞරවයෙන් ආරාධනා කරමු. කරුණාකර ඔබගේ ආරාධනා පත්‍රය විවෘත කර ඔබගේ පැමිණීම දන්වන්න:',
+  },
+  ta: {
+    together: 'உங்களை அன்புடன் அழைக்கிறோம்',
+    corpInvites: (company) => `${company} உங்களை அன்புடன் அழைக்கிறது`,
+    corpPresents: 'வழங்குகிறது',
+    corpYears: 'ஆண்டுகள்',
+    corpYearsOf: (n) => `சிறப்பின் ${n} ஆண்டுகள்`,
+    defaultInvite: 'உங்கள் வருகை எங்களுக்குப் பெருமை. உங்களை வரவேற்க ஆவலுடன் காத்திருக்கிறோம்.',
+    theWeddingOf: 'உங்களை அழைக்கிறோம்',
+    thanksYes: 'நன்றி! உங்களை வரவேற்க ஆவலுடன் காத்திருக்கிறோம்.',
+    thanksNo: 'தெரிவித்தமைக்கு நன்றி.',
+    closed: 'பதில் அளிக்கும் காலம் முடிந்துவிட்டது. ஏதேனும் மாற்றம் இருந்தால் ஏற்பாட்டாளர்களை நேரடியாகத் தொடர்புகொள்ளவும்.',
+    noReplyClosed: 'பதில் அளிக்கும் காலம் முடிந்துவிட்டது, உங்களிடமிருந்து பதில் கிடைக்கவில்லை. ஏற்பாட்டாளர்களை நேரடியாகத் தொடர்புகொள்ளவும்.',
+    accept: 'நான் கலந்துகொள்வேன்',
+    decline: 'மன்னிக்கவும், கலந்துகொள்ள முடியாது',
+    programme: 'நிகழ்ச்சி நிரல்',
+    ourMoments: 'சிறப்பம்சங்கள்',
+    shareDefault: 'அன்புள்ள {name}, {couple} நிகழ்வுக்கு உங்களை அன்புடன் அழைக்கிறோம். உங்கள் அழைப்பிதழைத் திறந்து உங்கள் வருகையைத் தெரிவிக்கவும்:',
+  },
+}
+
+// Christmas parties: the party's title (eventTitle) and its hosts (companyName). The "couple" in
+// share messages is the party's title. Sinhala and Tamil are drafts to be checked.
+OCCASION_STRINGS.christmas = {
+  en: {
+    together: 'You are invited to',
+    xmasInvites: (hosts) => `${hosts} invite you to`,
+    xmasMerry: 'Merry Christmas',
+    xmasHosted: 'Hosted by',
+    xmasOpenPresent: 'Open your present',
+    defaultInvite: 'Join us for an evening of festive food, music and good cheer.',
+    theWeddingOf: 'You are invited',
+    thanksYes: 'Thank you! We can’t wait to celebrate with you.',
+    thanksNo: 'Thank you for letting us know. We’ll miss you — Merry Christmas!',
+    closed: 'Replies have closed. Please contact the hosts directly if anything has changed.',
+    noReplyClosed: 'Replies have closed and we didn’t receive an answer from you. Please contact the hosts directly.',
+    accept: 'Yes, I’ll be there',
+    decline: 'Sorry, I can’t come',
+    programme: 'The evening',
+    ourMoments: 'Moments',
+    shareDefault: 'Dear {name}, you’re invited to {couple}! Please open your personal invitation and let us know if you can come:',
+    endedMessage: (title) => `Thank you for your interest in ${title}. This invitation is no longer available.`,
+  },
+  si: {
+    together: 'ඔබට ආරාධනා කරමු',
+    xmasInvites: (hosts) => `${hosts} ඔබට ආරාධනා කරයි`,
+    xmasMerry: 'සුබ නත්තලක්',
+    xmasHosted: 'සංවිධානය',
+    xmasOpenPresent: 'ඔබේ තෑග්ග විවෘත කරන්න',
+    defaultInvite: 'රසවත් ආහාර, සංගීතය සහ සතුටින් පිරි නත්තල් සැන්දෑවකට අප හා එක්වන්න.',
+    theWeddingOf: 'ඔබට ආරාධනා කරමු',
+    thanksYes: 'ස්තූතියි! ඔබ සමඟ සැමරීමට අපි මහත් ආශාවෙන් සිටිමු.',
+    thanksNo: 'දැනුම් දීම ගැන ස්තූතියි. සුබ නත්තලක්!',
+    closed: 'පිළිතුරු ලබා ගැනීම අවසන්. කිසියම් වෙනසක් ඇත්නම් කරුණාකර ආරාධනා කළ අය හා කෙලින්ම සම්බන්ධ වන්න.',
+    noReplyClosed: 'පිළිතුරු ලබා ගැනීම අවසන් අතර ඔබගෙන් පිළිතුරක් ලැබී නැත. කරුණාකර ආරාධනා කළ අය හා කෙලින්ම සම්බන්ධ වන්න.',
+    accept: 'මම පැමිණෙමි',
+    decline: 'කණගාටුයි, පැමිණිය නොහැක',
+    programme: 'වැඩසටහන',
+    ourMoments: 'මතකයන්',
+    shareDefault: 'ආදරණීය {name}, {couple} සඳහා ඔබට සතුටින් ආරාධනා කරමු. කරුණාකර ඔබගේ ආරාධනා පත්‍රය විවෘත කර ඔබගේ පැමිණීම දන්වන්න:',
+  },
+  ta: {
+    together: 'உங்களை அன்புடன் அழைக்கிறோம்',
+    xmasInvites: (hosts) => `${hosts} உங்களை அன்புடன் அழைக்கிறார்கள்`,
+    xmasMerry: 'கிறிஸ்துமஸ் வாழ்த்துக்கள்',
+    xmasHosted: 'ஏற்பாடு',
+    xmasOpenPresent: 'உங்கள் பரிசைத் திறக்கவும்',
+    defaultInvite: 'சுவையான உணவு, இசை மற்றும் மகிழ்ச்சி நிறைந்த கிறிஸ்துமஸ் மாலையில் எங்களுடன் இணையுங்கள்.',
+    theWeddingOf: 'உங்களை அழைக்கிறோம்',
+    thanksYes: 'நன்றி! உங்களுடன் கொண்டாட ஆவலுடன் காத்திருக்கிறோம்.',
+    thanksNo: 'தெரிவித்தமைக்கு நன்றி. கிறிஸ்துமஸ் வாழ்த்துக்கள்!',
+    closed: 'பதில் அளிக்கும் காலம் முடிந்துவிட்டது. ஏதேனும் மாற்றம் இருந்தால் அழைத்தவர்களை நேரடியாகத் தொடர்புகொள்ளவும்.',
+    noReplyClosed: 'பதில் அளிக்கும் காலம் முடிந்துவிட்டது, உங்களிடமிருந்து பதில் கிடைக்கவில்லை. அழைத்தவர்களை நேரடியாகத் தொடர்புகொள்ளவும்.',
+    accept: 'நான் வருவேன்',
+    decline: 'மன்னிக்கவும், வர முடியாது',
+    programme: 'நிகழ்ச்சி நிரல்',
+    ourMoments: 'நினைவுகள்',
+    shareDefault: 'அன்புள்ள {name}, {couple} நிகழ்வுக்கு உங்களை மகிழ்ச்சியுடன் அழைக்கிறோம். உங்கள் அழைப்பிதழைத் திறந்து உங்கள் வருகையைத் தெரிவிக்கவும்:',
+  },
+}
+
 // 1 → "1st", 22 → "22nd", 13 → "13th"
 export function ordinalEn(n) {
   const s = ['th', 'st', 'nd', 'rd']
@@ -305,17 +438,23 @@ export function ordinalEn(n) {
 }
 
 export const isBirthday = (invitation) => invitation?.eventType === 'birthday'
+export const isCorporate = (invitation) => invitation?.eventType === 'corporate'
+export const isChristmas = (invitation) => invitation?.eventType === 'christmas'
 
-// Who the invitation is for: "Amaya & Nuwan", or "Kavindi" for a birthday
+// Who the invitation is from: "Amaya & Nuwan", "Kavindi" for a birthday, the company for an event
 export function hostsOf(invitation, lang = 'en') {
   if (isBirthday(invitation)) return invitation.celebrant || '…'
+  if (isCorporate(invitation) || isChristmas(invitation)) return invitation.companyName || '…'
   const and = (STRINGS[lang] || STRINGS.en).and
   return `${invitation?.partnerOne || '…'} ${and} ${invitation?.partnerTwo || '…'}`
 }
 
 // A title for lists, the share message and file names:
-// "Amaya & Nuwan", or "Kavindi's 5th birthday" (in the invitation's language)
+// "Amaya & Nuwan", "Kavindi's 5th birthday" (in the invitation's language) or the event's title
 export function invitationTitle(invitation, lang = 'en') {
+  // Corporate events: the event's title ("Annual Awards Night"), else the company
+  if (isCorporate(invitation)) return invitation.eventTitle || invitation.companyName || 'Untitled event'
+  if (isChristmas(invitation)) return invitation.eventTitle || 'Christmas party'
   if (!isBirthday(invitation)) return hostsOf(invitation, lang)
   const name = invitation.celebrant || '…'
   const age = invitation.age ?? null
@@ -333,6 +472,8 @@ export function stringsFor(language, eventType) {
 
 export function occasionLabel(eventType) {
   if (eventType === 'birthday') return 'Birthday'
+  if (eventType === 'corporate') return 'Corporate event'
+  if (eventType === 'christmas') return 'Christmas party'
   return (OCCASIONS.find((o) => o.value === eventType) || OCCASIONS[0]).label
 }
 

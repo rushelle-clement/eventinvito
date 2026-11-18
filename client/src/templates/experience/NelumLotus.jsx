@@ -98,7 +98,7 @@ export default function NelumLotus({ invitation, guestName, rsvp, music, t, lang
               <img
                 key={i}
                 className={`nl-pad ${flip ? 'is-flipped' : ''}`}
-                style={{ left: `${left}%`, bottom: `${bottom}%`, '--w': `${w}vmin`, '--r': `${rot}deg`, '--dl': `${0.2 + i * 0.25}s` }}
+                style={{ left: `${left}%`, bottom: `${bottom}%`, '--w': `calc(${w} * var(--ei-vmin, 1vmin))`, '--r': `${rot}deg`, '--dl': `${0.2 + i * 0.25}s` }}
                 src={img(`leaf-${n}`)}
                 alt=""
                 decoding="async"

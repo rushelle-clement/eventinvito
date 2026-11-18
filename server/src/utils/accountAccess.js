@@ -16,7 +16,7 @@ function lockAfterEvent() {
 async function accountStatus(user, paidInvitations) {
     if (user.disabled) return "disabled";
     if (user.role === "admin" || user.keepAccess || !lockAfterEvent()) return "active";
-    if ((user.publishCredits || 0) > 0) return "active";
+    if ((user.publishCredits || 0) > 0 || (user.printedCredits || 0) > 0) return "active";
     const paid =
         paidInvitations ||
         (await Invitation.find({ owner: user._id, $or: [{ creditUsed: true }, { publishedAt: { $ne: null } }] }).select(

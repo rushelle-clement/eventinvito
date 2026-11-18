@@ -5,6 +5,11 @@
 //  • fairy-garden     a flowered garden gate swings open and butterflies fly out
 //  • midnight-gala    the gift box's lid lifts off in a burst of gold confetti
 //  • rose-wish        "Make a wish": the cake's candles blow out, then rose-gold light and confetti
+//  • midnight-glam    a starry gold arch holds the name; the stars flare and gold particles burst out
+//  • disco-fever      a mirror disco ball turns in coloured light; it spins fast and the lights flash
+// (the last two are drawn in code: BirthdayDrawn.jsx)
+//  • tropical-paradise  a teal card framed by palm and monstera leaves swaying in a breeze, with
+//                       hibiscus; on the tap the leaves part and the flowers fly off
 // Artwork: /public/<key>/ (AI illustrations, cut out). Confetti, bubbles and light are drawn here.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -16,7 +21,13 @@ import { formatDate } from '../strings'
 import { InviteLine } from './Wording'
 import { guestNamedInLine } from '../wording'
 import { AgeMark } from './BirthdayCard'
+import { Burst, DiscoBall, DrawnBackdrop, GlamArch } from './BirthdayDrawn'
 import './birthdayParty.css'
+import './birthdayDrawn.css'
+import './birthdayTropical.css'
+
+// designs drawn in code, with no pictures (BirthdayDrawn.jsx)
+const DRAWN = ['midnight-glam', 'disco-fever']
 
 const img = (key, name) => `${import.meta.env.BASE_URL}${key}/${name}.webp`
 
@@ -27,8 +38,11 @@ const TIMING = {
   'fairy-garden': [2100, 2800],
   'midnight-gala': [1900, 2600],
   'rose-wish': [2400, 3100],
+  'midnight-glam': [2100, 2800],
+  'disco-fever': [2200, 2900],
+  'tropical-paradise': [2000, 2700],
 }
-const BUTTON = { 'balloon-bash': 'openBalloons', 'ocean-adventure': 'openTreasure', 'fairy-garden': 'openGate', 'midnight-gala': 'openGift', 'rose-wish': 'openWish' }
+const BUTTON = { 'balloon-bash': 'openBalloons', 'ocean-adventure': 'openTreasure', 'fairy-garden': 'openGate', 'midnight-gala': 'openGift', 'rose-wish': 'openWish', 'midnight-glam': 'openStars', 'disco-fever': 'openDisco', 'tropical-paradise': 'openTropical' }
 
 // A seeded random list, so the confetti and bubbles are the same every time
 function seeded(seed, count, make) {
@@ -46,7 +60,12 @@ const PARTY_COLOURS = {
   'fairy-garden': ['#c8a2e8', '#f6b6cf', '#ffd6a5', '#b9d4ff', '#ffffff'],
   'midnight-gala': ['#f6dc95', '#d9b768', '#b98a35', '#fff3cf', '#e8cd8a'],
   'rose-wish': ['#e9b8a6', '#c98b7a', '#f6d3c8', '#ffffff', '#f2a7b8'],
+  'midnight-glam': ['#f6e2b0', '#d8bc82', '#b8924e', '#fff6dc', '#e9cf95'],
+  'disco-fever': ['#ff3fa4', '#b26bff', '#5aa8ff', '#ff9be0', '#ffffff', '#7a2cff'],
+  'tropical-paradise': ['#ff7a59', '#ffc93c', '#2bb5a4', '#ffffff', '#ff9e80'],
 }
+// designs whose name tag sits inside the scene (the arch, the card)
+const TAG_INSIDE = ['midnight-glam', 'tropical-paradise']
 
 // The three candles' tips on the cake picture (% of its width and height)
 const CANDLES = [38.5, 47, 55.9]
@@ -105,6 +124,7 @@ function Floaters({ kind, count = 16 }) {
 }
 
 function Backdrop({ variant, className = '' }) {
+  if (DRAWN.includes(variant)) return <DrawnBackdrop variant={variant} className={className} />
   return (
     <picture className={`bp-backdrop ${className}`} aria-hidden="true">
       <source media="(min-aspect-ratio: 1/1)" srcSet={img(variant, 'bg')} />
@@ -123,7 +143,20 @@ const BUTTERFLIES = [
 ]
 
 // The object to tap, for each design
-function Scene({ variant, opened }) {
+function Scene({ variant, opened, tag, still }) {
+  if (variant === 'midnight-glam') return <GlamArch>{tag}</GlamArch>
+  if (variant === 'tropical-paradise') {
+    return (
+      <span className="bt-card">
+        <img className="bt-leaves tl" src={img(variant, 'leaves-tl')} alt="" decoding="async" />
+        <img className="bt-leaves br" src={img(variant, 'leaves-br')} alt="" decoding="async" />
+        <img className="bt-bouquet" src={img(variant, 'hibiscus-bouquet')} alt="" decoding="async" />
+        <img className="bt-flower" src={img(variant, 'hibiscus')} alt="" decoding="async" />
+        <span className="bt-card-in">{tag}</span>
+      </span>
+    )
+  }
+  if (variant === 'disco-fever') return <DiscoBall spinning={opened} still={still} />
   if (variant === 'balloon-bash') {
     return <img className="bp-balloons" src={img(variant, 'balloons')} alt="" decoding="async" />
   }
@@ -179,7 +212,7 @@ function Scene({ variant, opened }) {
 }
 
 // Decoration around the top of the invitation
-function HeroArt({ variant }) {
+function HeroArt({ variant, still }) {
   if (variant === 'balloon-bash') {
     return (
       <>
@@ -214,6 +247,26 @@ function HeroArt({ variant }) {
         <img className="bp-hero-art balloons left" src={img(variant, 'balloons')} alt="" aria-hidden="true" decoding="async" />
         <img className="bp-hero-art balloons right" src={img(variant, 'balloons')} alt="" aria-hidden="true" decoding="async" />
         <Floaters kind="rosy" count={16} />
+      </>
+    )
+  }
+  if (variant === 'midnight-glam') {
+    return (
+      <>
+        <GlamArch className="bp-hero-art bd-hero-arch" />
+        <Floaters kind="glitter" count={16} />
+      </>
+    )
+  }
+  if (variant === 'disco-fever') return <DiscoBall className="bp-hero-art bd-hero-ball" still={still} />
+  if (variant === 'tropical-paradise') {
+    return (
+      <>
+        <img className="bp-hero-art bt-leaves tl" src={img(variant, 'leaves-tl')} alt="" aria-hidden="true" decoding="async" />
+        <img className="bp-hero-art bt-leaves br" src={img(variant, 'leaves-br')} alt="" aria-hidden="true" decoding="async" />
+        <img className="bp-hero-art bt-bouquet" src={img(variant, 'hibiscus-bouquet')} alt="" aria-hidden="true" decoding="async" />
+        <img className="bp-hero-art bt-flower" src={img(variant, 'hibiscus')} alt="" aria-hidden="true" decoding="async" />
+        <Floaters kind="sunny" count={14} />
       </>
     )
   }
@@ -252,6 +305,14 @@ export default function BirthdayParty({ invitation, guestName, rsvp, music, t, l
   const ceremonies = ceremonyList(invitation, lang)
   const photos = invitation.photos || []
   const opening = phase !== 'closed'
+  // the name tag: above the scene, or inside it (Midnight Glam's arch, Tropical Paradise's card)
+  const tag = (
+    <div className="bp-tag">
+      <p className={`bp-eyebrow ${local}`}>{guestName ? t.forGuest(guestName) : t.youAreInvited}</p>
+      <p className="bp-tag-name">{name}</p>
+      <AgeMark age={invitation.age} t={t} latin={latin} className="bp-tag-age" />
+    </div>
+  )
 
   return (
     <>
@@ -270,18 +331,15 @@ export default function BirthdayParty({ invitation, guestName, rsvp, music, t, l
               <Floaters kind="bubbles" count={20} />
             </>
           )}
-          {variant === 'midnight-gala' && <Floaters kind="glitter" count={22} />}
+          {(variant === 'midnight-gala' || variant === 'midnight-glam') && <Floaters kind="glitter" count={22} />}
+          {variant === 'tropical-paradise' && <Floaters kind="sunny" count={16} />}
           {variant === 'rose-wish' && <Floaters kind="rosy" count={18} />}
 
           <div className="bp-stage" lang={lang}>
-            <div className="bp-tag">
-              <p className={`bp-eyebrow ${local}`}>{guestName ? t.forGuest(guestName) : t.youAreInvited}</p>
-              <p className="bp-tag-name">{name}</p>
-              <AgeMark age={invitation.age} t={t} latin={latin} className="bp-tag-age" />
-            </div>
+            {!TAG_INSIDE.includes(variant) && tag}
 
             <div className="bp-scene">
-              <Scene variant={variant} opened={opening} />
+              <Scene variant={variant} opened={opening} tag={tag} still={poster} />
             </div>
 
             <button ref={openBtnRef} type="button" className="bp-open-btn" onClick={open} disabled={opening}>
@@ -290,6 +348,7 @@ export default function BirthdayParty({ invitation, guestName, rsvp, music, t, l
           </div>
 
           <span className="bp-flash" aria-hidden="true" />
+          {opening && DRAWN.includes(variant) && <Burst colours={PARTY_COLOURS[variant]} />}
           {opening && <ConfettiBurst variant={variant} />}
           {opening && (
             <button type="button" className="ei-skip" onClick={skip} lang={lang}>
@@ -304,7 +363,7 @@ export default function BirthdayParty({ invitation, guestName, rsvp, music, t, l
         <main className={`bp-invite bp-${variant} ${phase === 'revealing' ? 'is-entering' : ''}`} lang={lang}>
           <section className="bp-hero">
             <Backdrop variant={variant} className="is-hero" />
-            <HeroArt variant={variant} />
+            <HeroArt variant={variant} still={poster} />
             <div className="bp-hero-inner">
               <Reveal variant="fade">
                 {invitation.blessing && <p className="bp-blessing">{invitation.blessing}</p>}

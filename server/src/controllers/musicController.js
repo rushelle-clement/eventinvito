@@ -57,9 +57,9 @@ async function setMusic(req, res) {
     const problem = !cloudinary.AUDIO_FORMATS.includes(format)
         ? "Please upload an MP3, M4A, AAC, WAV, OGG or FLAC audio file."
         : info.bytes > cloudinary.AUDIO_MAX_BYTES
-          ? "Please upload a music file under 15 MB."
+          ? "Please upload a music file under 8 MB."
           : info.duration > cloudinary.AUDIO_MAX_SECONDS
-            ? "Please upload a song under 10 minutes long."
+            ? "Please upload a song under 6 minutes long."
             : info.width || info.height
               ? "Please upload an audio file, not a video."
               : null;

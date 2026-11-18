@@ -1,0 +1,47 @@
+/* The day plan page (AgendaView), in the invitation's own colours (--ag-*). */
+.ag-page { min-height: 100svh; background: var(--ag-page); color: var(--ag-text); font-family: var(--ag-body); }
+.ag-wrap { max-width: 600px; margin: 0 auto; padding: 22px 18px 56px; }
+.ag-back { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border: 1px solid var(--ag-border); border-radius: 999px; background: var(--ag-card); color: var(--ag-text); font-size: 13px; }
+.ag-back:hover { border-color: var(--ag-accent); }
+
+.ag-head { margin: 26px 0 28px; text-align: center; }
+.ag-eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.28em; text-transform: uppercase; color: var(--ag-accent-text); }
+.ag-eyebrow:lang(si), .ag-eyebrow:lang(ta) { letter-spacing: normal; text-transform: none; font-size: 14px; }
+.ag-title { margin-top: 10px; font-family: var(--ag-heading); font-size: clamp(30px, 8vw, 42px); font-weight: 500; line-height: 1.15; overflow-wrap: anywhere; }
+.ag-date { margin-top: 6px; font-size: 14px; color: var(--ag-muted); }
+.ag-status { display: inline-block; margin-top: 14px; padding: 6px 16px; border-radius: 999px; background: var(--ag-soft); color: var(--ag-accent-text); font-size: 13px; font-weight: 600; }
+.ag-empty { text-align: center; color: var(--ag-muted); }
+
+/* the timeline: time | dot on a line | what happens */
+.ag-list { position: relative; }
+.ag-list::before { content: ''; position: absolute; top: 8px; bottom: 8px; left: calc(var(--ag-time-w) + 13px); width: 1px; background: var(--ag-border); }
+.ag-list { --ag-time-w: 74px; }
+@media (min-width: 480px) { .ag-list { --ag-time-w: 92px; } }
+.ag-item { position: relative; padding: 0 0 6px; }
+.ag-day { margin: 18px 0 10px calc(var(--ag-time-w) + 34px); font-family: var(--ag-heading); font-size: 18px; color: var(--ag-accent-text); }
+.ag-item:first-child .ag-day { margin-top: 0; }
+.ag-row { display: grid; grid-template-columns: var(--ag-time-w) 28px 1fr; align-items: start; }
+.ag-time { display: flex; flex-direction: column; align-items: flex-end; padding-top: 12px; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ag-until { margin-top: 2px; font-size: 11px; font-weight: 400; color: var(--ag-muted); }
+.ag-dot { position: relative; z-index: 1; display: grid; place-items: center; width: 13px; height: 13px; margin: 15px auto 0; border-radius: 50%; background: var(--ag-page); box-shadow: inset 0 0 0 2px var(--ag-accent); color: var(--ag-on-accent); }
+.ag-body { padding: 10px 14px 12px; border-radius: 14px; border: 1px solid transparent; }
+.ag-item-title { font-family: var(--ag-heading); font-size: 19px; font-weight: 500; line-height: 1.3; }
+.ag-place { display: flex; align-items: center; gap: 5px; margin-top: 4px; font-size: 13px; color: var(--ag-muted); }
+.ag-note { margin-top: 4px; font-size: 13px; line-height: 1.5; color: var(--ag-muted); }
+.ag-badge { display: inline-flex; align-items: center; gap: 5px; margin-bottom: 6px; padding: 3px 10px; border-radius: 999px; background: var(--ag-soft); color: var(--ag-accent-text); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.ag-badge:lang(si), .ag-badge:lang(ta) { letter-spacing: normal; text-transform: none; font-size: 12px; }
+.ag-badge.is-soft { background: transparent; padding-left: 0; font-weight: 600; text-transform: none; letter-spacing: normal; }
+
+/* what's on now: a card with the accent colour and a gently pulsing dot */
+.ag-item.is-now .ag-body, .ag-item.is-next .ag-body { background: var(--ag-card); border-color: var(--ag-border); box-shadow: 0 16px 30px -24px rgba(0, 0, 0, 0.45); }
+.ag-item.is-now .ag-body { border-color: var(--ag-accent); }
+.ag-item.is-now .ag-badge.is-now { background: var(--ag-accent); color: var(--ag-on-accent); }
+.ag-item.is-now .ag-dot { background: var(--ag-accent); animation: ag-pulse 2s ease-out infinite; }
+@keyframes ag-pulse { 0% { box-shadow: inset 0 0 0 2px var(--ag-accent), 0 0 0 0 color-mix(in srgb, var(--ag-accent) 55%, transparent); } 100% { box-shadow: inset 0 0 0 2px var(--ag-accent), 0 0 0 12px transparent; } }
+/* finished: quieter, with a tick */
+.ag-item.is-past { opacity: 0.55; }
+.ag-item.is-past .ag-dot { background: var(--ag-accent); }
+
+.ag-sign { margin-top: 40px; text-align: center; font-family: var(--ag-heading); font-size: 14px; color: var(--ag-muted); }
+
+@media (prefers-reduced-motion: reduce) { .ag-item.is-now .ag-dot { animation: none; } }

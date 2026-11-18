@@ -1,3 +1,4 @@
+const crypto = require("node:crypto");
 const mongoose = require("mongoose");
 const Invitation = require("../models/Invitation");
 const Template = require("../models/Template");
@@ -5,6 +6,8 @@ const Guest = require("../models/Guest");
 const User = require("../models/User");
 const AppError = require("../utils/AppError");
 const { customDesignWaiting, KEPT_FOR_CUSTOM } = require("../utils/customDesigns");
+const { limitsFor } = require("../utils/packages");
+const { MAX_AGENDA } = require("../models/Invitation");
 
 // Fields a couple may change through the API. Anything else in the request body is ignored,
 // so nobody can change `owner`, `status`, etc. by sending extra fields.
@@ -12,6 +15,9 @@ const EDITABLE = {
     partnerOne: { max: 60 },
     partnerTwo: { max: 60 },
     celebrant: { max: 60 }, // birthdays
+    companyName: { max: 80 }, // corporate events
+    eventTitle: { max: 100 },
+    logoStyle: { oneOf: ["original", "mono"] },
     hostLine: { max: 200 },
     partnerOneParents: { max: 200 },
     partnerTwoParents: { max: 200 },
@@ -27,11 +33,16 @@ const EDITABLE = {
     rsvpDeadline: { pattern: /^\d{4}-\d{2}-\d{2}$/, label: "a date" },
     language: { oneOf: Template.LANGUAGES },
     // Wedding, engagement or homecoming: decides the standard wording
-    eventType: { oneOf: [...Template.COUPLE_OCCASIONS, "birthday"] },
+    eventType: { oneOf: [...Template.COUPLE_OCCASIONS, "birthday", "corporate", "christmas"] },
     shareMessage: { max: 500 },
     blessing: { max: 140 },
     musicTrack: { max: 60, pattern: /^[a-z0-9-]+$/, label: "a track id" },
 };
+
+// Event types set by the design, which the couple can't switch
+const FIXED_TYPES = ["birthday", "corporate", "christmas"];
+// Designs keep to their own kind of event: couples, birthdays, corporate events or Christmas parties
+const familyOf = (eventType) => (FIXED_TYPES.includes(eventType) ? eventType : "couple");
 
 function isValidDate(s) {
     const d = new Date(`${s}T00:00:00Z`);
@@ -66,6 +77,7 @@ const NEEDS_PREMIUM = () =>
 function readChanges(body = {}, current = {}) {
     const changes = {};
     const errors = {};
+    const changesOrCurrent = (field) => changes[field] ?? body[field] ?? current[field];
 
     for (const [field, rule] of Object.entries(EDITABLE)) {
         if (!(field in body)) continue;
@@ -95,9 +107,23 @@ function readChanges(body = {}, current = {}) {
         }
     }
 
-    // A birthday stays a birthday; couple designs choose between wedding, engagement and homecoming
-    if (current.eventType === "birthday" && "eventType" in changes) delete changes.eventType;
+    // Corporate anniversaries: how many years (optional), a whole number from 1 to 500
+    if ("milestone" in body) {
+        const raw = body.milestone;
+        if (raw === null || raw === "") changes.milestone = null;
+        else {
+            const n = typeof raw === "number" ? raw : typeof raw === "string" && /^\d{1,3}$/.test(raw.trim()) ? Number(raw) : NaN;
+            if (!Number.isInteger(n) || n < 1 || n > 500) errors.milestone = "Must be a whole number from 1 to 500.";
+            else changes.milestone = n;
+        }
+    }
+
+    // A birthday stays a birthday and a corporate event stays corporate (the design decides);
+    // couple designs choose between wedding, engagement and homecoming
+    if (FIXED_TYPES.includes(current.eventType) && "eventType" in changes) delete changes.eventType;
     else if (changes.eventType === "birthday") errors.eventType = "Choose a birthday design to make a birthday invitation.";
+    else if (changes.eventType === "corporate") errors.eventType = "Choose a corporate design to make a corporate invitation.";
+    else if (changes.eventType === "christmas") errors.eventType = "Choose a Christmas design to make a Christmas invitation.";
 
     // Ceremonies: a list of { name, date, time, venue, note }
     if ("ceremonies" in body) {
@@ -121,6 +147,38 @@ function readChanges(body = {}, current = {}) {
             });
             if (!errors.ceremonies) changes.ceremonies = cleaned;
         }
+    }
+
+    // The day plan: a list of { date, time, endTime, title, place, note }, kept in time order
+    if ("agenda" in body) {
+        const list = body.agenda;
+        if (!Array.isArray(list)) errors.agenda = "Must be a list.";
+        else if (list.length > MAX_AGENDA) errors.agenda = `Up to ${MAX_AGENDA} items.`;
+        else {
+            const cleaned = [];
+            list.forEach((a, i) => {
+                if (errors.agenda) return;
+                const txt = (v) => (typeof v === "string" ? v.trim() : v == null ? "" : null);
+                const item = { date: txt(a?.date), time: txt(a?.time), endTime: txt(a?.endTime), title: txt(a?.title), place: txt(a?.place), note: txt(a?.note) };
+                const label = `Item ${i + 1}`;
+                if (Object.values(item).some((v) => v === null)) errors.agenda = `${label}: must be text.`;
+                else if (!item.title) errors.agenda = `${label}: say what happens, or remove it.`;
+                else if (item.title.length > 80) errors.agenda = `${label}: must be 80 characters or fewer.`;
+                else if (!/^\d{2}:\d{2}$/.test(item.time)) errors.agenda = `${label}: add a start time.`;
+                else if (item.endTime && !/^\d{2}:\d{2}$/.test(item.endTime)) errors.agenda = `${label}: the end must be a time.`;
+                else if (item.date && (!/^\d{4}-\d{2}-\d{2}$/.test(item.date) || !isValidDate(item.date))) errors.agenda = `${label}: not a real date.`;
+                else if (item.place.length > 120) errors.agenda = `${label}: the place must be 120 characters or fewer.`;
+                else if (item.note.length > 200) errors.agenda = `${label}: the note must be 200 characters or fewer.`;
+                else cleaned.push(item);
+            });
+            // In time order (items without a date are on the event day)
+            const day = (a) => a.date || changesOrCurrent("eventDate") || "";
+            if (!errors.agenda) changes.agenda = cleaned.sort((a, b) => `${day(a)} ${a.time}`.localeCompare(`${day(b)} ${b.time}`));
+        }
+    }
+    if ("agendaVisible" in body) {
+        if (typeof body.agendaVisible !== "boolean") errors.agendaVisible = "Must be true or false.";
+        else changes.agendaVisible = body.agendaVisible;
     }
 
     // The RSVP deadline can't be after the event
@@ -152,32 +210,39 @@ async function listInvitations(req, res) {
         Invitation.find({ owner: req.user._id, status: { $ne: "archived" } })
             .populate("template", "name tier")
             .sort({ updatedAt: -1 }),
-        Guest.find({ owner: req.user._id }).select("invitation rsvpStatus"),
+        Guest.find({ owner: req.user._id }).select("invitation rsvpStatus openedAt"),
     ]);
 
     const counts = {};
     for (const g of guests) {
-        const c = (counts[String(g.invitation)] ??= { total: 0, attending: 0, not_attending: 0, pending: 0 });
+        const c = (counts[String(g.invitation)] ??= { total: 0, attending: 0, not_attending: 0, pending: 0, opened: 0, openedNoReply: 0 });
         c.total += 1;
         c[g.rsvpStatus] += 1;
+        if (g.openedAt) {
+            c.opened += 1;
+            if (g.rsvpStatus === "pending") c.openedNoReply += 1;
+        }
     }
 
     res.json({
         success: true,
         invitations: invitations.map((i) => ({
             ...i.toOwnerJSON(req.user),
-            guestCounts: counts[String(i._id)] || { total: 0, attending: 0, not_attending: 0, pending: 0 },
+            guestCounts: counts[String(i._id)] || { total: 0, attending: 0, not_attending: 0, pending: 0, opened: 0, openedNoReply: 0 },
         })),
     });
 }
 
 // POST /api/invitations  { templateKey, language? } — start a draft from a published template (FR-020)
+// POST /api/invitations  { printed: true, eventType } — a Printed Cards invitation: no online design,
+// guests reply with the QR code on their paper card
 async function createInvitation(req, res) {
+    if (req.body?.printed === true) return createPrintedInvitation(req, res);
     const templateKey = typeof req.body?.templateKey === "string" ? req.body.templateKey : "";
     const template = await Template.findOne({ key: templateKey, status: "published" });
     if (!template || !template.isVisibleTo(req.user)) throw new AppError(400, "Please choose an available template.");
 
-    const { changes, errors } = readChanges(req.body, { eventType: template.eventType === "birthday" ? "birthday" : "" });
+    const { changes, errors } = readChanges(req.body, { eventType: FIXED_TYPES.includes(template.eventType) ? template.eventType : "" });
     if (Object.keys(errors).length) throw new AppError(400, "Please fix the highlighted fields.", errors);
     if (changes.language && !template.languageSupport.includes(changes.language)) {
         throw new AppError(400, "This template does not support that language.");
@@ -191,14 +256,43 @@ async function createInvitation(req, res) {
         templateVersion: template.version,
         // Birthday designs make birthday invitations; a couple design uses the chosen occasion
         // (wedding by default)
-        eventType:
-            template.eventType === "birthday"
-                ? "birthday"
-                : changes.eventType || (Template.COUPLE_OCCASIONS.includes(template.eventType) ? template.eventType : "wedding"),
+        eventType: FIXED_TYPES.includes(template.eventType)
+            ? template.eventType
+            : changes.eventType || (Template.COUPLE_OCCASIONS.includes(template.eventType) ? template.eventType : "wedding"),
         status: "draft",
     });
     invitation.template = template;
 
+    res.status(201).json({ success: true, invitation: invitation.toOwnerJSON(req.user) });
+}
+
+// Printed cards still keep a design (a free one for the event type) so the invitation can be
+// moved to online cards later; guests never see it. The QR code is switched on from the start.
+async function createPrintedInvitation(req, res) {
+    const eventType = req.body?.eventType;
+    if (!Template.EVENT_TYPES.includes(eventType)) throw new AppError(400, "Choose the type of event.", { eventType: "Choose the type of event." });
+    const designTypes = FIXED_TYPES.includes(eventType) ? [eventType] : Template.COUPLE_OCCASIONS;
+    const candidates = await Template.find({ status: "published", eventType: { $in: designTypes } }).sort({ tier: 1, createdAt: 1 });
+    const template = candidates.find((t) => t.tier === "free" && t.isVisibleTo(req.user)) || candidates.find((t) => t.isVisibleTo(req.user));
+    if (!template) throw new AppError(400, "Printed cards aren't available for this type of event yet.");
+
+    const { changes, errors } = readChanges({ ...req.body, eventType }, { eventType: FIXED_TYPES.includes(eventType) ? eventType : "" });
+    if (Object.keys(errors).length) throw new AppError(400, "Please fix the highlighted fields.", errors);
+    delete changes.printed;
+
+    const invitation = await Invitation.create({
+        ...changes,
+        eventType,
+        owner: req.user._id,
+        template: template._id,
+        templateKey: template.key,
+        templateVersion: template.version,
+        printed: true,
+        qrEnabled: true,
+        qrCode: crypto.randomBytes(8).toString("base64url"),
+        status: "draft",
+    });
+    invitation.template = template;
     res.status(201).json({ success: true, invitation: invitation.toOwnerJSON(req.user) });
 }
 
@@ -216,23 +310,50 @@ async function updateInvitation(req, res) {
     const { changes, errors } = readChanges(req.body, invitation);
 
     let newTemplate = null;
-    if (typeof req.body?.templateKey === "string" && req.body.templateKey !== invitation.templateKey) {
+    // (printed cards may also "choose" the design they were given, to move to online cards)
+    if (typeof req.body?.templateKey === "string" && (req.body.templateKey !== invitation.templateKey || invitation.printed)) {
         newTemplate = await Template.findOne({ key: req.body.templateKey, status: "published" });
         if (!newTemplate || !newTemplate.isVisibleTo(req.user)) errors.templateKey = "That template is not available.";
-        // Birthday and couple invitations have different details, so they keep to their own designs
-        else if ((newTemplate.eventType === "birthday") !== invitation.isBirthday()) {
-            errors.templateKey = invitation.isBirthday() ? "Choose another birthday design." : "Choose a wedding, engagement or homecoming design.";
+        // Couple, birthday and corporate invitations have different details, so they keep to their own designs
+        else if (familyOf(newTemplate.eventType) !== familyOf(invitation.eventType)) {
+            errors.templateKey = invitation.isBirthday()
+                ? "Choose another birthday design."
+                : invitation.isCorporate()
+                  ? "Choose another corporate design."
+                  : invitation.isChristmas()
+                    ? "Choose another Christmas design."
+                    : "Choose a wedding, engagement or homecoming design.";
         }
     }
 
     if (Object.keys(errors).length) throw new AppError(400, "Please fix the highlighted fields.", errors);
 
+    // The day plan is part of Premium Plus and Signature. Clearing it or switching it off is always allowed.
+    const addsAgenda = (changes.agenda && changes.agenda.length > 0) || changes.agendaVisible === true;
+    // The day plan is for weddings (and engagements and homecomings) and corporate events, not birthdays
+    if (addsAgenda && (invitation.isBirthday() || invitation.isChristmas())) {
+        throw new AppError(400, "The day plan is available for wedding and corporate invitations.", { agenda: "Not available for birthday invitations." });
+    }
+    if (addsAgenda && !limitsFor(invitation, req.user).agenda) {
+        throw new AppError(
+            403,
+            "The day plan is part of Premium Plus and Signature. Contact EventInvito to upgrade your package.",
+            undefined,
+            "needs_plus"
+        );
+    }
+
+    // Printed cards moving to online invitations (e.g. after upgrading to Premium Plus) by choosing
+    // a design. Once paid for, that needs a Premium credit, like publishing a new online invitation.
+    const toOnline = Boolean(newTemplate && invitation.printed);
+    const paidPrinted = toOnline && invitation.paidKind() === "printed";
     // A live invitation published as a free card can only switch to an animated design with a premium credit
-    const upgrade = Boolean(newTemplate && newTemplate.tier !== "free" && invitation.status === "published" && invitation.paidKind() === "free");
-    if (upgrade && !((req.user.publishCredits || 0) > 0)) throw NEEDS_PREMIUM(); // checked before anything changes
+    const upgrade = paidPrinted || Boolean(newTemplate && newTemplate.tier !== "free" && invitation.status === "published" && invitation.paidKind() === "free");
+    if (upgrade && !((req.user.publishCredits || 0) > 0)) throw paidPrinted ? NEEDS_ONLINE() : NEEDS_PREMIUM(); // checked before anything changes
     if (upgrade) await keepForCustom(req.user, newTemplate.key);
 
     Object.assign(invitation, changes);
+    if (toOnline) invitation.printed = false; // guests keep their physical cards and the QR code keeps working
     if (newTemplate) {
         invitation.template = newTemplate;
         invitation.templateKey = newTemplate.key;
@@ -252,7 +373,7 @@ async function updateInvitation(req, res) {
     }
 
     if (upgrade) {
-        if (!(await takeCredit(req.user._id, "publishCredits"))) throw NEEDS_PREMIUM();
+        if (!(await takeCredit(req.user._id, "publishCredits"))) throw paidPrinted ? NEEDS_ONLINE() : NEEDS_PREMIUM();
         invitation.creditKind = "premium";
     }
     try {
@@ -293,6 +414,9 @@ async function publishInvitation(req, res) {
     //  • an animated design always needs a premium credit.
     // A paid invitation can be unpublished and published again for free. One published as a free
     // card that has since switched to an animated design needs a premium credit to go live.
+    // Printed Cards use their own credit; once paid, it can be unpublished and published again freely
+    if (invitation.printed) return publishPrinted(req, res, invitation);
+
     const kind = invitation.paidKind();
     const needsPremium = (!kind && !(invitation.isFreeDesign() && req.user.freeCredits > 0)) || (kind === "free" && !invitation.isFreeDesign());
     if (needsPremium) await keepForCustom(req.user, invitation.templateKey);
@@ -316,6 +440,40 @@ async function publishInvitation(req, res) {
     } catch (err) {
         // Give the credit back if the invitation couldn't be saved
         if (charged) await User.updateOne({ _id: req.user._id }, { $inc: { [charged === "free" ? "freeCredits" : "publishCredits"]: 1 } });
+        throw err;
+    }
+    const owner = await User.findById(req.user._id);
+    res.json({ success: true, invitation: invitation.toOwnerJSON(owner || req.user), user: owner?.toPublicJSON() });
+}
+
+const NEEDS_ONLINE = () =>
+    new AppError(
+        403,
+        "Adding online invitations to printed cards is part of Premium Plus. Contact EventInvito to upgrade — you only pay the difference.",
+        undefined,
+        "needs_premium"
+    );
+const NEEDS_PRINTED = () =>
+    new AppError(
+        403,
+        "Publishing printed cards with a QR code uses the Printed Cards package. Contact EventInvito to get it.",
+        undefined,
+        "needs_printed"
+    );
+
+async function publishPrinted(req, res, invitation) {
+    const charged = invitation.paidKind() ? null : (await takeCredit(req.user._id, "printedCredits")) ? "printed" : null;
+    if (!invitation.paidKind() && !charged) throw NEEDS_PRINTED();
+    if (charged) {
+        invitation.creditUsed = true;
+        invitation.creditKind = charged;
+    }
+    invitation.status = "published";
+    invitation.publishedAt ??= new Date();
+    try {
+        await invitation.save();
+    } catch (err) {
+        if (charged) await User.updateOne({ _id: req.user._id }, { $inc: { printedCredits: 1 } });
         throw err;
     }
     const owner = await User.findById(req.user._id);

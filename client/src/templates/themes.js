@@ -6,7 +6,122 @@ import { SINHALA_WORDING, sinhalaWording } from './wording'
 // Fallback fonts make Sinhala and Tamil text render properly in every design.
 const SI_TA = '"Noto Serif Sinhala", "Noto Serif Tamil"'
 
+const BODY_FONT_C = `"Plus Jakarta Sans", "Noto Sans Sinhala", "Noto Sans Tamil", sans-serif`
+
 export const THEMES = {
+  'ratna-mahal': {
+    // Ratna Mahal: a modern Indian wedding in ivory and gold with roses, jasmine, pearls and gems
+    layout: 'classic',
+    page: '#f8f1e6',
+    card: '#fffaf2',
+    text: '#3b2f2a',
+    muted: '#7b6a5e',
+    accent: '#b48a45',
+    accentText: '#8a6428',
+    onAccent: '#ffffff',
+    soft: '#f2e7d6',
+    border: '#e6d5b8',
+    headingFont: `"Cormorant Garamond", "Playfair Display", ${SI_TA}, serif`,
+    namesFont: `"Cormorant Garamond", ${SI_TA}, serif`,
+    namesStyle: 'normal',
+    bodyFont: `"Plus Jakarta Sans", "Noto Sans Sinhala", "Noto Sans Tamil", sans-serif`,
+  },
+  // ---- Corporate events (corporate: true). Text colours suit each design's own background,
+  // so the reply form and the day plan match it.
+  'corporate-elegance': {
+    // Corporate Elegance: ivory, champagne gold and charcoal; gold lines draw the frame
+    free: true, corporate: true, layout: 'classic',
+    page: '#f4efe5', card: '#fbf8f2', text: '#2c2c2e', muted: '#6d6a64', accent: '#2c2c2e', accentText: '#7d6330', onAccent: '#ffffff', soft: '#f1ebdf', border: '#e2d8c4',
+    headingFont: `"Cormorant Garamond", "Playfair Display", ${SI_TA}, serif`, namesFont: `"Cormorant Garamond", ${SI_TA}, serif`, namesStyle: 'normal', bodyFont: BODY_FONT_C,
+  },
+  'modern-business': {
+    // Modern Business: navy, white and silver; geometric shapes and bold type
+    free: true, corporate: true, layout: 'classic',
+    page: '#0f2341', card: '#132b4f', text: '#ffffff', muted: '#b8c0cc', accent: '#ffffff', accentText: '#ffffff', onAccent: '#0f2341', soft: '#1b3963', border: '#2a4a78',
+    headingFont: BODY_FONT_C, namesFont: BODY_FONT_C, namesStyle: 'normal', bodyFont: BODY_FONT_C,
+  },
+  'blue-gradient': {
+    // Blue Corporate Gradient: a royal-blue front with a moving cyan light, on a clean white page
+    free: true, corporate: true, layout: 'classic',
+    page: '#eef3fd', card: '#ffffff', text: '#0b1f7a', muted: '#4d5a7c', accent: '#1e5bff', accentText: '#1e5bff', onAccent: '#ffffff', soft: '#f3f7ff', border: 'rgba(30, 91, 255, 0.25)',
+    headingFont: BODY_FONT_C, namesFont: BODY_FONT_C, namesStyle: 'normal', bodyFont: BODY_FONT_C,
+  },
+  'minimal-editorial': {
+    // Minimal Editorial: white, black and grey Swiss typography
+    free: true, corporate: true, layout: 'classic',
+    page: '#efefed', card: '#ffffff', text: '#111111', muted: '#6f6f6f', accent: '#111111', accentText: '#111111', onAccent: '#ffffff', soft: '#f2f2f0', border: '#dcdcda',
+    headingFont: BODY_FONT_C, namesFont: BODY_FONT_C, namesStyle: 'normal', bodyFont: BODY_FONT_C,
+  },
+  'emerald-prestige': {
+    // Emerald Prestige: emerald green, gold and ivory with glowing particles
+    free: true, corporate: true, layout: 'classic',
+    page: '#082a20', card: '#0d3b2e', text: '#f6f0e2', muted: '#cfc8b6', accent: '#d9bc76', accentText: '#e6cb8a', onAccent: '#0d3b2e', soft: '#124a3a', border: '#2c5a4a',
+    headingFont: `"Cormorant Garamond", "Playfair Display", ${SI_TA}, serif`, namesFont: `"Cormorant Garamond", ${SI_TA}, serif`, namesStyle: 'normal', bodyFont: BODY_FONT_C,
+  },
+  'black-tie-gala': {
+    // Black Tie Gala: black, gold and ivory; a spotlight and a gold shimmer
+    corporate: true, layout: 'classic',
+    page: '#0b0b0d', card: '#141417', text: '#f4ecdc', muted: '#bdb4a3', accent: '#c9a55c', accentText: '#d8b86e', onAccent: '#0b0b0d', soft: '#1b1a1d', border: '#3a3326',
+    headingFont: `"Cinzel", "Cormorant Garamond", ${SI_TA}, serif`, namesFont: `"Cinzel", ${SI_TA}, serif`, namesStyle: 'normal', bodyFont: BODY_FONT_C,
+  },
+  'tech-innovation': {
+    // Technology & Innovation: midnight blue, electric blue and violet; light trails and particles
+    corporate: true, layout: 'classic',
+    page: '#070b24', card: '#0d1436', text: '#e9efff', muted: '#a7b3d9', accent: '#2f7bff', accentText: '#7fb0ff', onAccent: '#ffffff', soft: '#121c4a', border: '#26336b',
+    headingFont: BODY_FONT_C, namesFont: BODY_FONT_C, namesStyle: 'normal', bodyFont: BODY_FONT_C,
+  },
+  'corporate-anniversary': {
+    // Corporate Anniversary: champagne, silver and burgundy; the big anniversary number
+    corporate: true, layout: 'classic',
+    page: '#f5ede0', card: '#fffaf2', text: '#2d2226', muted: '#6e6064', accent: '#7a1f2b', accentText: '#7a1f2b', onAccent: '#ffffff', soft: '#f2e6d3', border: '#e0d2bd',
+    headingFont: `"Cormorant Garamond", "Playfair Display", ${SI_TA}, serif`, namesFont: `"Cormorant Garamond", ${SI_TA}, serif`, namesStyle: 'normal', bodyFont: BODY_FONT_C,
+  },
+  'product-launch': {
+    // Product Launch: black, white and metallic silver; the product reveal
+    corporate: true, layout: 'classic',
+    page: '#050505', card: '#0e0e0f', text: '#f5f5f5', muted: '#a9adb4', accent: '#f5f5f5', accentText: '#f5f5f5', onAccent: '#050505', soft: '#1a1a1c', border: '#2c2d30',
+    headingFont: BODY_FONT_C, namesFont: BODY_FONT_C, namesStyle: 'normal', bodyFont: BODY_FONT_C,
+  },
+  'networking-cocktail': {
+    // Networking Cocktail Evening: burgundy, plum and champagne; soft evening light
+    corporate: true, layout: 'classic',
+    page: '#2a0c1a', card: '#3a1226', text: '#f7ead7', muted: '#d6c0b0', accent: '#e8cfa3', accentText: '#ecd5ad', onAccent: '#3a1226', soft: '#4a1a33', border: '#6a2c48',
+    headingFont: `"Playfair Display", "Cormorant Garamond", ${SI_TA}, serif`, namesFont: `"Playfair Display", ${SI_TA}, serif`, namesStyle: 'normal', bodyFont: BODY_FONT_C,
+  },
+  'grace-chapel': {
+    // Sage Promise: a church wedding in white, sage green and soft gold, with a white-rose arch
+    layout: 'classic',
+    page: '#fbf8f1',
+    card: '#ffffff',
+    text: '#2e2b25',
+    muted: '#6b675d',
+    accent: '#55644a',
+    accentText: '#55644a',
+    onAccent: '#ffffff',
+    soft: '#eff2ea',
+    border: '#dcd6c6',
+    headingFont: `"Cormorant Garamond", "Playfair Display", ${SI_TA}, serif`,
+    namesFont: `"Cormorant Garamond", ${SI_TA}, serif`,
+    namesStyle: 'normal',
+    bodyFont: `"Plus Jakarta Sans", "Noto Sans Sinhala", "Noto Sans Tamil", sans-serif`,
+  },
+  'white-lily': {
+    // White Lily: black and white with white lilies, built around the couple's photos
+    layout: 'classic',
+    page: '#f7f6f3',
+    card: '#ffffff',
+    text: '#111111',
+    muted: '#5f5f5c',
+    accent: '#111111',
+    accentText: '#111111',
+    onAccent: '#ffffff',
+    soft: '#efeeea',
+    border: '#d9d8d3',
+    headingFont: `"Cormorant Garamond", "Playfair Display", ${SI_TA}, serif`,
+    namesFont: `"Cormorant Garamond", ${SI_TA}, serif`,
+    namesStyle: 'normal',
+    bodyFont: `"Plus Jakarta Sans", "Noto Sans Sinhala", "Noto Sans Tamil", sans-serif`,
+  },
   'golden-vow': {
     // Golden Vow: modern gold, ivory and white, built around the couple's photos
     layout: 'classic',
@@ -560,6 +675,60 @@ Object.assign(THEMES, {
 })
 
 Object.assign(THEMES, {
+  'midnight-glam': {
+    // Midnight Glam: black and champagne gold; a starry gold arch, golden particles reveal it
+    birthday: true,
+    layout: 'regal',
+    page: '#0b0a09',
+    card: '#15130f',
+    text: '#f4ead2',
+    muted: '#b5aa93',
+    accent: '#d8bc82',
+    accentText: '#e6cf9c',
+    onAccent: '#0b0a09',
+    soft: '#1b1813',
+    border: '#3a3326',
+    headingFont: `"Cormorant Garamond", "Playfair Display", ${SI_TA}, serif`,
+    namesFont: `"Italiana", "Cormorant Garamond", ${SI_TA}, serif`,
+    namesStyle: 'normal',
+    bodyFont: BODY_FONT,
+  },
+  'disco-fever': {
+    // Disco Fever: pink, purple and blue; a mirror ball turning in coloured light
+    birthday: true,
+    layout: 'classic',
+    page: '#1d0b33',
+    card: '#2a1046',
+    text: '#fff3fb',
+    muted: '#d9b9e8',
+    accent: '#ff3fa4',
+    accentText: '#ff79c6',
+    onAccent: '#ffffff',
+    soft: '#341257',
+    border: '#4f2475',
+    headingFont: `"Montserrat", ${SI_TA}, sans-serif`,
+    namesFont: `"Montserrat", ${SI_TA}, sans-serif`,
+    namesStyle: 'normal',
+    bodyFont: BODY_FONT,
+  },
+  'tropical-paradise': {
+    // Tropical Paradise: teal, coral and sunny yellow; palm leaves sway around a hibiscus card
+    birthday: true,
+    layout: 'classic',
+    page: '#e9f7f4',
+    card: '#ffffff',
+    text: '#14514c',
+    muted: '#4b7c76',
+    accent: '#ff7a59',
+    accentText: '#e8613f',
+    onAccent: '#ffffff',
+    soft: '#dcf2ee',
+    border: '#bfe3dc',
+    headingFont: `"Playfair Display", "Cormorant Garamond", ${SI_TA}, serif`,
+    namesFont: `"Playfair Display", ${SI_TA}, serif`,
+    namesStyle: 'normal',
+    bodyFont: BODY_FONT,
+  },
   'rose-wish': {
     // Rosé Wish: her birthday, blush and rose gold; "Make a wish" blows the candles out
     birthday: true,
@@ -645,6 +814,36 @@ const BIRTHDAY_SAMPLES = {
     eventTime: '19:00',
     endTime: '23:00',
   },
+  'midnight-glam': {
+    celebrant: 'Olivia',
+    age: 25,
+    message: 'Join us for a night of music, champagne and starlight.',
+    venueName: 'Cinnamon Life Sky Lounge',
+    address: '1 Justice Akbar Mawatha, Colombo 02',
+    dressCode: 'Black & gold glam',
+    eventTime: '20:00',
+    endTime: '23:59',
+  },
+  'disco-fever': {
+    celebrant: 'Jessica',
+    age: 21,
+    message: 'Put on your dancing shoes — it’s a disco party!',
+    venueName: 'Groove Club Colombo',
+    address: '18 Marine Drive, Colombo 03',
+    dressCode: '70s disco & sparkle',
+    eventTime: '19:30',
+    endTime: '23:30',
+  },
+  'tropical-paradise': {
+    celebrant: 'Helena',
+    age: 30,
+    message: 'Sunshine, cocktails and good friends — join us for a tropical birthday by the sea.',
+    venueName: 'Mount Lavinia Beach Club',
+    address: '100 Hotel Road, Mount Lavinia',
+    dressCode: 'Tropical & bright',
+    eventTime: '16:00',
+    endTime: '21:00',
+  },
   'rose-bubbles': {
     celebrant: 'Nadeesha',
     age: 40,
@@ -693,7 +892,127 @@ export const SAMPLE_PHOTOS = Array.from({ length: 6 }, (_, i) => {
 })
 
 // The full sample for a design and occasion (gallery thumbnails and demos)
+// Corporate samples: a made-up company ("Lumora Group") and a fitting event for each design
+const SAMPLE_LOGO = { url: `${import.meta.env.BASE_URL}corporate/sample-logo.svg`, width: 420, height: 110 }
+const CORPORATE_SAMPLES = {
+  'corporate-elegance': { eventTitle: 'Annual Dinner 2026', dressCode: 'Black tie', venueName: 'Cinnamon Grand', address: '77 Galle Road, Colombo 03', eventTime: '19:00', endTime: '23:00' },
+  'modern-business': { eventTitle: 'Leadership Summit 2026', dressCode: 'Business formal', venueName: 'BMICH', address: 'Bauddhaloka Mawatha, Colombo 07', eventTime: '09:00', endTime: '17:00' },
+  'blue-gradient': { eventTitle: 'Product Innovation Day', dressCode: 'Smart casual', venueName: 'Hilton Colombo', address: '2 Sir Chittampalam A. Gardiner Mawatha, Colombo 02', eventTime: '10:00', endTime: '16:00' },
+  'minimal-editorial': { eventTitle: 'Executive Roundtable', dressCode: 'Business formal', venueName: 'The Kingsbury', address: '48 Janadhipathi Mawatha, Colombo 01', eventTime: '18:30', endTime: '21:00' },
+  'emerald-prestige': { eventTitle: 'Executive Dinner', blessing: 'Celebrating 20 years together', dressCode: 'Formal', venueName: 'Shangri-La Colombo', address: '1 Galle Face, Colombo 02', eventTime: '19:30', endTime: '23:00' },
+  'black-tie-gala': {
+    eventTitle: 'Annual Awards Gala',
+    dressCode: 'Black tie',
+    venueName: 'Shangri-La Colombo',
+    address: '1 Galle Face, Colombo 02',
+    eventTime: '19:00',
+    endTime: '23:30',
+    ceremonies: [
+      { name: 'Red carpet & cocktails', date: '', time: '19:00', venue: '', note: '' },
+      { name: 'Awards ceremony', date: '', time: '20:00', venue: '', note: '' },
+      { name: 'Gala dinner', date: '', time: '21:30', venue: '', note: '' },
+    ],
+  },
+  'tech-innovation': {
+    eventTitle: 'Tech Summit 2026',
+    dressCode: 'Smart casual',
+    venueName: 'Colombo City Centre',
+    address: '137 Sir James Peiris Mawatha, Colombo 02',
+    eventTime: '09:00',
+    endTime: '18:00',
+    ceremonies: [
+      { name: 'Registration', date: '', time: '08:30', venue: '', note: '' },
+      { name: 'Keynote: The AI Decade', date: '', time: '09:30', venue: 'Main hall', note: '' },
+      { name: 'Product demos & networking', date: '', time: '14:00', venue: '', note: '' },
+    ],
+  },
+  'corporate-anniversary': { eventTitle: 'Silver Jubilee Celebration', milestone: 25, dressCode: 'Formal', venueName: 'Cinnamon Grand', address: '77 Galle Road, Colombo 03', eventTime: '19:00', endTime: '23:00' },
+  'product-launch': { eventTitle: 'Introducing Lumora One', dressCode: 'Smart casual', venueName: 'One Galle Face', address: '1A Centre Road, Galle Face, Colombo 02', eventTime: '18:00', endTime: '21:00' },
+  'networking-cocktail': { eventTitle: 'Client Appreciation Evening', dressCode: 'Cocktail attire', venueName: 'The Kingsbury Rooftop', address: '48 Janadhipathi Mawatha, Colombo 01', eventTime: '18:30', endTime: '22:00' },
+}
+
+// ---- Christmas parties (eventType "christmas"): the party's title and its hosts
+const XMAS = (name, page, card, text, muted, accent, accentText, onAccent, soft, border, heading) => ({
+  christmas: true,
+  layout: 'classic',
+  page,
+  card,
+  text,
+  muted,
+  accent,
+  accentText,
+  onAccent,
+  soft,
+  border,
+  headingFont: heading,
+  namesFont: heading,
+  namesStyle: 'normal',
+  bodyFont: BODY_FONT_C,
+})
+const XMAS_SERIF = `"Cormorant Garamond", "Playfair Display", ${SI_TA}, serif`
+Object.assign(THEMES, {
+  // Free cards (a light animation on the card)
+  'classic-noel': { ...XMAS('Classic Noël', '#efe6d6', '#fbf6ec', '#3b2a22', '#6f5d50', '#b3202e', '#a11c29', '#ffffff', '#f4ead8', '#e3d4bb', XMAS_SERIF), free: true },
+  'candy-cane': { ...XMAS('Candy Cane Lane', '#fde9ea', '#ffffff', '#3a1f24', '#7a5a5f', '#d7263d', '#c21f35', '#ffffff', '#fff1f2', '#f6c9cf', `"Fredoka", ${SI_TA}, sans-serif`), free: true },
+  'nordic-pine': { ...XMAS('Nordic Pine', '#e7e3da', '#f4f1ea', '#2f3437', '#6b7069', '#5f7d66', '#4f6c56', '#ffffff', '#ebe7de', '#d9d4c8', `"Italiana", "Cormorant Garamond", ${SI_TA}, serif`), free: true },
+  'golden-star': { ...XMAS('Starlight', '#0a1128', '#101a3a', '#f5ecd6', '#bdb6a2', '#d9b768', '#e6c77f', '#101a3a', '#16224a', '#2c3866', XMAS_SERIF), free: true },
+  // Premium (animated)
+  'christmas-elegance': XMAS('Christmas Elegance', '#0f2a1f', '#13392a', '#f6eedb', '#cbbf9f', '#d8bc82', '#e3c98f', '#13241b', '#153d2d', '#2c5442', XMAS_SERIF),
+  'pink-christmas': XMAS('Pink Christmas', '#fbe8ee', '#ffffff', '#6b3f4e', '#9a7280', '#d46a8c', '#c0627f', '#ffffff', '#fdf0f4', '#f6d3df', `"Playfair Display", ${SI_TA}, serif`),
+  'winter-wonderland': XMAS('Winter Wonderland', '#e9f1fb', '#ffffff', '#23406a', '#5f7697', '#5b8cc9', '#4a7bbb', '#ffffff', '#eef4fc', '#d6e3f4', XMAS_SERIF),
+  'cosy-christmas': XMAS('Cosy Christmas', '#efe4d2', '#fbf6ec', '#4a2e1f', '#7d6150', '#a3262f', '#a3262f', '#ffffff', '#f6ecdb', '#e7d6bd', XMAS_SERIF),
+  'christmas-after-dark': XMAS('Christmas After Dark', '#151617', '#1f2221', '#f3f1ea', '#b9b7ae', '#d9334a', '#e94a5f', '#ffffff', '#24282a', '#3a3e3f', XMAS_SERIF),
+  'silent-night': { ...XMAS('Silent Night', '#0c1733', '#13234a', '#eef3fb', '#b6c3dc', '#f3c969', '#f3c969', '#13234a', '#1a2c58', '#2c3f70', XMAS_SERIF), free: true },
+})
+
+// Gallery samples for the Christmas designs
+const CHRISTMAS_SAMPLES = {
+  'classic-noel': { eventTitle: 'Christmas Party', companyName: 'The Perera Family', venueName: 'The Perera Residence', address: '24 Flower Road, Colombo 07', dressCode: 'Festive red & green', eventTime: '18:30', endTime: '22:30' },
+  'candy-cane': { eventTitle: 'Family Christmas Party', companyName: 'The Silvas', venueName: 'Our Home', address: '12 Lake Drive, Nugegoda', dressCode: 'Christmas jumpers', eventTime: '16:00', endTime: '20:00' },
+  'nordic-pine': { eventTitle: 'Christmas Dinner', companyName: 'Anna & Mark', venueName: 'The Garden House', address: '5 Ward Place, Colombo 07', dressCode: 'Smart casual', eventTime: '19:00', endTime: '23:00' },
+  'golden-star': { eventTitle: 'Christmas Eve Soirée', companyName: 'The Fernandos', venueName: 'Galle Face Hotel', address: '2 Galle Road, Colombo 03', dressCode: 'Black tie & sparkle', eventTime: '19:30', endTime: '23:59' },
+  'christmas-elegance': { eventTitle: 'Christmas Party', companyName: 'The Wijesinghe Family', message: 'Join us for an elegant evening of festive dining, carols and good company.', venueName: 'Shangri-La Colombo', address: '1 Galle Face, Colombo 02', dressCode: 'Festive formal', eventTime: '19:00', endTime: '23:30', ceremonies: [{ name: 'Welcome drinks', date: '', time: '19:00', venue: '', note: '' }, { name: 'Carols', date: '', time: '20:00', venue: '', note: '' }, { name: 'Christmas dinner', date: '', time: '20:30', venue: '', note: '' }] },
+  'pink-christmas': { eventTitle: 'Christmas Party', companyName: 'Sanduni & Friends', message: 'Pink, sparkly and full of cheer — come celebrate Christmas with us!', venueName: 'The Blush Room', address: '45 Ward Place, Colombo 07', dressCode: 'Pink & sparkle', eventTime: '17:00', endTime: '21:00' },
+  'winter-wonderland': { eventTitle: 'Christmas Party', companyName: 'The de Silva Family', message: 'Step into a winter wonderland of carols, cocoa and twinkling lights.', venueName: 'Hill Club', address: 'Grand Hotel Road, Nuwara Eliya', dressCode: 'Winter white & silver', eventTime: '18:30', endTime: '22:30' },
+  'cosy-christmas': { eventTitle: 'Christmas Get-together', companyName: 'Nimal & Priya', message: 'Warm drinks, gingerbread and good company — come and share a cosy Christmas with us.', venueName: 'Our Home', address: '8 Temple Lane, Kandy', dressCode: 'Cosy jumpers welcome', eventTime: '17:30', endTime: '21:30' },
+  'christmas-after-dark': { eventTitle: 'Christmas Party', companyName: 'The Groove Collective', message: 'Drinks, food and music until late — free entry for friends and family.', venueName: 'The Loft Bar', address: '22 Marine Drive, Colombo 03', dressCode: 'Red, green & sparkle', eventTime: '20:00', endTime: '23:59' },
+  'silent-night': { eventTitle: 'Christmas Carol Night', companyName: 'St. Mary’s Youth', venueName: 'St. Mary’s Church Hall', address: 'Church Road, Negombo', dressCode: 'Warm & cosy', eventTime: '18:00', endTime: '21:00' },
+}
+
 export function sampleInvitation(templateKey, occasion = 'wedding') {
+  if (THEMES[templateKey]?.christmas) {
+    return {
+      ...SAMPLE_INVITATION,
+      partnerOne: '',
+      partnerTwo: '',
+      hostLine: '',
+      message: '',
+      photos: [],
+      ...CHRISTMAS_SAMPLES[templateKey],
+      templateKey,
+      eventType: 'christmas',
+      eventDate: '2026-12-20',
+      rsvpDeadline: '2026-12-12',
+    }
+  }
+  if (THEMES[templateKey]?.corporate) {
+    return {
+      ...SAMPLE_INVITATION,
+      partnerOne: '',
+      partnerTwo: '',
+      hostLine: '',
+      message: '',
+      companyName: 'Lumora Group',
+      logo: SAMPLE_LOGO,
+      logoStyle: 'mono', // the sample logo in each design's own colours
+      photos: [],
+      ...CORPORATE_SAMPLES[templateKey],
+      templateKey,
+      eventType: 'corporate',
+      eventDate: '2026-12-18',
+      rsvpDeadline: '2026-12-08',
+    }
+  }
   if (THEMES[templateKey]?.birthday) {
     return {
       ...SAMPLE_INVITATION,

@@ -57,3 +57,15 @@ export function runTimeline(setPhase, revealAt, doneAt) {
 export function galleryClass(count, designed) {
   return count > designed ? 'count-many ei-gallery-many' : `count-${count}`
 }
+
+// The date in parts, for designs that set it large: { weekday, day, month, year }, or the written date
+export function dateParts(iso, lang) {
+  if (!iso) return null
+  if (lang !== 'en') return { local: formatDate(iso, lang) }
+  return {
+    weekday: formatDate(iso, 'en', { weekday: 'long' }),
+    day: formatDate(iso, 'en', { day: 'numeric' }),
+    month: formatDate(iso, 'en', { month: 'long' }),
+    year: formatDate(iso, 'en', { year: 'numeric' }),
+  }
+}

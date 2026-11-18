@@ -1,6 +1,7 @@
 // The guest's reply form, shown inside their personal invitation (FR-051, FR-052).
 // Only two choices: attending / not attending. No plus-ones (FR-047).
 // The server makes the final decision about deadlines and valid links; this form just shows the result.
+// Simple Card (free designs) has no deadline: guests can change their answer until the event.
 
 import { useState } from 'react'
 import { CheckCircle2, HeartCrack, PartyPopper } from 'lucide-react'
@@ -68,7 +69,7 @@ export default function RsvpForm({ token, invitation, rsvp, onChange }) {
         </p>
         {justSent && <p className="mt-1">{t.yourAnswer(answerLabel)}</p>}
         <p className="mt-1" style={{ color: theme.muted }}>
-          {t.canChangeUntil(deadline)}
+          {rsvp.deadline ? t.canChangeUntil(deadline) : t.canChangeAnytime}
         </p>
         <button
           type="button"

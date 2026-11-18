@@ -19,7 +19,7 @@ describe("Birthdays", () => {
         const list = (await api().get("/api/templates")).body.templates.filter((t) => t.eventType === "birthday");
         assert.deepEqual(
             list.map((t) => t.key),
-            ["balloon-bash", "ocean-adventure", "fairy-garden", "midnight-gala", "rose-wish", "confetti-pop", "little-star", "blush-bloom", "black-gold", "rose-bubbles"]
+            ["balloon-bash", "ocean-adventure", "fairy-garden", "midnight-gala", "rose-wish", "midnight-glam", "disco-fever", "tropical-paradise", "confetti-pop", "little-star", "blush-bloom", "black-gold", "rose-bubbles"]
         );
         assert.ok(list.every((t) => t.supportedFields.includes("age") && !t.supportedFields.includes("partnerOne")));
     });

@@ -15,6 +15,13 @@ import CrimsonLove from './CrimsonLove'
 import NoirRouge from './NoirRouge'
 import RanPahana from './RanPahana'
 import GoldenVow from './GoldenVow'
+import WhiteLily from './WhiteLily'
+import RatnaMahal from './RatnaMahal'
+import GraceChapel from './GraceChapel'
+import CorporateCard from './CorporateCard'
+import ChristmasCard from './ChristmasCard'
+import ChristmasParty from './ChristmasParty'
+import { BlackTieGala, CorporateAnniversary, NetworkingCocktail, ProductLaunch, TechInnovation } from './CorporateEvent'
 import WhiteRose from './WhiteRose'
 import PinkFloral from './PinkFloral'
 import BlueBotanical from './BlueBotanical'
@@ -28,6 +35,9 @@ import StaticCard from './StaticCard'
 import BirthdayCard from './BirthdayCard'
 import BirthdayParty from './BirthdayParty'
 import { siteHost, siteUrl } from '../../lib/siteUrl'
+import { Link } from 'react-router-dom'
+import { CalendarClock } from 'lucide-react'
+import { agendaStrings } from '../../lib/agenda'
 import './experience.css'
 import './designs.css'
 
@@ -39,6 +49,9 @@ const EXPERIENCES = {
   'noir-rouge': NoirRouge,
   'ran-pahana': RanPahana,
   'golden-vow': GoldenVow,
+  'white-lily': WhiteLily,
+  'grace-chapel': GraceChapel,
+  'ratna-mahal': RatnaMahal,
   'white-rose': WhiteRose,
   'pink-floral': PinkFloral,
   'blue-botanical': BlueBotanical,
@@ -60,12 +73,39 @@ const EXPERIENCES = {
   'fairy-garden': BirthdayParty,
   'midnight-gala': BirthdayParty,
   'rose-wish': BirthdayParty,
+  'midnight-glam': BirthdayParty,
+  'disco-fever': BirthdayParty,
+  'tropical-paradise': BirthdayParty,
   // Free birthday cards
   'confetti-pop': BirthdayCard,
   'little-star': BirthdayCard,
   'blush-bloom': BirthdayCard,
   'black-gold': BirthdayCard,
   'rose-bubbles': BirthdayCard,
+  // Corporate events (Premium, animated)
+  'black-tie-gala': BlackTieGala,
+  'tech-innovation': TechInnovation,
+  'corporate-anniversary': CorporateAnniversary,
+  'product-launch': ProductLaunch,
+  'networking-cocktail': NetworkingCocktail,
+  // Free corporate cards (a light animation on the card)
+  'corporate-elegance': CorporateCard,
+  'modern-business': CorporateCard,
+  'blue-gradient': CorporateCard,
+  'minimal-editorial': CorporateCard,
+  'emerald-prestige': CorporateCard,
+  // Christmas parties: animated (Premium)
+  'christmas-elegance': ChristmasParty,
+  'pink-christmas': ChristmasParty,
+  'winter-wonderland': ChristmasParty,
+  'cosy-christmas': ChristmasParty,
+  'christmas-after-dark': ChristmasParty,
+  // Free Christmas party cards
+  'classic-noel': ChristmasCard,
+  'candy-cane': ChristmasCard,
+  'nordic-pine': ChristmasCard,
+  'golden-star': ChristmasCard,
+  'silent-night': ChristmasCard,
 }
 
 // Theme colours as CSS variables, so experience.css can use them
@@ -122,6 +162,17 @@ function BrandFooter() {
   )
 }
 
+// "Day plan": opens the timed plan of the day. It sits under the opening screen (which covers
+// the whole page), so guests see it once the invitation is open.
+function DayPlanButton({ href, lang }) {
+  return (
+    <Link to={href} className="ei-dayplan" lang={lang}>
+      <CalendarClock size={16} aria-hidden="true" />
+      {agendaStrings(lang).dayPlan}
+    </Link>
+  )
+}
+
 /**
  * @param invitation  invitation fields (from the guest API or the owner's copy)
  * @param guestName   shown as "Dear …"; empty for a generic greeting
@@ -129,8 +180,9 @@ function BrandFooter() {
  * @param startOpen   skip the opening screen
  * @param topOffset   height of a toolbar above the invitation (the preview page), in px
  * @param poster      render a still of the opening screen (gallery thumbnails): no music, no focus, no clicks
+ * @param agendaHref  where the "Day plan" button goes; no button when empty
  */
-export default function InvitationExperience({ invitation, guestName, rsvp, startOpen = false, topOffset = 0, poster = false }) {
+export default function InvitationExperience({ invitation, guestName, rsvp, startOpen = false, topOffset = 0, poster = false, agendaHref = '' }) {
   const theme = getTheme(invitation.templateKey)
   const lang = STRINGS[invitation.language] ? invitation.language : 'en'
   const t = stringsFor(lang, invitation.eventType)
@@ -157,6 +209,7 @@ export default function InvitationExperience({ invitation, guestName, rsvp, star
   return (
     <div className={`ei-root ${poster ? 'is-poster' : ''}`} lang={lang} style={{ ...themeVars(theme), '--ei-top': `${topOffset}px` }}>
       <Experience invitation={invitation} guestName={guestName} rsvp={rsvp || sampleRsvp} music={music} t={t} lang={lang} startOpen={startOpen} poster={poster} />
+      {!poster && agendaHref && <DayPlanButton href={agendaHref} lang={lang} />}
       {!poster && <BrandFooter />}
     </div>
   )

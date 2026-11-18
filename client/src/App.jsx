@@ -13,6 +13,8 @@ import InvitationPreview from './pages/InvitationPreview'
 import ManageGuests from './pages/ManageGuests'
 import MyGuests from './pages/MyGuests'
 import GuestInvite from './pages/GuestInvite'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import NotFound from './pages/NotFound'
 import TemplateDemo from './pages/TemplateDemo'
 import Home from './pages/Home'
@@ -22,6 +24,10 @@ import Admin from './pages/Admin'
 
 // Loaded only when opened: the spreadsheet libraries are large and most visitors never need them
 const ImportGuests = lazy(() => import('./pages/ImportGuests'))
+const GuestAgenda = lazy(() => import('./pages/GuestAgenda'))
+const QrReply = lazy(() => import('./pages/QrReply'))
+const AgendaPreview = lazy(() => import('./pages/AgendaPreview'))
+const TemplateAgendaDemo = lazy(() => import('./pages/TemplateAgendaDemo'))
 
 const loading = (
   <p className="py-20 text-center text-body-md text-on-surface-variant" role="status">
@@ -36,6 +42,8 @@ export default function App() {
     <Routes>
       <Route path="/signin" element={<SignIn />} />
       <Route path="/signup" element={<SignUp />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password/:token" element={<ResetPassword />} />
 
       <Route element={<AppLayout />}>
         {/* Public pages */}
@@ -78,13 +86,18 @@ export default function App() {
       {/* Full-screen preview, without the site menu */}
       <Route element={<ProtectedRoute />}>
         <Route path="/invitations/:id/preview" element={<InvitationPreview />} />
+        <Route path="/invitations/:id/preview/agenda" element={<Suspense fallback={loading}><AgendaPreview /></Suspense>} />
       </Route>
 
       {/* Full-screen animated demo of a design (from the gallery) */}
       <Route path="/templates/:key/preview" element={<TemplateDemo />} />
+      <Route path="/templates/:key/preview/agenda" element={<Suspense fallback={loading}><TemplateAgendaDemo /></Suspense>} />
 
       {/* A guest's personal invitation link */}
       <Route path="/i/:token" element={<GuestInvite />} />
+      <Route path="/i/:token/agenda" element={<Suspense fallback={loading}><GuestAgenda /></Suspense>} />
+      {/* Printed cards: the QR code on the card opens this reply page */}
+      <Route path="/r/:code" element={<Suspense fallback={loading}><QrReply /></Suspense>} />
 
       <Route path="*" element={<NotFound />} />
     </Routes>

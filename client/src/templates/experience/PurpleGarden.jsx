@@ -146,7 +146,7 @@ export default function PurpleGarden({ invitation, guestName, rsvp, music, t, la
           <Fireflies />
           <div className="pg-curtain" aria-hidden="true">
             {STRANDS.map(([left, n, w, delay, flip], i) => (
-              <span key={i} className="pg-strand" style={{ left: `${left}%`, '--w': `${w}vmin`, '--dl': `${delay}s`, '--sw': `${5 + (i % 3)}s` }}>
+              <span key={i} className="pg-strand" style={{ left: `${left}%`, '--w': `calc(${w} * var(--ei-vmin, 1vmin))`, '--dl': `${delay}s`, '--sw': `${5 + (i % 3)}s` }}>
                 <img className={flip ? 'is-flipped' : ''} src={img(`wisteria-${n}`)} alt="" decoding="async" />
               </span>
             ))}

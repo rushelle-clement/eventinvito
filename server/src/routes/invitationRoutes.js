@@ -10,9 +10,11 @@ const {
     archiveInvitation,
 } = require("../controllers/invitationController");
 const { importGuests } = require("../controllers/guestImportController");
+const { setQr } = require("../controllers/qrController");
 const { photoSignature, addPhoto, removePhoto, reorderPhotos } = require("../controllers/photoController");
 const { musicSignature, setMusic, removeMusic } = require("../controllers/musicController");
-const { listGuests, addGuest, updateGuest, removeGuest, resetGuestLink, markGuestShared } = require("../controllers/guestController");
+const { logoSignature, setLogo, removeLogo } = require("../controllers/logoController");
+const { listGuests, addGuest, updateGuest, removeGuest, resetGuestLink, markGuestShared, setGuestsGroup } = require("../controllers/guestController");
 
 const router = express.Router();
 
@@ -38,10 +40,17 @@ router.post("/:id/music/signature", musicSignature);
 router.post("/:id/music", setMusic);
 router.delete("/:id/music", removeMusic);
 
+// Corporate events: the company logo
+router.post("/:id/logo/signature", logoSignature);
+router.post("/:id/logo", setLogo);
+router.delete("/:id/logo", removeLogo);
+
 // Guest list for one invitation
+router.patch("/:id/qr", setQr); // printed cards QR code on/off
 router.get("/:id/guests", listGuests);
 router.post("/:id/guests", addGuest);
 router.post("/:id/guests/import", importGuests); // bulk import from a spreadsheet (dry run or apply)
+router.post("/:id/guests/group", setGuestsGroup); // put many guests in a group at once
 router.patch("/:id/guests/:guestId", updateGuest);
 router.delete("/:id/guests/:guestId", removeGuest);
 router.post("/:id/guests/:guestId/reset-link", resetGuestLink);

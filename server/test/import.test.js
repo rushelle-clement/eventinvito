@@ -47,7 +47,7 @@ describe("Guest import", () => {
 
         const r = Object.fromEntries(res.body.rows.map((x) => [x.row, x]));
         // tidied: spaces, lower-case email, Excel-stripped leading 0 restored
-        assert.deepEqual(r[2].values, { name: "Nimal Fernando", displayName: "", phone: "0771112222", email: "nimal@example.com", notes: "Groom's side" });
+        assert.deepEqual(r[2].values, { name: "Nimal Fernando", displayName: "", phone: "0771112222", email: "nimal@example.com", notes: "Groom's side", group: "" });
         assert.equal(r[2].action, "add");
         assert.ok(r[3].errors.name);
         assert.equal(r[3].action, "exclude");

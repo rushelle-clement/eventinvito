@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 
 const TEMPLATE_STATUSES = ["draft", "published", "archived"];
-const EVENT_TYPES = ["wedding", "engagement", "homecoming", "birthday", "anniversary", "party", "corporate"];
+const EVENT_TYPES = ["wedding", "engagement", "homecoming", "birthday", "anniversary", "party", "corporate", "christmas"];
 // The occasions a couple can choose for an invitation. Every couple design works for all three;
 // the invitation's standard wording follows the occasion.
 const COUPLE_OCCASIONS = ["wedding", "engagement", "homecoming"];

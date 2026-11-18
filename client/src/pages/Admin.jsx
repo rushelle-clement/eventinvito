@@ -19,10 +19,10 @@ const STATUS = {
 
 // The packages (see Packages.jsx on the home page and the server's utils/packages.js)
 const PLANS = [
-  { value: 'free', label: 'Simple Card', credits: 0, limits: '50 guests' },
-  { value: 'premium', label: 'Premium', credits: 1, limits: '150 guests · 6 photos' },
-  { value: 'plus', label: 'Premium Plus', credits: 2, limits: '300 guests · 12 photos · own song · Excel' },
-  { value: 'signature', label: 'Signature', credits: 2, limits: '500 guests · 12 photos · own song · Excel' },
+  { value: 'free', label: 'Simple Card', credits: 0, limits: '50 guests · replies, no deadline' },
+  { value: 'premium', label: 'Premium', credits: 1, limits: '150 guests · 3 photos · opened tracking · groups · import' },
+  { value: 'plus', label: 'Premium Plus', credits: 2, limits: '300 guests · 6 photos · own song · Excel · day plan · group stats' },
+  { value: 'signature', label: 'Signature', credits: 2, limits: '500 guests · custom design + 1 more · everything in Plus' },
 ]
 const planOf = (value) => PLANS.find((p) => p.value === value) || PLANS[0]
 
@@ -135,6 +135,7 @@ function CreateAccount({ onCreated }) {
           </label>
           <span className="col-span-2 -mt-1 block text-body-sm text-on-surface-variant">
             {planOf(form.plan).limits} per invitation, and {form.credits || 0} Premium invitation{Number(form.credits) === 1 ? '' : 's'} to publish. Every account also gets 1 free card.
+            For the Printed Cards package, create a Simple Card account with 0 Premium invitations, then add a Printed card in its row.
           </span>
         </div>
         <div className="sm:col-span-2">
@@ -242,6 +243,8 @@ function AccountRow({ account, me, onChange, lockAfterEvent }) {
               {[
                 ['credits', 'publishCredits', 'Premium'],
                 ['freeCredits', 'freeCredits', 'Free card'],
+                // Printed Cards package (Rs. 500): paper cards with a QR code, no online design
+                ['printedCredits', 'printedCredits', 'Printed cards'],
               ].map(([field, key, label]) => (
                 <div key={field} className="flex items-center gap-1.5" aria-label={`${label}: ${account[key] || 0} left for ${account.name}`}>
                   <button type="button" className="btn-secondary h-7 w-7 !p-0" onClick={() => patch({ [field]: (account[key] || 0) - 1 })} disabled={busy || !(account[key] > 0)} aria-label={`One fewer ${label}`}>
@@ -267,8 +270,8 @@ function AccountRow({ account, me, onChange, lockAfterEvent }) {
               {account.invitations.map((i) => (
                 <li key={i.id}>
                   <span className="font-semibold text-espresso">{i.names}</span>
-                  <span className={`ml-1.5 rounded-full px-1.5 py-px text-[11px] uppercase ${i.paidKind === 'free' ? 'bg-surface-container-high text-on-surface-variant' : 'bg-gold/20 text-gold-text'}`}>
-                    {i.paidKind === 'free' ? 'Free' : 'Premium'}
+                  <span className={`ml-1.5 rounded-full px-1.5 py-px text-[11px] uppercase ${i.paidKind === 'free' ? 'bg-surface-container-high text-on-surface-variant' : i.paidKind === 'printed' ? 'bg-[#f1ebf8] text-[#5b3d86]' : 'bg-gold/20 text-gold-text'}`}>
+                    {i.paidKind === 'free' ? 'Free' : i.paidKind === 'printed' ? 'Printed' : 'Premium'}
                   </span>
                   <span className="block text-on-surface-variant">
                     {i.eventDate ? short(i.eventDate) : 'no date'} ·{' '}

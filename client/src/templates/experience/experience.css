@@ -4,7 +4,7 @@
 
 .ei-root {
   position: relative;
-  min-height: 100svh;
+  min-height: calc(100 * var(--ei-vh, 1svh));
   padding-top: var(--ei-top, 0px); /* room for the preview toolbar */
   overflow-x: clip;
   background: var(--ei-page);
@@ -37,6 +37,31 @@
   transition: transform 0.2s ease;
 }
 .ei-music-btn:hover { transform: scale(1.06); }
+
+/* "Day plan": bottom left, under the opening screens (z-index 50) so it appears once the invitation is open */
+.ei-dayplan {
+  position: fixed;
+  left: max(16px, env(safe-area-inset-left));
+  bottom: max(18px, env(safe-area-inset-bottom));
+  z-index: 45;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 18px 0 15px;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, var(--ei-accent) 55%, transparent);
+  background: color-mix(in srgb, var(--ei-card) 90%, transparent);
+  color: var(--ei-accent-text);
+  font-family: var(--ei-body-font);
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 8px 24px -8px rgba(43, 38, 37, 0.35);
+  backdrop-filter: blur(6px);
+  transition: transform 0.2s ease;
+}
+.ei-dayplan:hover { transform: translateY(-2px); }
+.ei-dayplan:focus-visible { outline: 2px solid var(--ei-accent); outline-offset: 3px; }
 .ei-music-btn:focus-visible { outline: 2px solid var(--ei-accent); outline-offset: 3px; }
 .ei-music-pause { display: none; }
 .ei-music-btn:hover .ei-eq, .ei-music-btn:focus-visible .ei-eq { display: none; }
@@ -93,6 +118,10 @@
 
 /* ---------- thumbnails (poster mode): the opening screen as a still ---------- */
 .ei-root.is-poster { min-height: 100%; height: 100%; padding-top: 0; overflow: hidden; }
+/* A thumbnail draws the opening on a 440 × 620 "phone", so the designs' screen-size units
+   (written as calc(n * var(--ei-vh, 1svh)) and so on) follow that phone, not the real window */
+.ei-root.is-poster { --ei-vh: 6.2px; --ei-vw: 4.4px; --ei-vmin: 4.4px; --ei-vmax: 6.2px; }
+.is-poster [role='dialog'] { overflow: hidden !important; }
 .is-poster .ri-opening,
 .is-poster .cl-opening,
 .is-poster .mr-opening { position: absolute; inset: 0; }

@@ -4,11 +4,12 @@ import { useRef, useState } from 'react'
 import { ArrowLeft, ArrowRight, ImagePlus, Star, Trash2 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { uploadToCloudinary } from '../../lib/cloudinaryUpload'
+import { shrinkPhoto } from '../../lib/shrinkPhoto'
 
-// The package sets the limit: 6 photos on Premium, 12 on Premium Plus and Signature
+// The package sets the limit: 3 photos on Premium, 6 on Premium Plus and Signature
 export default function PhotosSection({ invitationId, photos, limits, onChange }) {
-  const MAX = limits?.photos ?? 6
-  const more = MAX < 12 // Premium Plus allows more
+  const MAX = limits?.photos ?? 3
+  const more = MAX < 6 // Premium Plus allows more
   const inputRef = useRef(null)
   const [progress, setProgress] = useState(null) // { done, total, percent }
   const [error, setError] = useState('')
@@ -22,7 +23,9 @@ export default function PhotosSection({ invitationId, photos, limits, onChange }
       setProgress({ done: i, total: files.length, percent: 0 })
       try {
         const { upload } = await api(`/invitations/${invitationId}/photos/signature`, { method: 'POST' })
-        const result = await uploadToCloudinary(upload, file, (percent) => setProgress({ done: i, total: files.length, percent }))
+        // shrink it first (large phone photos become about 0.5–1 MB)
+        const ready = await shrinkPhoto(file)
+        const result = await uploadToCloudinary(upload, ready, (percent) => setProgress({ done: i, total: files.length, percent }))
         const data = await api(`/invitations/${invitationId}/photos`, { method: 'POST', body: result })
         onChange(data.photos)
       } catch (err) {
@@ -80,7 +83,7 @@ export default function PhotosSection({ invitationId, photos, limits, onChange }
   return (
     <div>
       <p className="text-body-sm text-on-surface-variant">
-        Add up to {MAX} photos (JPG, PNG, WebP or HEIC, under 10 MB each). The first one is the cover — Modern Romance opens with it full screen.
+        Add up to {MAX} photos (JPG, PNG, WebP or HEIC; large photos are made smaller automatically). The first one is the cover — Modern Romance opens with it full screen.
       </p>
       {limits?.planName && (
         <p className="mt-2 text-body-sm text-on-surface-variant">
@@ -88,7 +91,7 @@ export default function PhotosSection({ invitationId, photos, limits, onChange }
           {more && (
             <>
               {' '}
-              Premium Plus includes 12 —{' '}
+              Premium Plus includes 6 —{' '}
               <a href="/#pricing" className="font-semibold text-gold-text underline underline-offset-2">
                 see the packages
               </a>

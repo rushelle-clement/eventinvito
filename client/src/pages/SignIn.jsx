@@ -13,7 +13,7 @@ import { useSiteConfig } from '../lib/siteConfig'
 
 export default function SignIn() {
   const { user, signIn, notice } = useAuth()
-  const { signupOpen } = useSiteConfig()
+  const { signupOpen, passwordReset } = useSiteConfig()
   const navigate = useNavigate()
   const location = useLocation()
   const redirectTo = location.state?.from || '/dashboard'
@@ -104,6 +104,7 @@ export default function SignIn() {
             required
           />
 
+          <div className="flex flex-wrap items-center justify-between gap-3">
           <label className="flex cursor-pointer items-center gap-3 text-body-md text-on-surface-variant">
             <input
               type="checkbox"
@@ -113,6 +114,19 @@ export default function SignIn() {
             />
             Keep me signed in on this device
           </label>
+            {/* Only once reset emails can be sent (Brevo set up on the server) */}
+            {passwordReset && (
+              <Link to="/forgot-password" state={{ email: form.email }} className="text-body-md font-semibold text-gold-text underline-offset-4 hover:text-primary hover:underline">
+                Forgot password?
+              </Link>
+            )}
+          </div>
+          {!passwordReset && (
+            <div className="text-body-sm text-on-surface-variant">
+              <p>Forgot your password? Contact us and we’ll reset it for you.</p>
+              <ContactLine className="mt-1" />
+            </div>
+          )}
 
           <button type="submit" className="btn-primary w-full py-4 text-title-md" disabled={submitting}>
             {submitting ? 'Signing in…' : 'Sign In'}

@@ -14,7 +14,7 @@ export const FIELDS = [
   { key: 'displayName', label: 'Name on invitation', aliases: ['name on invitation', 'name on the invitation', 'display name', 'invitation name', 'sinhala name', 'name in sinhala', 'ආරාධිත නම', 'ආරාධනාවේ නම'] },
   { key: 'phone', label: 'Phone number', aliases: ['phone', 'phone number', 'mobile', 'mobile number', 'whatsapp', 'whatsapp number', 'contact number', 'tel', 'telephone', 'දුරකථන', 'தொலைபேசி'] },
   { key: 'email', label: 'Email address', aliases: ['email', 'email address', 'e-mail', 'mail'] },
-  { key: 'group', label: 'Group / household', aliases: ['group', 'household', 'group / household', 'group/household', 'family', 'side', 'party'] },
+  { key: 'group', label: 'Group / side', aliases: ['group', 'group / side', 'group/side', 'side', 'group / household', 'group/household', 'household', 'family', 'party', 'category', 'කණ්ඩායම', 'பிரிவு'] },
   { key: 'notes', label: 'Notes', aliases: ['notes', 'note', 'comments', 'comment', 'remarks'] },
 ]
 
@@ -89,26 +89,25 @@ export function autoMap(headers) {
 export function buildRows(rows, mapping) {
   const pick = (cells, key) => (mapping[key] >= 0 ? cells[mapping[key]] || '' : '')
   return rows.map(({ row, cells }) => {
-    const group = pick(cells, 'group')
-    const notes = pick(cells, 'notes')
     return {
       row,
       name: pick(cells, 'name'),
       displayName: pick(cells, 'displayName'),
       phone: pick(cells, 'phone'),
       email: pick(cells, 'email'),
-      notes: [group, notes].filter(Boolean).join(' · '),
+      group: pick(cells, 'group'),
+      notes: pick(cells, 'notes'),
     }
   })
 }
 
 // ---------- downloads ----------
 
-const TEMPLATE_HEADERS = ['Guest Name', 'Name on Invitation', 'Phone Number', 'Email Address', 'Group / Household', 'Notes']
+const TEMPLATE_HEADERS = ['Guest Name', 'Name on Invitation', 'Phone Number', 'Email Address', 'Group', 'Notes']
 const TEMPLATE_EXAMPLES = [
   ['Amal Perera', 'අමල් පෙරේරා මහතා', '0771234567', 'amal@example.com', "Groom's family", ''],
   ['Kamala Silva', 'කමලා සිල්වා මහත්මිය', '0712345678', '', "Bride's family", 'Aunt'],
-  ['Ruwan Fernando', '', '+94763456789', 'ruwan@example.com', 'Friends', ''],
+  ['Ruwan Fernando', '', '+94763456789', 'ruwan@example.com', 'Office', ''],
 ]
 
 function download(blob, filename) {

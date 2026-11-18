@@ -21,7 +21,8 @@ async function requireAuth(req, res, next) {
     }
 
     const user = await User.findById(payload.sub);
-    if (!user) {
+    // Also signed out when the password has changed since this sign-in (e.g. after a reset)
+    if (!user || !user.tokenStillValid(payload.iat)) {
         throw new AppError(401, "Your session is no longer valid. Please sign in again.");
     }
 
@@ -38,8 +39,9 @@ async function optionalAuth(req, res, next) {
     const [scheme, token] = (req.headers.authorization || "").split(" ");
     if (scheme === "Bearer" && token) {
         try {
-            const user = await User.findById(verifyToken(token).sub);
-            if (user && !user.disabled) req.user = user;
+            const payload = verifyToken(token);
+            const user = await User.findById(payload.sub);
+            if (user && !user.disabled && user.tokenStillValid(payload.iat)) req.user = user;
         } catch {
             // an expired or broken token: treat as signed out
         }
