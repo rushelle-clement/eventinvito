@@ -26,7 +26,7 @@ const PACKAGES = [
       'Event details and Google Maps link',
       'Basic guest management',
     ],
-    missing: 'No photo gallery, music or individual invitation opening tracking',
+    missing: 'No photos, music, reply-by date or individual opening tracking',
   },
   {
     key: 'premium',
@@ -48,7 +48,6 @@ const PACKAGES = [
       'Opened but haven’t replied filter',
       'Guest groups (Bride’s side, Groom’s side, Friends, etc.)',
       'Filter guests by group',
-      'Guest visit tracking overview',
       'Bulk guest import from Excel or CSV',
     ],
   },
@@ -67,7 +66,7 @@ const PACKAGES = [
       'Upload your own background song',
       'Detailed guest visit statistics',
       'Download guest list and RSVP reports in Excel',
-      'Wedding day agenda and live timeline',
+      'Day plan with a live timeline (weddings and corporate events)',
       'Group-wise guest counts',
       'Group-wise RSVP statistics',
       'Group-wise invitation opening statistics',
@@ -199,6 +198,36 @@ export function PrintedPackage() {
   )
 }
 
+// What every online package includes (Simple Card, Premium, Premium Plus and Signature)
+const EVERY_PACKAGE = [
+  'Weddings, engagements, homecomings, birthdays, corporate events (with your logo) and Christmas parties',
+  'Invitations in English or Sinhala, with guest names in Sinhala',
+  'Up to 8 ceremonies on one invitation',
+  'Your own WhatsApp message, and Send to all with each guest’s personal link',
+  'WhatsApp link preview with your names, date and picture',
+  'Guests can change their reply until your reply-by date (or until the event on Simple Card)',
+  'Your invitation stays online until the day after your event',
+  'Reset a guest’s link if it went to the wrong person',
+]
+
+function EveryPackage() {
+  return (
+    <section className="mt-6 rounded-xl border border-bone bg-ivory p-6" aria-labelledby="pkg-every">
+      <h3 id="pkg-every" className="text-label-md text-espresso uppercase">
+        Included in every online package
+      </h3>
+      <ul className="mt-4 grid gap-x-6 gap-y-2.5 sm:grid-cols-2">
+        {EVERY_PACKAGE.map((f) => (
+          <li key={f} className="flex gap-2.5 text-body-sm text-espresso">
+            <Check size={16} className="mt-0.5 shrink-0 text-gold-text" aria-hidden="true" />
+            <span>{f}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
 export default function Packages() {
   return (
     <>
@@ -260,6 +289,7 @@ export default function Packages() {
         </article>
       ))}
     </div>
+    <EveryPackage />
     <PrintedPackage />
     </>
   )
