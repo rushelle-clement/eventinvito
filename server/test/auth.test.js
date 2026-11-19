@@ -46,6 +46,19 @@ describe("Accounts and sign-in", () => {
         assert.equal(wrong.body.message, unknown.body.message);
     });
 
+    it("checks the sign-in fields before looking up the account", async () => {
+        const empty = await api().post("/api/auth/login").send({});
+        assert.equal(empty.status, 400);
+        assert.ok(empty.body.errors.email);
+        assert.ok(empty.body.errors.password);
+        const bad = await api().post("/api/auth/login").send({ email: "not-an-email", password: "Password123" });
+        assert.equal(bad.status, 400);
+        assert.ok(bad.body.errors.email);
+        const long = await api().post("/api/auth/login").send({ email: "amaya@example.com", password: "x".repeat(129) });
+        assert.equal(long.status, 400);
+        assert.ok(long.body.errors.password);
+    });
+
     it("signs in with any letter case in the email", async () => {
         const res = await api().post("/api/auth/login").send({ email: "AMAYA@EXAMPLE.COM", password: "Password123" });
         assert.equal(res.status, 200);

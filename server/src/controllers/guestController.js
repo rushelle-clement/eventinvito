@@ -170,7 +170,7 @@ async function listGuests(req, res) {
     }
     if (!limits.openDetails) delete summary.openedNoReply; // "opened, no reply" is a Premium filter
     // Largest groups first; guests without a group last
-    // The per-group counts are part of Premium Plus and Signature
+    // The per-group counts are part of Premium and above
     if (limits.groupStats) summary.groups = [...groups.values()].sort((a, b) => (!a.name) - (!b.name) || b.total - a.total || a.name.localeCompare(b.name));
     res.json({ success: true, invitation: invitation.toOwnerJSON(req.user), summary, guests: guests.map((g) => toOwnerJSON(g, limits)) });
 }
@@ -252,7 +252,7 @@ async function updateGuest(req, res) {
 // Puts many guests in a group at once (or takes them out of their group with group "").
 async function setGuestsGroup(req, res) {
     const invitation = await findOwned(req);
-    requireFeature(limitsFor(invitation, req.user), "bulkGroups", "Setting the group for many guests at once is part of Premium Plus and Signature.");
+    requireFeature(limitsFor(invitation, req.user), "bulkGroups", "Setting the group for many guests at once is part of Premium and above.");
     const { guestIds } = req.body || {};
     if (!Array.isArray(guestIds) || guestIds.length === 0) throw new AppError(400, "Choose at least one guest.");
     if (guestIds.length > MAX_GUESTS_PER_INVITATION) throw new AppError(400, "Too many guests in one request.");
@@ -290,10 +290,11 @@ async function resetGuestLink(req, res) {
 
 // POST /api/invitations/:id/guests/:guestId/mark-shared — called when the couple copies or WhatsApps a link.
 // We can't know whether they actually pressed Send, so the UI calls it "Shared", not "Delivered".
+// { shared: false } takes the mark off again (e.g. the link was copied but never sent).
 async function markGuestShared(req, res) {
     const invitation = await findOwned(req);
     const guest = await findOwnedGuest(req, invitation);
-    guest.sharedAt = new Date();
+    guest.sharedAt = req.body?.shared === false ? undefined : new Date();
     await guest.save();
     res.json({ success: true, guest: toOwnerJSON(guest, limitsFor(invitation, req.user)) });
 }

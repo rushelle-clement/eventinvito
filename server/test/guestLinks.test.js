@@ -133,4 +133,15 @@ describe("Guests and personal links", () => {
         assert.equal(inv.guestCounts.total, list.body.guests.length);
         assert.equal(inv.guestCounts.pending, list.body.guests.length);
     });
+
+    it("marks a guest as shared, and takes the mark off again", async () => {
+        const g = await addGuest(owner.token, invitationId, { name: "Shared Guest" });
+        const url = `/api/invitations/${invitationId}/guests/${g.id}/mark-shared`;
+        const on = await api().post(url).set(auth(owner.token)).send({});
+        assert.ok(on.body.guest.sharedAt);
+        const off = await api().post(url).set(auth(owner.token)).send({ shared: false });
+        assert.equal(off.status, 200);
+        assert.equal(off.body.guest.sharedAt, undefined);
+        assert.equal((await models.Guest.findById(g.id)).sharedAt, undefined);
+    });
 });

@@ -11,6 +11,18 @@ import InvitationShowcase from '../components/InvitationShowcase'
 import ContactLine from '../components/ContactLine'
 import { useSiteConfig } from '../lib/siteConfig'
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+// Checked before anything is sent; the server checks again
+function validate({ email, password }) {
+  const errs = {}
+  if (!email) errs.email = 'Enter your email address.'
+  else if (email.length > 254 || !EMAIL_RE.test(email)) errs.email = 'Enter a valid email address, e.g. amal@example.com.'
+  if (!password) errs.password = 'Enter your password.'
+  else if (password.length > 128) errs.password = 'Password must be 128 characters or fewer.'
+  return errs
+}
+
 export default function SignIn() {
   const { user, signIn, notice } = useAuth()
   const { signupOpen, passwordReset } = useSiteConfig()
@@ -40,17 +52,19 @@ export default function SignIn() {
     // the first press of "Sign In" even though the boxes look filled in.
     const fields = new FormData(e.currentTarget)
     const values = {
-      email: String(fields.get('email') ?? form.email),
+      email: String(fields.get('email') ?? form.email).trim(),
       password: String(fields.get('password') ?? form.password),
       remember: form.remember,
     }
     setForm(values)
 
-    const errs = {}
-    if (!values.email.trim()) errs.email = 'Enter your email address.'
-    if (!values.password) errs.password = 'Enter your password.'
+    const errs = validate(values)
     setErrors(errs)
-    if (Object.keys(errs).length) return
+    if (Object.keys(errs).length) {
+      // Put the cursor in the first box that needs fixing
+      e.currentTarget.querySelector(`[name="${Object.keys(errs)[0]}"]`)?.focus()
+      return
+    }
 
     setSubmitting(true)
     try {
@@ -88,6 +102,7 @@ export default function SignIn() {
             value={form.email}
             onChange={update('email')}
             error={errors.email}
+            maxLength={254}
             required
           />
 
@@ -101,6 +116,7 @@ export default function SignIn() {
             value={form.password}
             onChange={update('password')}
             error={errors.password}
+            maxLength={128}
             required
           />
 

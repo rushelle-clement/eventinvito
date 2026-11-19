@@ -28,6 +28,8 @@ import {
   SkipForward,
   PartyPopper,
   QrCode,
+  Undo2,
+  CheckCheck,
   Printer,
   ExternalLink,
   Eye,
@@ -113,7 +115,7 @@ const UPGRADE = {
   },
   bulkGroups: {
     title: 'Set the group for many guests',
-    text: 'Ticking many guests and putting them in a group at once, with counts and replies for each group, is part of Premium Plus and Signature. On Premium, set a guest’s group when you add or edit them, or from a Group column when you import.',
+    text: 'Ticking many guests and putting them in a group at once, with counts and replies for each group, is part of Premium and above. On Simple Card, guests have no groups.',
   },
 }
 
@@ -386,8 +388,8 @@ function ShareModal({ invitation, guest, onClose, onShared }) {
   async function copy(what) {
     const ok = await copyText(what === 'link' ? guest.link : text)
     if (ok) {
+      // Copying isn't sharing: the couple marks it shared from the guest's … menu once sent
       setCopied(what)
-      onShared(guest)
       setTimeout(() => setCopied(''), 2000)
     } else {
       setManual(true)
@@ -793,26 +795,47 @@ function GroupsPanel({ rows, active, onPick, showOpened = true }) {
   )
 }
 
-function RowMenu({ onEdit, onReset, onRemove, name }) {
+// The menu is placed on the screen itself (position: fixed), so the guest list's rounded,
+// clipped card can't cut it off on the last rows; it opens upwards when there's no room below.
+const MENU_HEIGHT = 140
+
+function RowMenu({ onEdit, onReset, onRemove, onShared, shared, name }) {
   const [open, setOpen] = useState(false)
+  const [place, setPlace] = useState(null) // where the menu sits on the screen
   const ref = useRef(null)
+  const buttonRef = useRef(null)
+
+  function toggle() {
+    if (open) return setOpen(false)
+    const r = buttonRef.current.getBoundingClientRect()
+    const right = window.innerWidth - r.right
+    setPlace(window.innerHeight - r.bottom < MENU_HEIGHT + 8 ? { bottom: window.innerHeight - r.top + 4, right } : { top: r.bottom + 4, right })
+    setOpen(true)
+  }
+
   useEffect(() => {
     if (!open) return
     const close = (e) => ref.current && !ref.current.contains(e.target) && setOpen(false)
     const esc = (e) => e.key === 'Escape' && setOpen(false)
+    const away = () => setOpen(false) // the menu would no longer sit by its button
     document.addEventListener('mousedown', close)
     document.addEventListener('keydown', esc)
+    window.addEventListener('scroll', away, true)
+    window.addEventListener('resize', away)
     return () => {
       document.removeEventListener('mousedown', close)
       document.removeEventListener('keydown', esc)
+      window.removeEventListener('scroll', away, true)
+      window.removeEventListener('resize', away)
     }
   }, [open])
   const item = 'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-body-sm hover:bg-blush-tint'
   return (
     <div className="relative" ref={ref}>
       <button
+        ref={buttonRef}
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggle}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`More actions for ${name}`}
@@ -821,10 +844,15 @@ function RowMenu({ onEdit, onReset, onRemove, name }) {
         <MoreHorizontal size={18} />
       </button>
       {open && (
-        <div role="menu" className="absolute right-0 z-20 mt-1 w-52 rounded-lg border border-gold/20 bg-white p-1.5 shadow-float">
+        <div role="menu" style={place} className="fixed z-40 w-52 rounded-lg border border-gold/20 bg-white p-1.5 shadow-float">
           <button role="menuitem" type="button" className={item} onClick={() => (setOpen(false), onEdit())}>
             <PencilLine size={15} aria-hidden="true" /> Edit details
           </button>
+          {onShared && (
+            <button role="menuitem" type="button" className={item} onClick={() => (setOpen(false), onShared(!shared))}>
+              {shared ? <Undo2 size={15} aria-hidden="true" /> : <CheckCheck size={15} aria-hidden="true" />} {shared ? 'Mark as not shared' : 'Mark as shared'}
+            </button>
+          )}
           {onReset && <button role="menuitem" type="button" className={item} onClick={() => (setOpen(false), onReset())}>
             <RefreshCw size={15} aria-hidden="true" /> Reset link
           </button>}
@@ -970,6 +998,7 @@ export default function ManageGuests() {
   const [loadError, setLoadError] = useState('')
   const [error, setError] = useState('')
   const [toast, setToast] = useState('')
+  const [toastAction, setToastAction] = useState(null)
   const [query, setQuery] = useState('')
   // ?filter=opened_no_reply (from the dashboard) opens the list already filtered
   const [filter, setFilter] = useState(() => {
@@ -1007,10 +1036,12 @@ export default function ManageGuests() {
     }
   }, [id])
 
-  const showToast = useCallback((msg) => {
+  // `action`: an optional button in the toast, e.g. { label: 'Mark as shared', onClick }
+  const showToast = useCallback((msg, action = null) => {
     setToast(msg)
+    setToastAction(action)
     window.clearTimeout(toastTimer.current)
-    toastTimer.current = window.setTimeout(() => setToast(''), 2500)
+    toastTimer.current = window.setTimeout(() => setToast(''), action ? 6000 : 2500)
   }, [])
 
   const upsertGuest = useCallback((g) => {
@@ -1022,9 +1053,9 @@ export default function ManageGuests() {
   }, [])
 
   const markShared = useCallback(
-    async (guest) => {
+    async (guest, shared = true) => {
       try {
-        const d = await api(`/invitations/${id}/guests/${guest.id}/mark-shared`, { method: 'POST' })
+        const d = await api(`/invitations/${id}/guests/${guest.id}/mark-shared`, { method: 'POST', body: { shared } })
         upsertGuest(d.guest)
       } catch {
         // Not important enough to interrupt the couple
@@ -1035,8 +1066,8 @@ export default function ManageGuests() {
 
   async function quickCopy(guest) {
     if (await copyText(guest.link)) {
-      showToast(`Link for ${guest.name} copied`)
-      markShared(guest)
+      // Not marked as shared yet: copying doesn't mean it was sent
+      showToast(`Link for ${guest.name} copied`, { label: 'Mark as shared', onClick: () => markShared(guest) })
     } else {
       setModal({ type: 'share', guest })
     }
@@ -1172,8 +1203,8 @@ export default function ManageGuests() {
   const can = {
     openDetails: limits.openDetails !== false, // who opened, and "opened, no reply" (Premium and above)
     groups: limits.groups !== false, // guest groups and the group filter (Premium and above)
-    groupStats: limits.groupStats !== false, // the per-group counts panel (Premium Plus and Signature)
-    bulkGroups: limits.bulkGroups !== false, // set the group for many guests at once (Premium Plus and Signature)
+    groupStats: limits.groupStats !== false, // the per-group counts panel (Premium and above)
+    bulkGroups: limits.bulkGroups !== false, // set the group for many guests at once (Premium and above)
     import: limits.import !== false, // import from Excel or CSV (Premium and above)
     qr: limits.qrRsvp === true, // physical cards with a QR code (Premium Plus and Signature)
   }
@@ -1413,7 +1444,7 @@ export default function ManageGuests() {
               onChange={(e) => setGroupFilter(e.target.value === '__all' ? null : e.target.value)}
               className={`w-full rounded-full border py-2.5 pr-9 pl-4 text-body-md text-espresso outline-none focus:border-gold lg:w-56 ${groupFilter !== null ? 'border-gold bg-gold/15' : 'border-bone bg-ivory'}`}
             >
-              {/* the counts per group are part of Premium Plus and Signature */}
+              {/* the counts per group are part of Premium and above */}
               <option value="__all">All groups{can.groupStats ? ` (${guests.length})` : ''}</option>
               {groups.map((r) => (
                 <option key={r.key || '__none'} value={r.key}>
@@ -1516,12 +1547,12 @@ export default function ManageGuests() {
             )}
           </div>
           {/* Header (desktop) */}
-          <div className="hidden grid-cols-[minmax(0,2.2fr)_minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1.1fr)_auto] gap-4 border-b border-bone bg-surface-container-low px-5 py-3 text-label-md text-on-surface-variant uppercase md:grid">
+          <div className="hidden grid-cols-[minmax(0,2.2fr)_minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1.1fr)_136px] gap-4 border-b border-bone bg-surface-container-low px-5 py-3 text-label-md text-on-surface-variant uppercase md:grid">
             <span>Guest</span>
             <span>Contact</span>
             <span>Invitation</span>
             <span>RSVP</span>
-            <span className="w-[136px] text-right">Actions</span>
+            <span className="text-right">Actions</span>
           </div>
           {visible.length === 0 && (
             <p className="px-5 py-10 text-center text-body-md text-on-surface-variant">No guests match this search or filter{groupLabel ? ` in “${groupLabel}”` : ''}{cardFilter !== 'all' ? ` among ${cardFilter === 'physical' ? 'physical-card' : 'online'} guests` : ''}.</p>
@@ -1533,7 +1564,7 @@ export default function ManageGuests() {
               return (
                 <li
                   key={g.id}
-                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 border-b border-bone px-5 py-4 last:border-b-0 md:grid-cols-[minmax(0,2.2fr)_minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1.1fr)_auto]"
+                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 border-b border-bone px-5 py-4 last:border-b-0 md:grid-cols-[minmax(0,2.2fr)_minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1.1fr)_136px]"
                 >
                   <div className="col-span-2 flex min-w-0 items-center gap-3 md:col-span-1">
                     <input type="checkbox" className="h-4 w-4 shrink-0 accent-espresso" checked={selected.has(g.id)} onChange={() => toggle(g.id)} aria-label={`Select ${g.name}`} />
@@ -1643,6 +1674,8 @@ export default function ManageGuests() {
                       name={g.name}
                       onEdit={() => setModal({ type: 'edit', guest: g })}
                       onReset={physical ? null : () => setModal({ type: 'reset', guest: g })}
+                      onShared={physical || g.openedAt ? null : (on) => markShared(g, on)}
+                      shared={Boolean(g.sharedAt)}
                       onRemove={() => setModal({ type: 'remove', guest: g })}
                     />
                   </div>
@@ -1765,8 +1798,22 @@ export default function ManageGuests() {
       {/* Toast */}
       <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4">
         {toast && (
-          <p className="flex items-center gap-2 rounded-full bg-espresso px-5 py-3 text-body-sm text-white shadow-float">
-            <Check size={16} aria-hidden="true" /> {toast}
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-full bg-espresso px-5 py-3 text-body-sm text-white shadow-float">
+            <span className="flex items-center gap-2">
+              <Check size={16} aria-hidden="true" /> {toast}
+            </span>
+            {toastAction && (
+              <button
+                type="button"
+                className="pointer-events-auto font-semibold text-gold underline underline-offset-2 hover:text-white"
+                onClick={() => {
+                  toastAction.onClick()
+                  setToast('')
+                }}
+              >
+                {toastAction.label}
+              </button>
+            )}
           </p>
         )}
       </div>

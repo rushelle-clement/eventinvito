@@ -220,11 +220,11 @@ export default function Dashboard() {
               <li key={inv.id} className="card flex flex-col overflow-hidden">
                 <div className="flex gap-4 p-5">
                   {inv.printed ? (
-                    <div className="grid h-[130px] w-24 shrink-0 place-items-center rounded-md border border-bone bg-ivory text-gold-text" aria-hidden="true">
+                    <div className="grid h-[130px] w-24 shrink-0 place-items-center self-start rounded-md border border-bone bg-ivory text-gold-text" aria-hidden="true">
                       <QrCode size={40} strokeWidth={1.5} />
                     </div>
                   ) : (
-                    <div className="w-24 shrink-0 overflow-hidden rounded-md border border-bone">
+                    <div className="w-24 shrink-0 self-start overflow-hidden rounded-md border border-bone">
                       <TemplateThumbnail templateKey={inv.templateKey} invitation={inv} height={130} />
                     </div>
                   )}
@@ -247,7 +247,7 @@ export default function Dashboard() {
                     </p>
                     {inv.guestCounts?.total > 0 && (
                       <div className="mt-3">
-                        <div className="flex justify-between text-body-sm text-on-surface-variant">
+                        <div className="flex flex-wrap justify-between gap-x-3 text-body-sm text-on-surface-variant">
                           <span>
                             {inv.guestCounts.attending} attending · {inv.guestCounts.not_attending} declined · {inv.guestCounts.pending} awaiting
                           </span>

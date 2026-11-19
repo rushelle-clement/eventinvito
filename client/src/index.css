@@ -204,6 +204,17 @@
   }
 }
 
+/* iPhones zoom the page in when a text box smaller than 16px is tapped, and in this app the
+   zoom then stays on the next pages too, so pages look wider than the screen. Text boxes are
+   16px on touch screens to stop that. (Outside @layer, so it wins over the text-size utilities.) */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
 /* Nothing may push the page wider than the screen: on phones that lets the whole page slide
    sideways. "clip" (unlike "hidden") keeps sticky headers working; older browsers get "hidden". */
 html,

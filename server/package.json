@@ -9,7 +9,8 @@
     "test": "node --test --test-concurrency=1 test/*.test.js",
     "seed:templates": "node src/scripts/seedTemplates.js",
     "seed:demo": "node src/scripts/seedDemo.js",
-    "create-admin": "node src/scripts/createAdmin.js"
+    "create-admin": "node src/scripts/createAdmin.js",
+    "clean-users": "node src/scripts/cleanUsers.js"
   },
   "keywords": [],
   "author": "",

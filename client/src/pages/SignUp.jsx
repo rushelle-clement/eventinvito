@@ -23,11 +23,16 @@ const STRENGTH = ['Too short', 'Weak', 'Good', 'Strong']
 
 function validate(form) {
   const errs = {}
-  if (!form.name.trim()) errs.name = 'Enter your full name.'
-  if (!EMAIL_RE.test(form.email.trim())) errs.email = 'Enter a valid email address.'
+  const name = form.name.trim()
+  const email = form.email.trim()
+  if (!name) errs.name = 'Enter your full name.'
+  else if (name.length > 100) errs.name = 'Name must be 100 characters or fewer.'
+  if (!email) errs.email = 'Enter your email address.'
+  else if (email.length > 254 || !EMAIL_RE.test(email)) errs.email = 'Enter a valid email address, e.g. amal@example.com.'
   if (form.password.length < MIN_PASSWORD) errs.password = `Use at least ${MIN_PASSWORD} characters.`
-  if (form.confirm !== form.password) errs.confirm = 'Passwords do not match.'
-  if (!form.agree) errs.agree = 'Please accept the terms to continue.'
+  else if (form.password.length > 128) errs.password = 'Password must be 128 characters or fewer.'
+  if (!form.confirm) errs.confirm = 'Type your password again.'
+  else if (form.confirm !== form.password) errs.confirm = 'Passwords do not match.'
   return errs
 }
 
@@ -35,7 +40,7 @@ export default function SignUp() {
   const { user, signUp } = useAuth()
   const navigate = useNavigate()
 
-  const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '', agree: false })
+  const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '' })
   const [errors, setErrors] = useState({})
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -192,20 +197,6 @@ export default function SignUp() {
             error={errors.confirm}
             required
           />
-
-          <div>
-            <label className="flex cursor-pointer items-start gap-3 text-body-md text-on-surface-variant">
-              <input
-                type="checkbox"
-                checked={form.agree}
-                onChange={update('agree')}
-                aria-invalid={errors.agree ? 'true' : undefined}
-                className="mt-0.5 h-5 w-5 shrink-0 rounded border-bone accent-espresso"
-              />
-              I agree to EventInvito&apos;s Terms of Service and Privacy Policy.
-            </label>
-            {errors.agree && <p className="mt-2 text-body-sm text-error">{errors.agree}</p>}
-          </div>
 
           <button type="submit" className="btn-primary w-full py-4 text-title-md" disabled={submitting}>
             {submitting ? 'Creating your account…' : 'Create Account & Begin'}

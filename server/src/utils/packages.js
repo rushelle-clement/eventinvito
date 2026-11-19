@@ -24,7 +24,7 @@ const PLANS = ["free", "premium", "plus", "signature"];
 // printed-cards credit — QR replies only, every guest has a physical card.
 const LIMITS = {
     free: { guests: 50, photos: 0, ownMusic: false, export: false, agenda: false, rsvpDeadline: false, openDetails: false, visitDetails: false, import: false, groups: false, groupStats: false, bulkGroups: false, qrRsvp: false, onlineCards: true },
-    premium: { guests: 150, photos: 3, ownMusic: false, export: false, agenda: false, rsvpDeadline: true, openDetails: true, visitDetails: false, import: true, groups: true, groupStats: false, bulkGroups: false, qrRsvp: false, onlineCards: true },
+    premium: { guests: 150, photos: 3, ownMusic: false, export: false, agenda: false, rsvpDeadline: true, openDetails: true, visitDetails: false, import: true, groups: true, groupStats: true, bulkGroups: true, qrRsvp: false, onlineCards: true },
     plus: { guests: 300, photos: 6, ownMusic: true, export: true, agenda: true, rsvpDeadline: true, openDetails: true, visitDetails: true, import: true, groups: true, groupStats: true, bulkGroups: true, qrRsvp: true, onlineCards: true },
     printed: { guests: 150, photos: 0, ownMusic: false, export: true, agenda: false, rsvpDeadline: true, openDetails: false, visitDetails: false, import: true, groups: true, groupStats: true, bulkGroups: true, qrRsvp: true, onlineCards: false },
     signature: { guests: 500, photos: 6, ownMusic: true, export: true, agenda: true, rsvpDeadline: true, openDetails: true, visitDetails: true, import: true, groups: true, groupStats: true, bulkGroups: true, qrRsvp: true, onlineCards: true },

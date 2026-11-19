@@ -33,7 +33,7 @@ describe("Packages", () => {
         const p = (await get(premium.token, await createInvitation(premium.token))).body.invitation.limits;
         assert.deepEqual(p, {
             plan: "premium", planName: "Premium", guests: 150, photos: 3, ownMusic: false, export: false, agenda: false,
-            rsvpDeadline: true, openDetails: true, visitDetails: false, import: true, groups: true, groupStats: false, bulkGroups: false, qrRsvp: false, onlineCards: true,
+            rsvpDeadline: true, openDetails: true, visitDetails: false, import: true, groups: true, groupStats: true, bulkGroups: true, qrRsvp: false, onlineCards: true,
         });
     });
 
@@ -66,7 +66,7 @@ describe("Packages", () => {
         assert.equal(list.guests[0].openedAt, null);
         assert.equal(list.summary.groups, undefined);
 
-        // Premium: groups and who opened (first open), but no visit details, group panel or bulk groups
+        // Premium: groups (with the group panel and bulk groups) and who opened (first open), but no visit details
         const premium = await registerUser("Premium couple", { plan: "premium" });
         const pid = await createInvitation(premium.token);
         const b = await addGuest(premium.token, pid, { name: "B", group: "Office" });
@@ -77,10 +77,9 @@ describe("Packages", () => {
         assert.equal(list.guests[0].lastOpenedAt, null);
         assert.equal(list.guests[0].openCount, 0);
         assert.equal(list.summary.openedNoReply, 1);
-        assert.equal(list.summary.groups, undefined);
+        assert.equal(list.summary.groups[0].name, "Office");
         const bulk = await api().post(`/api/invitations/${pid}/guests/group`).set(auth(premium.token)).send({ guestIds: [b.id], group: "Family" });
-        assert.equal(bulk.status, 403);
-        assert.equal(bulk.body.code, "needs_plan");
+        assert.equal(bulk.status, 200);
 
         // Premium Plus: everything
         const plus = await registerUser("Plus couple", { plan: "plus" });

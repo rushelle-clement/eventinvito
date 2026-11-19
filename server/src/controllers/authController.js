@@ -74,9 +74,13 @@ async function login(req, res) {
     const email = str(req.body?.email).toLowerCase();
     const password = typeof req.body?.password === "string" ? req.body.password : "";
 
-    if (!email || !password) {
-        throw new AppError(400, "Email and password are required.");
-    }
+    // Field errors for the form; a wrong email or password still gets one shared message below
+    const errors = {};
+    if (!email) errors.email = "Enter your email address.";
+    else if (email.length > 254 || !EMAIL_RE.test(email)) errors.email = "Enter a valid email address.";
+    if (!password) errors.password = "Enter your password.";
+    else if (password.length > 128) errors.password = "Password must be 128 characters or fewer.";
+    if (Object.keys(errors).length) throw new AppError(400, "Please fix the highlighted fields.", errors);
 
     const user = await User.findOne({ email }).select("+passwordHash");
     const ok = user && (await bcrypt.compare(password, user.passwordHash));

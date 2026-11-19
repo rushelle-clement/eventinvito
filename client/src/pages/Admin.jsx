@@ -20,8 +20,8 @@ const STATUS = {
 // The packages (see Packages.jsx on the home page and the server's utils/packages.js)
 const PLANS = [
   { value: 'free', label: 'Simple Card', credits: 0, limits: '50 guests · replies, no deadline' },
-  { value: 'premium', label: 'Premium', credits: 1, limits: '150 guests · 3 photos · opened tracking · groups · import' },
-  { value: 'plus', label: 'Premium Plus', credits: 2, limits: '300 guests · 6 photos · own song · Excel · day plan · group stats' },
+  { value: 'premium', label: 'Premium', credits: 1, limits: '150 guests · 3 photos · opened tracking · groups + group stats · import' },
+  { value: 'plus', label: 'Premium Plus', credits: 2, limits: '300 guests · 6 photos · own song · Excel · day plan · QR for printed cards' },
   { value: 'signature', label: 'Signature', credits: 2, limits: '500 guests · custom design + 1 more · everything in Plus' },
 ]
 const planOf = (value) => PLANS.find((p) => p.value === value) || PLANS[0]

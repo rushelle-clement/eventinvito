@@ -13,13 +13,14 @@ import {
   Gem,
   GraduationCap,
   Heart,
+  FileSpreadsheet,
   Languages,
   Link2,
   ListChecks,
-  MapPin,
   MessageCircle,
   PartyPopper,
   PenLine,
+  QrCode,
   Send,
   Snowflake,
   Sparkles,
@@ -32,8 +33,8 @@ import { CATEGORIES } from '../lib/categories'
 import Packages from '../components/Packages'
 
 // The designs the home page shows, in this order: a modern photo design, a dramatic one, an Indian
-// one, a traditional one, a Sri Lankan one and a birthday. Details come from the server when it
-// answers; these are used until then (or if it doesn't).
+// one, a traditional one, a Sri Lankan one, two birthdays and a corporate event. Details come from
+// the server when it answers; these are used until then (or if it doesn't).
 const FEATURED = [
   { key: 'golden-vow', name: 'Golden Vow', eventType: 'wedding', description: 'Modern gold, ivory and white around your photos — your cover photo in a gold-lined arch opens out to fill the screen.', styleTags: ['Modern', 'Photos'] },
   { key: 'white-lily', name: 'White Lily', eventType: 'wedding', description: 'Black and white with white lilies — a closed lily bud opens into full bloom and soft light reveals your invitation.', styleTags: ['Black & white', 'Floral'] },
@@ -41,10 +42,12 @@ const FEATURED = [
   { key: 'royal-red', name: 'Royal Indian Wedding', eventType: 'wedding', description: 'Deep crimson and antique gold with mandala, paisley and palace-arch ornament.', styleTags: ['Traditional', 'Indian'] },
   { key: 'ran-pahana', name: 'Ran Pahana', eventType: 'wedding', description: 'Red silk brocade, gold liyawel and a traditional oil lamp the guest lights to open the invitation.', styleTags: ['Traditional', 'Sinhala'] },
   { key: 'ocean-adventure', name: 'Ocean Adventure', eventType: 'birthday', description: 'Under the sea with a friendly whale — tap, and the treasure chest opens.', styleTags: ['Kids', 'Birthday'] },
+  { key: 'fairy-garden', name: 'Fairy Garden', eventType: 'birthday', description: 'A lilac wisteria garden — tap, and the flowered gate swings open as butterflies fly out.', styleTags: ['Kids', 'Butterflies'] },
+  { key: 'tech-innovation', name: 'Technology & Innovation', eventType: 'corporate', description: 'Midnight blue, electric blue and violet — light trails race across a digital grid and your event powers on.', styleTags: ['Tech', 'Launch'] },
 ]
 
 // What the card's small label says
-const SUITE = { wedding: 'Wedding suite', birthday: 'Birthday', engagement: 'Engagement', homecoming: 'Homecoming' }
+const SUITE = { wedding: 'Wedding suite', birthday: 'Birthday', engagement: 'Engagement', homecoming: 'Homecoming', corporate: 'Corporate event', christmas: 'Christmas party' }
 
 // The occasion categories, as in the gallery (lib/categories.js)
 const OCCASIONS = [
@@ -62,13 +65,17 @@ const STEPS = [
   { n: '03', title: 'Share & collect RSVPs', text: 'Add your guests and send each their personal link by WhatsApp or copy-and-paste. Replies appear on your dashboard.', note: 'Replies in one place' },
 ]
 
+// The selling points, best first
 const FEATURES = [
-  { icon: Link2, title: 'Personal guest links', text: 'Every guest gets their own private link that greets them by name — “Dear Amal Perera”.' },
-  { icon: ListChecks, title: 'RSVP tracking', text: 'See who is attending, who has declined and who hasn’t replied yet, with the time of each reply.' },
-  { icon: MessageCircle, title: 'WhatsApp sharing', text: 'Open WhatsApp with your message and the guest’s link ready to go. You review it and press Send.' },
-  { icon: Languages, title: 'English & Sinhala', text: 'Choose the language for each invitation. The wording, dates and RSVP form follow it. Tamil is coming soon.' },
-  { icon: CalendarClock, title: 'RSVP deadline', text: 'Guests can change their answer until your deadline, then replies close automatically. The invitation stays online until the day after your event.' },
-  { icon: MapPin, title: 'Venue & map link', text: 'Show the venue, address and dress code, with a map link so guests find their way.' },
+  { icon: Link2, title: 'A personal link for every guest', text: 'Each guest gets their own invitation that greets them by name — “Dear Amal Perera” — and replies just for them.' },
+  { icon: Sparkles, title: 'Invitations that come alive', text: 'Animated designs that open like a real card, with your photos and background music, on any phone.' },
+  { icon: ListChecks, title: 'Every reply in one place', text: 'Who’s coming, who declined and who hasn’t answered, with a reply-by date. Guests can change their answer until then.' },
+  { icon: Eye, title: 'Know who opened it', text: 'See who opened their invitation and when, and find the guests who opened it but haven’t replied yet.' },
+  { icon: MessageCircle, title: 'Send on WhatsApp in a tap', text: 'Your own message and each guest’s link, ready in WhatsApp. Send to everyone one after another, with nothing to copy.' },
+  { icon: QrCode, title: 'QR code for printed cards', text: 'Printing some cards? Add one QR code: guests scan it, find their name and reply, right alongside your online guests.' },
+  { icon: FileSpreadsheet, title: 'Your guest list from Excel', text: 'Import hundreds of guests from Excel in minutes, sort them into groups, and download every reply as a spreadsheet.' },
+  { icon: Languages, title: 'English & Sinhala', text: 'Wording, dates and the reply form in your invitation’s language, with guest names written in Sinhala.' },
+  { icon: CalendarClock, title: 'Day plan for your guests', text: 'Share the timings of your big day, from the poruwa ceremony to the reception, with a live timeline.' },
 ]
 
 function SectionHeading({ eyebrow, title, text, center = true }) {
@@ -117,7 +124,7 @@ export default function Home() {
       <section className="relative bg-[radial-gradient(ellipse_at_top_left,#fbefe2_0%,transparent_50%),radial-gradient(ellipse_at_top_right,#f8e9ea_0%,transparent_45%)]">
         <div className="mx-auto max-w-[1200px] px-margin-mobile pt-16 pb-10 text-center md:px-margin md:pt-24">
           <p className="mx-auto inline-flex items-center gap-2 rounded-full border border-gold/30 bg-white/70 px-4 py-1.5 text-label-md text-gold-text uppercase">
-            <Sparkles size={14} aria-hidden="true" /> Digital invitations · Sri Lanka
+            <Sparkles size={14} aria-hidden="true" /> Digital invitations
           </p>
           <h1 className="mx-auto mt-6 max-w-3xl font-serif text-display-mobile text-espresso md:text-[64px] md:leading-[72px]">
             Every Occasion Deserves a <em className="text-gold-text">Beautiful</em> Invitation.
@@ -169,13 +176,13 @@ export default function Home() {
       <section className="border-y border-bone bg-surface-container-low py-20">
         <div className="mx-auto max-w-[1200px] px-margin-mobile md:px-margin">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <SectionHeading center={false} eyebrow="Our collection" title="Signature Designs" text="Wedding, engagement, homecoming and birthday invitations designed to feel like fine printed stationery — on any phone." />
+            <SectionHeading center={false} eyebrow="Our collection" title="Signature Designs" text="Wedding, birthday and corporate invitations designed to feel like fine printed stationery — on any phone." />
             <Link to="/templates" className="inline-flex shrink-0 items-center gap-1.5 text-label-md text-gold-text uppercase hover:text-primary">
               View all designs <ArrowRight size={15} aria-hidden="true" />
             </Link>
           </div>
 
-          <ul className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {featured.map((t) => (
               <li key={t.key} className="card flex flex-col overflow-hidden">
                 <TemplateThumbnail templateKey={t.key} height={340} />
@@ -278,7 +285,7 @@ export default function Home() {
           />
           <Packages />
           <p className="mt-8 text-center text-body-sm text-on-surface-variant">
-            Every package: designs for weddings, engagements and homecomings · English or Sinhala · works on any phone · drafts are always free.
+            Every package works on any phone · drafts are always free · pay once, no monthly fees.
           </p>
         </div>
       </section>
