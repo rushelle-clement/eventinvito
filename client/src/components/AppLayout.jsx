@@ -7,6 +7,7 @@ import { NavLink, Outlet, Link } from 'react-router-dom'
 import { Menu, Plus, X } from 'lucide-react'
 import Logo from './Logo'
 import UserMenu from './UserMenu'
+import PlanBadge from './PlanBadge'
 import { useSiteConfig } from '../lib/siteConfig'
 import { useAuth } from '../context/AuthContext'
 import SiteFooter from './SiteFooter'
@@ -55,6 +56,8 @@ export default function AppLayout() {
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             {user ? (
               <>
+                {/* The account's package (on phones it's inside the account menu) */}
+                <PlanBadge user={user} className="hidden sm:inline-flex" />
                 <Link to="/templates" className="btn-primary hidden px-5 py-2 text-body-sm sm:inline-flex">
                   <Plus size={16} aria-hidden="true" /> Create Invitation
                 </Link>

@@ -27,13 +27,12 @@ export default function SiteFooter() {
     <footer className="border-t border-bone bg-surface-container-low">
       <div className="mx-auto grid max-w-[1200px] gap-10 px-margin-mobile py-12 md:grid-cols-[1.4fr_1fr_1fr] md:px-margin">
         <div>
-          <Link to="/" className="font-serif text-[24px] text-espresso">
-            EventInvito<span className="text-gold">.</span>
+          <Link to="/" className="inline-block" aria-label="EventInvito home">
+            <img src="/brand/eventinvito-badge.png" alt="EventInvito — Create · Invite · Celebrate" width="112" height="112" className="h-28 w-28" />
           </Link>
           <p className="mt-3 max-w-sm text-body-sm text-on-surface-variant">
             Beautiful digital invitations for every occasion, with personal guest links and RSVPs in one place.
           </p>
-          <p className="mt-4 text-label-sm text-gold-text uppercase">Create · Invite · Celebrate</p>
         </div>
         {COLUMNS.map((col) => (
           <nav key={col.title} aria-label={col.title}>

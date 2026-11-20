@@ -14,7 +14,7 @@ const { setQr } = require("../controllers/qrController");
 const { photoSignature, addPhoto, removePhoto, reorderPhotos } = require("../controllers/photoController");
 const { musicSignature, setMusic, removeMusic } = require("../controllers/musicController");
 const { logoSignature, setLogo, removeLogo } = require("../controllers/logoController");
-const { listGuests, addGuest, updateGuest, removeGuest, resetGuestLink, markGuestShared, setGuestsGroup } = require("../controllers/guestController");
+const { listGuests, addGuest, updateGuest, removeGuest, removeGuests, resetGuestLink, markGuestShared, setGuestsGroup } = require("../controllers/guestController");
 
 const router = express.Router();
 
@@ -51,6 +51,7 @@ router.get("/:id/guests", listGuests);
 router.post("/:id/guests", addGuest);
 router.post("/:id/guests/import", importGuests); // bulk import from a spreadsheet (dry run or apply)
 router.post("/:id/guests/group", setGuestsGroup); // put many guests in a group at once
+router.post("/:id/guests/remove", removeGuests); // remove many guests at once
 router.patch("/:id/guests/:guestId", updateGuest);
 router.delete("/:id/guests/:guestId", removeGuest);
 router.post("/:id/guests/:guestId/reset-link", resetGuestLink);

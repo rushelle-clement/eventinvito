@@ -336,6 +336,7 @@ export default function InvitationEditor() {
   const corporate = form.eventType === 'corporate'
   // Christmas parties: the party's title and its hosts (stored as eventTitle and companyName)
   const christmas = form.eventType === 'christmas'
+  const noPhotos = corporate || christmas // these designs don't show photos
   const kindOf = (eventType) => (['birthday', 'corporate', 'christmas'].includes(eventType) ? eventType : 'couple')
   const title =
     form.partnerOne || form.partnerTwo || form.celebrant || form.eventTitle || form.companyName
@@ -344,7 +345,7 @@ export default function InvitationEditor() {
   const theme = getTheme(form.templateKey)
   // Photos and the couple's music are saved immediately, so they come from the saved copy
   const previewGuest = previewGuestInput ?? sampleGuestName(form.language)
-  const previewInvitation = { ...form, photos: saved.photos || [], customMusic: saved.customMusic }
+  const previewInvitation = { ...form, photos: noPhotos ? [] : saved.photos || [], customMusic: saved.customMusic }
   const today = new Date().toISOString().slice(0, 10)
 
   // What publishing this uses: the free card (free designs), a Premium credit (animated designs)
@@ -832,6 +833,8 @@ export default function InvitationEditor() {
           <Section id="photos" icon={ImageIcon} number={6} title="Photos" subtitle="Cover photo and gallery" open={open === 'photos'} onToggle={toggle}>
             {freeDesign ? (
               <PremiumOnly>Photos are shown on the Premium designs. Your free design is a simple card without photos.</PremiumOnly>
+            ) : noPhotos ? (
+              <p className="text-body-md text-on-surface-variant">{corporate ? 'Corporate' : 'Christmas'} designs don’t use photos — your {corporate ? 'logo and event title lead' : 'party title and greeting lead'} the invitation instead.</p>
             ) : (
               <PhotosSection invitationId={id} photos={saved.photos || []} limits={saved.limits} onChange={(photos) => setSaved((prev) => ({ ...prev, photos }))} />
             )}

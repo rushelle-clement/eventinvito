@@ -1,7 +1,7 @@
 // Photos: FR-022, NFR-011. Cloudinary is simulated here, so these tests run offline.
 const { describe, it, before, after, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
-const { startDb, stopDb, api, auth, registerUser, createInvitation, createPublishedInvitation, addGuest } = require("./helpers");
+const { startDb, stopDb, api, auth, registerUser, createInvitation, createPublishedInvitation, addGuest, models } = require("./helpers");
 const cloudinary = require("../src/utils/cloudinary");
 
 const SETTINGS = { CLOUDINARY_CLOUD_NAME: "testcloud", CLOUDINARY_API_KEY: "123456", CLOUDINARY_API_SECRET: "test-secret" };
@@ -153,5 +153,21 @@ describe("Invitation photos", () => {
         assert.equal(view.body.invitation.photos.length, 1);
         assert.ok(view.body.invitation.photos[0].url.startsWith("https://res.cloudinary.com/"));
         assert.ok(!("publicId" in view.body.invitation.photos[0]));
+    });
+
+    it("has no photos on corporate and Christmas designs, even ones uploaded before", async () => {
+        for (const key of ["black-tie-gala", "christmas-elegance"]) {
+            const id = await createInvitation(owner.token, {}, key);
+            const res = await sig(id);
+            assert.equal(res.status, 403);
+            assert.equal(res.body.code, "no_photos");
+        }
+        // An older corporate invitation with a photo saved still shows none to guests
+        const id = await createPublishedInvitation(owner.token);
+        const folder = (await sig(id)).body.upload.params.folder;
+        await attach(id, fakeCloud.upload(`${folder}/cover`));
+        await models.Invitation.updateOne({ _id: id }, { $set: { eventType: "corporate" } });
+        const g = await addGuest(owner.token, id);
+        assert.equal((await api().get(`/api/invite/${g.token}`)).body.invitation.photos.length, 0);
     });
 });

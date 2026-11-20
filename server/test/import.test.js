@@ -100,4 +100,21 @@ describe("Guest import", () => {
         const again = await api().get(`/api/invitations/${id}/guests`).set(auth(owner.token));
         assert.equal(again.body.guests.find((x) => x.id === g.id).displayName, "සුනේත්‍රා බණ්ඩාර");
     });
+
+    it("shows what an update would change for a guest already on the list", async () => {
+        const dry = (rows) => api().post(`/api/invitations/${id}/guests/import`).set(auth(owner.token)).send({ rows, dryRun: true });
+        await api().post(`/api/invitations/${id}/guests/import`).set(auth(owner.token)).send({ rows: [{ row: 2, name: "Change Check", phone: "0775550001", group: "Office" }], dryRun: false });
+        const res = await dry([
+            { row: 2, name: "Change Check", phone: "+94775550001", group: "office" }, // same (phone and group written differently)
+            { row: 3, name: "Change Check", phone: "0775550001", displayName: "Mr & Mrs Check", email: "check@example.com" },
+        ]);
+        const [same, changed] = res.body.rows;
+        assert.equal(same.duplicate.type, "existing");
+        assert.deepEqual(same.duplicate.changes, []);
+        assert.deepEqual(
+            changed.duplicate.changes.map((c) => [c.field, c.from, c.to]),
+            [["displayName", "", "Mr & Mrs Check"], ["email", "", "check@example.com"]]
+        );
+        assert.equal(changed.action, "skip"); // still the user's choice
+    });
 });

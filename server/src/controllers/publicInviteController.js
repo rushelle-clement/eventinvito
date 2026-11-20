@@ -171,7 +171,7 @@ function sharePreview(invitation) {
     const title = invitation.isCorporate() || invitation.isChristmas() ? who || occasion : who ? `${who} · ${birthday && lang === "en" ? "Invitation" : occasion}` : occasion;
     const description = [[longDate(invitation.eventDate, lang), invitation.venueName].filter(Boolean).join(" · "), TAP[lang]].filter(Boolean).join(". ");
 
-    const cover = invitation.isFreeDesign() ? null : (invitation.photos || [])[0];
+    const cover = invitation.showsPhotos() ? (invitation.photos || [])[0] : null;
     const image = shareImageUrl(cover) || `${siteBase()}/share/${birthday ? "invite-birthday" : invitation.isCorporate() || invitation.isChristmas() ? "site" : "invite-wedding"}.jpg`;
     return { title, description, image, lang };
 }

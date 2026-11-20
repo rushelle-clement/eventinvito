@@ -539,7 +539,7 @@ module.exports = [
         34
     ),
 
-    // ---- Corporate events: five Premium designs (animated opening, music, photos) ...
+    // ---- Corporate events: five Premium designs (animated opening, music; no photos) ...
     corporate("premium", "black-tie-gala", "Black Tie Gala", "Black, gold and ivory — a spotlight sweeps the dark and a gold shimmer reveals your gala night.", ["Gala", "Awards", "Gold"], ["#0d0d0f", "#c9a55c", "#f4ecdc"], 40),
     corporate("premium", "tech-innovation", "Technology & Innovation", "Midnight blue, electric blue and violet — light trails race across a digital grid and your event powers on.", ["Tech", "Futuristic", "Launch"], ["#070b24", "#2f7bff", "#8b5cf6"], 41),
     corporate("premium", "corporate-anniversary", "Corporate Anniversary", "Champagne, silver and burgundy — your anniversary number rises in with a subtle sparkle.", ["Anniversary", "Milestone", "Elegant"], ["#f3e9d8", "#b9bcc2", "#7a1f2b"], 42),

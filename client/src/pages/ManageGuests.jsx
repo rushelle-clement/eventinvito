@@ -27,6 +27,8 @@ import {
   Info,
   SkipForward,
   PartyPopper,
+  ChevronLeft,
+  ChevronRight,
   QrCode,
   Undo2,
   CheckCheck,
@@ -796,6 +798,18 @@ function GroupsPanel({ rows, active, onPick, showOpened = true }) {
   )
 }
 
+// Page buttons: the first, the last and those around the current page, with … between
+function pageNumbers(page, count) {
+  const keep = new Set([1, count, page - 1, page, page + 1].filter((n) => n >= 1 && n <= count))
+  const list = [...keep].sort((a, b) => a - b)
+  const out = []
+  list.forEach((n, i) => {
+    if (i && n - list[i - 1] > 1) out.push('…')
+    out.push(n)
+  })
+  return out
+}
+
 // The menu is placed on the screen itself (position: fixed), so the guest list's rounded,
 // clipped card can't cut it off on the last rows; it opens upwards when there's no room below.
 const MENU_HEIGHT = 140
@@ -1011,6 +1025,9 @@ export default function ManageGuests() {
   // null = every group; '' = guests without a group; otherwise a group's key
   const [groupFilter, setGroupFilter] = useState(null)
   const [selected, setSelected] = useState(() => new Set()) // guest ids ticked for a bulk action
+  const [pageSize, setPageSize] = useState(25)
+  // The page number belongs to one search/filter: any change of them goes back to page 1
+  const [pageState, setPageState] = useState({ key: '', page: 1 })
   const [cardFilter, setCardFilter] = useState('all') // all / online / physical cards
   const toastTimer = useRef(null)
 
@@ -1065,7 +1082,16 @@ export default function ManageGuests() {
     [id, upsertGuest],
   )
 
+  // Links only open once the invitation is published, so sharing waits until then
+  const notLive = () => invitation?.status !== 'published'
+  const share = (guest) => setModal(notLive() ? { type: 'publishFirst' } : { type: 'share', guest })
+  const sendAll = (list) => setModal(notLive() ? { type: 'publishFirst' } : { type: 'sendAll', ...(list && { guests: list }) })
+
   async function quickCopy(guest) {
+    if (notLive()) {
+      setModal({ type: 'publishFirst' })
+      return
+    }
     if (await copyText(guest.link)) {
       // Not marked as shared yet: copying doesn't mean it was sent
       showToast(`Link for ${guest.name} copied`, { label: 'Mark as shared', onClick: () => markShared(guest) })
@@ -1100,6 +1126,23 @@ export default function ManageGuests() {
         return next
       })
       showToast(`${guest.name} removed`)
+      setModal(null)
+    } catch (err) {
+      setError(err.message)
+      setModal(null)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function removeGuests(list) {
+    setBusy(true)
+    try {
+      const d = await api(`/invitations/${id}/guests/remove`, { method: 'POST', body: { guestIds: list.map((g) => g.id) } })
+      const gone = new Set(list.map((g) => g.id))
+      setGuests((all) => all.filter((g) => !gone.has(g.id)))
+      setSelected(new Set())
+      showToast(`${d.removed} guest${d.removed === 1 ? '' : 's'} removed`)
       setModal(null)
     } catch (err) {
       setError(err.message)
@@ -1177,9 +1220,19 @@ export default function ManageGuests() {
   const activeGroup = groupFilter === null ? null : groups.find((r) => r.key === groupFilter)
   const groupLabel = activeGroup ? activeGroup.name || 'No group' : ''
 
-  // Ticked guests (only those still on the list), and "select all shown"
+  // Pages of the filtered list
+  const filterKey = `${query}|${activeFilter}|${groupFilter}|${cardFilter}|${pageSize}`
+  const pageCount = Math.max(1, Math.ceil(visible.length / pageSize))
+  const page = Math.min(pageState.key === filterKey ? pageState.page : 1, pageCount)
+  const setPage = (n) => setPageState({ key: filterKey, page: Math.max(1, Math.min(pageCount, n)) })
+  const pageGuests = visible.slice((page - 1) * pageSize, page * pageSize)
+
+  // Ticked guests (only those still on the list); the header box ticks this page,
+  // then offers every guest that matches the search and filters
   const selectedGuests = guests.filter((g) => selected.has(g.id))
-  const allShownSelected = visible.length > 0 && visible.every((g) => selected.has(g.id))
+  const allShownSelected = pageGuests.length > 0 && pageGuests.every((g) => selected.has(g.id))
+  const allMatchingSelected = visible.length > 0 && visible.every((g) => selected.has(g.id))
+  const selectAllMatching = () => setSelected(new Set(visible.map((g) => g.id)))
   const toggle = (gid) =>
     setSelected((s) => {
       const next = new Set(s)
@@ -1190,7 +1243,7 @@ export default function ManageGuests() {
   const toggleAllShown = () =>
     setSelected((s) => {
       const next = new Set(s)
-      for (const g of visible) {
+      for (const g of pageGuests) {
         if (allShownSelected) next.delete(g.id)
         else next.add(g.id)
       }
@@ -1251,6 +1304,11 @@ export default function ManageGuests() {
       ? downloadGuestList(invitation, guests).catch(() => setError('The Excel file couldn’t be made. Please try again.'))
       : setModal({ type: 'upgrade', reason: 'export' })
   const filters = (can.openDetails ? FILTERS : FILTERS.filter((f) => !OPEN_FILTERS.includes(f.value))).filter((f) => !physicalOnly || f.value !== 'not_shared')
+  // Reply tabs, and the sharing / opening filters in a drop-down beside them
+  const REPLY_FILTERS = ['all', 'attending', 'pending', 'not_attending']
+  const replyFilters = filters.filter((f) => REPLY_FILTERS.includes(f.value))
+  const linkFilters = filters.filter((f) => !REPLY_FILTERS.includes(f.value))
+  const selectCls = 'w-full rounded-full border py-2.5 pr-9 pl-4 text-body-md text-espresso outline-none focus:border-gold'
   const importGuests = (e) => {
     if (can.import) return
     e.preventDefault()
@@ -1266,44 +1324,48 @@ export default function ManageGuests() {
         <span className="mx-1">/</span> <span className="text-gold-text">{names}</span>
       </nav>
 
-      <div className="mt-3 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h1 className="font-serif text-headline-lg-mobile text-espresso md:text-headline-lg">Manage Guests</h1>
-          <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-body-md text-on-surface-variant">
-            {invitation.eventDate && (
-              <span className="inline-flex items-center gap-1.5">
-                <CalendarDays size={16} aria-hidden="true" /> {formatDate(invitation.eventDate, 'en')}
-              </span>
-            )}
-            {invitation.venueName && (
-              <span className="inline-flex items-center gap-1.5">
-                <MapPin size={16} aria-hidden="true" /> {invitation.venueName}
-              </span>
-            )}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-3">
-          {onlineGuests.length > 0 && (
-            <button type="button" className="btn-primary bg-[#25D366] text-white hover:shadow-[0_4px_14px_rgba(37,211,102,0.35)]" onClick={() => setModal({ type: 'sendAll' })}>
-              <Send size={16} aria-hidden="true" /> Send to all
-            </button>
+      {/* Title, then one toolbar: adding guests on the left, sending and downloading on the right */}
+      <div className="mt-3">
+        <h1 className="font-serif text-headline-lg-mobile text-espresso md:text-headline-lg">Manage Guests</h1>
+        <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-body-md text-on-surface-variant">
+          {invitation.eventDate && (
+            <span className="inline-flex items-center gap-1.5">
+              <CalendarDays size={16} aria-hidden="true" /> {formatDate(invitation.eventDate, 'en')}
+            </span>
           )}
+          {invitation.venueName && (
+            <span className="inline-flex items-center gap-1.5">
+              <MapPin size={16} aria-hidden="true" /> {invitation.venueName}
+            </span>
+          )}
+        </p>
+      </div>
+
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-2.5">
+          <button type="button" className="btn-primary w-full px-3 py-2.5 text-body-sm sm:w-auto sm:px-5 sm:text-body-md" onClick={addGuest}>
+            <UserPlus size={16} aria-hidden="true" /> Add Guest
+          </button>
+          <Link to={`/invitations/${id}/guests/import`} onClick={importGuests} className="btn-secondary w-full px-3 py-2.5 text-body-sm sm:w-auto sm:px-5 sm:text-body-md">
+            <Upload size={16} aria-hidden="true" /> Import from Excel
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-2.5">
           {!physicalOnly && (
-            <button type="button" className="btn-secondary" onClick={() => setModal({ type: 'message' })}>
+            <button type="button" className="btn-secondary w-full px-3 py-2.5 text-body-sm sm:w-auto sm:px-4 sm:text-body-md" onClick={() => setModal({ type: 'message' })}>
               <MessageSquareText size={16} aria-hidden="true" /> Edit message
             </button>
           )}
-          <Link to={`/invitations/${id}/guests/import`} onClick={importGuests} className="btn-secondary">
-            <Upload size={16} aria-hidden="true" /> Import Guests
-          </Link>
           {guests.length > 0 && (
-            <button type="button" className="btn-secondary" onClick={downloadExcel}>
+            <button type="button" className="btn-secondary w-full px-3 py-2.5 text-body-sm sm:w-auto sm:px-4 sm:text-body-md" onClick={downloadExcel}>
               <Download size={16} aria-hidden="true" /> Download Excel
             </button>
           )}
-          <button type="button" className="btn-primary" onClick={addGuest}>
-            <UserPlus size={16} aria-hidden="true" /> Add Guest
-          </button>
+          {onlineGuests.length > 0 && (
+            <button type="button" className="btn-primary col-span-2 w-full bg-[#25D366] px-3 py-2.5 text-body-sm text-white sm:w-auto sm:px-5 sm:text-body-md hover:shadow-[0_4px_14px_rgba(37,211,102,0.35)]" onClick={() => sendAll()}>
+              <Send size={16} aria-hidden="true" /> Send to all
+            </button>
+          )}
         </div>
       </div>
 
@@ -1422,64 +1484,94 @@ export default function ManageGuests() {
         )
       )}
 
-      {/* Search + filters */}
-      <div className="card mt-6 flex flex-col gap-4 p-4 lg:flex-row lg:items-center">
-        <label className="relative block lg:w-72 lg:shrink-0">
-          <span className="sr-only">Search guests</span>
-          <Search size={18} aria-hidden="true" className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-on-surface-variant" />
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={physicalOnly ? 'Search by name or email' : 'Search by name, phone or email'}
-            className="w-full rounded-full border border-bone bg-ivory py-2.5 pr-4 pl-11 text-body-md outline-none focus:border-gold"
-          />
-        </label>
-        {hasGroups && can.groups && (
-          <label className="block shrink-0">
-            <span className="sr-only">Group</span>
-            <select
-              value={groupFilter ?? '__all'}
-              onChange={(e) => setGroupFilter(e.target.value === '__all' ? null : e.target.value)}
-              className={`w-full rounded-full border py-2.5 pr-9 pl-4 text-body-md text-espresso outline-none focus:border-gold lg:w-56 ${groupFilter !== null ? 'border-gold bg-gold/15' : 'border-bone bg-ivory'}`}
-            >
-              {/* the counts per group are part of Premium and above */}
-              <option value="__all">All groups{can.groupStats ? ` (${guests.length})` : ''}</option>
-              {groups.map((r) => (
-                <option key={r.key || '__none'} value={r.key}>
-                  {r.name || 'No group'}
-                  {can.groupStats ? ` (${r.total})` : ''}
-                </option>
-              ))}
-            </select>
+      {/* Search + filters: the search and the drop-downs on top, the reply tabs below */}
+      <div className="card mt-6 space-y-3 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <label className="relative block min-w-0 flex-1">
+            <span className="sr-only">Search guests</span>
+            <Search size={17} aria-hidden="true" className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-on-surface-variant" />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={physicalOnly ? 'Search by name or email' : 'Search by name, phone or email'}
+              className="w-full rounded-full border border-bone bg-ivory py-2.5 pr-4 pl-11 text-body-md outline-none focus:border-gold"
+            />
           </label>
-        )}
-        {showCards && (
-          <label className="block shrink-0">
-            <span className="sr-only">Card type</span>
-            <select
-              value={cardFilter}
-              onChange={(e) => setCardFilter(e.target.value)}
-              className={`w-full rounded-full border py-2.5 pr-9 pl-4 text-body-md text-espresso outline-none focus:border-gold lg:w-48 ${cardFilter !== 'all' ? 'border-gold bg-gold/15' : 'border-bone bg-ivory'}`}
-            >
-              <option value="all">All cards ({guests.length})</option>
-              <option value="online">Online ({summary.online.total})</option>
-              <option value="physical">Physical cards ({summary.physical.total})</option>
-            </select>
-          </label>
-        )}
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Filter guests">
-          {filters.map((f) => (
-            <button
-              key={f.value}
-              type="button"
-              aria-pressed={activeFilter === f.value}
-              onClick={() => setFilter(f.value)}
-              className={`rounded-full px-3.5 py-1.5 text-label-md uppercase transition-colors ${activeFilter === f.value ? 'bg-gold text-espresso' : 'border border-bone bg-white text-on-surface-variant hover:border-gold'}`}
-            >
-              {f.label} ({counts[f.value]})
-            </button>
-          ))}
+          <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 sm:flex sm:shrink-0">
+            {hasGroups && can.groups && (
+              <label className="block">
+                <span className="sr-only">Group</span>
+                <select
+                  value={groupFilter ?? '__all'}
+                  onChange={(e) => setGroupFilter(e.target.value === '__all' ? null : e.target.value)}
+                  className={`${selectCls} sm:w-48 ${groupFilter !== null ? 'border-gold bg-gold/15' : 'border-bone bg-ivory'}`}
+                >
+                  {/* the counts per group are part of Premium and above */}
+                  <option value="__all">All groups{can.groupStats ? ` (${guests.length})` : ''}</option>
+                  {groups.map((r) => (
+                    <option key={r.key || '__none'} value={r.key}>
+                      {r.name || 'No group'}
+                      {can.groupStats ? ` (${r.total})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {showCards && (
+              <label className="block">
+                <span className="sr-only">Card type</span>
+                <select
+                  value={cardFilter}
+                  onChange={(e) => setCardFilter(e.target.value)}
+                  className={`${selectCls} sm:w-44 ${cardFilter !== 'all' ? 'border-gold bg-gold/15' : 'border-bone bg-ivory'}`}
+                >
+                  <option value="all">All cards ({guests.length})</option>
+                  <option value="online">Online ({summary.online.total})</option>
+                  <option value="physical">Physical cards ({summary.physical.total})</option>
+                </select>
+              </label>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3 border-t border-bone pt-3 md:flex-row md:items-center md:justify-between">
+          {/* Replies: one row of tabs */}
+          <div className="flex flex-wrap gap-1" role="group" aria-label="Filter by reply">
+            {replyFilters.map((f) => {
+              const on = activeFilter === f.value
+              return (
+                <button
+                  key={f.value}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => setFilter(f.value)}
+                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-body-sm font-medium transition-colors ${on ? 'bg-espresso text-white' : 'text-on-surface-variant hover:bg-surface-container hover:text-espresso'}`}
+                >
+                  {f.value === 'all' ? 'All' : f.label}
+                  <span className={`rounded-full px-1.5 text-[12px] tabular-nums ${on ? 'bg-white/20 text-white' : 'bg-surface-container text-on-surface-variant'}`}>{counts[f.value]}</span>
+                </button>
+              )
+            })}
+          </div>
+          {/* Sharing and opening: a drop-down, so the tabs stay short */}
+          {linkFilters.length > 0 && (
+            <label className="flex shrink-0 items-center gap-2 text-body-sm text-on-surface-variant">
+              <span className="shrink-0">Invitation</span>
+              <select
+                value={linkFilters.some((f) => f.value === activeFilter) ? activeFilter : ''}
+                onChange={(e) => setFilter(e.target.value || 'all')}
+                className={`${selectCls} md:w-52 ${linkFilters.some((f) => f.value === activeFilter) ? 'border-gold bg-gold/15' : 'border-bone bg-ivory'}`}
+              >
+                <option value="">Any</option>
+                {linkFilters.map((f) => (
+                  <option key={f.value} value={f.value}>
+                    {f.label} ({counts[f.value]})
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
         </div>
       </div>
 
@@ -1507,17 +1599,22 @@ export default function ManageGuests() {
       ) : (
         <div className="card mt-6 overflow-hidden">
           <p className="sr-only" aria-live="polite">
-            Showing {visible.length} of {guests.length} guests
+            Showing {pageGuests.length} of {visible.length} guests, page {page} of {pageCount}
           </p>
           {/* Tick guests to put them in a group or send to just them */}
           <div className={`flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-bone px-5 py-2.5 ${selected.size ? 'bg-blush-tint' : 'bg-white'}`}>
             <label className="flex cursor-pointer items-center gap-2.5 text-body-sm text-espresso">
-              <input type="checkbox" className="h-4 w-4 accent-espresso" checked={allShownSelected} onChange={toggleAllShown} disabled={!visible.length} />
+              <input type="checkbox" className="h-4 w-4 accent-espresso" checked={allShownSelected} onChange={toggleAllShown} disabled={!pageGuests.length} />
               <span>
-                {allShownSelected ? 'Untick all shown' : `Select all ${visible.length} shown`}
+                {allShownSelected ? 'Untick this page' : pageCount > 1 ? `Select the ${pageGuests.length} on this page` : `Select all ${visible.length} shown`}
                 {groupLabel && !allShownSelected && <span className="text-on-surface-variant"> in “{groupLabel}”</span>}
               </span>
             </label>
+            {pageCount > 1 && allShownSelected && !allMatchingSelected && (
+              <button type="button" className="text-body-sm font-semibold text-gold-text underline underline-offset-2" onClick={selectAllMatching}>
+                Select all {visible.length} guests
+              </button>
+            )}
             {selected.size > 0 && (
               <div className="ml-auto flex flex-wrap items-center gap-2">
                 <span className="text-body-sm font-semibold text-espresso">{selected.size} selected</span>
@@ -1534,11 +1631,14 @@ export default function ManageGuests() {
                   <button
                     type="button"
                     className="btn-primary bg-[#25D366] px-3.5 py-1.5 text-body-sm text-white"
-                    onClick={() => setModal({ type: 'sendAll', guests: selectedGuests.filter((g) => g.cardType !== 'physical') })}
+                    onClick={() => sendAll(selectedGuests.filter((g) => g.cardType !== 'physical'))}
                   >
                     <Send size={15} aria-hidden="true" /> Send to selected
                   </button>
                 )}
+                <button type="button" className="btn-secondary px-3.5 py-1.5 text-body-sm text-error hover:border-error" onClick={() => setModal({ type: 'removeMany', guests: selectedGuests })}>
+                  <Trash2 size={15} aria-hidden="true" /> Remove
+                </button>
                 <button type="button" className="grid h-8 w-8 place-items-center rounded-full text-on-surface-variant hover:bg-surface-container" aria-label="Clear selection" onClick={() => setSelected(new Set())}>
                   <X size={16} />
                 </button>
@@ -1557,7 +1657,7 @@ export default function ManageGuests() {
             <p className="px-5 py-10 text-center text-body-md text-on-surface-variant">No guests match this search or filter{groupLabel ? ` in “${groupLabel}”` : ''}{cardFilter !== 'all' ? ` among ${cardFilter === 'physical' ? 'physical-card' : 'online'} guests` : ''}.</p>
           )}
           <ul>
-            {visible.map((g) => {
+            {pageGuests.map((g) => {
               const r = RSVP[g.rsvpStatus]
               const physical = g.cardType === 'physical'
               return (
@@ -1656,7 +1756,7 @@ export default function ManageGuests() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => setModal({ type: 'share', guest: g })}
+                          onClick={() => share(g)}
                           title="Share on WhatsApp"
                           aria-label={`Share with ${g.name} on WhatsApp`}
                           className="grid h-9 w-9 place-items-center rounded-full text-on-surface-variant hover:bg-surface-container hover:text-espresso"
@@ -1682,6 +1782,55 @@ export default function ManageGuests() {
               )
             })}
           </ul>
+
+          {/* Pages */}
+          {visible.length > 25 && (
+            <nav className="flex flex-col gap-3 border-t border-bone px-5 py-3 text-body-sm text-on-surface-variant sm:flex-row sm:items-center sm:justify-between" aria-label="Guest list pages">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <span className="tabular-nums">
+                  {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, visible.length)} of {visible.length}
+                </span>
+                <label className="flex items-center gap-2">
+                  Show
+                  <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} className="rounded-full border border-bone bg-ivory py-1 pr-7 pl-3 text-body-sm text-espresso outline-none focus:border-gold">
+                    {[25, 50, 100].map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                  per page
+                </label>
+              </div>
+              {pageCount > 1 && (
+                <div className="flex items-center gap-1">
+                  <button type="button" className="grid h-9 w-9 place-items-center rounded-full hover:bg-surface-container disabled:opacity-40" onClick={() => setPage(page - 1)} disabled={page === 1} aria-label="Previous page">
+                    <ChevronLeft size={18} aria-hidden="true" />
+                  </button>
+                  {pageNumbers(page, pageCount).map((n, i) =>
+                    n === '…' ? (
+                      <span key={`gap-${i}`} className="px-1">
+                        …
+                      </span>
+                    ) : (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => setPage(n)}
+                        aria-current={n === page ? 'page' : undefined}
+                        className={`h-9 min-w-9 rounded-full px-2 tabular-nums ${n === page ? 'bg-espresso text-white' : 'text-espresso hover:bg-surface-container'}`}
+                      >
+                        {n}
+                      </button>
+                    ),
+                  )}
+                  <button type="button" className="grid h-9 w-9 place-items-center rounded-full hover:bg-surface-container disabled:opacity-40" onClick={() => setPage(page + 1)} disabled={page === pageCount} aria-label="Next page">
+                    <ChevronRight size={18} aria-hidden="true" />
+                  </button>
+                </div>
+              )}
+            </nav>
+          )}
         </div>
       )}
 
@@ -1732,6 +1881,31 @@ export default function ManageGuests() {
           }}
         />
       )}
+      {modal?.type === 'publishFirst' && (
+        <Modal
+          title="Publish your invitation first"
+          onClose={() => setModal(null)}
+          footer={
+            <>
+              <button type="button" className="btn-secondary" onClick={() => setModal(null)}>
+                Not now
+              </button>
+              <Link to={`/invitations/${id}/edit`} className="btn-primary">
+                {invitation.status === 'unpublished' ? 'Go to publish again' : 'Go to publish'}
+              </Link>
+            </>
+          }
+        >
+          <div className="px-5 py-5 text-body-md text-on-surface-variant">
+            <p>
+              {invitation.status === 'unpublished'
+                ? 'This invitation is unpublished, so guests who open their link would see “not available”.'
+                : 'This invitation is still a draft, so guests who open their link would see “not available”.'}
+            </p>
+            <p className="mt-2">Publish it, then come back here to copy links and send them on WhatsApp. You can keep adding guests in the meantime.</p>
+          </div>
+        </Modal>
+      )}
       {modal?.type === 'upgrade' && (
         <Modal
           title={UPGRADE[modal.reason]?.title || 'Your guest list is full'}
@@ -1771,6 +1945,33 @@ export default function ManageGuests() {
           <p className="px-5 py-5 text-body-md text-on-surface-variant">
             {modal.guest.name}’s current link will stop working straight away. Use this if a link was sent to the wrong person. You’ll need to share the new link with them.
           </p>
+        </Modal>
+      )}
+      {modal?.type === 'removeMany' && (
+        <Modal
+          title={`Remove ${modal.guests.length} guest${modal.guests.length === 1 ? '' : 's'}?`}
+          onClose={() => !busy && setModal(null)}
+          footer={
+            <>
+              <button type="button" className="btn-secondary" onClick={() => setModal(null)} disabled={busy}>
+                Cancel
+              </button>
+              <button type="button" className="btn-primary bg-error text-white" onClick={() => removeGuests(modal.guests)} disabled={busy}>
+                {busy ? 'Removing…' : `Remove ${modal.guests.length} guest${modal.guests.length === 1 ? '' : 's'}`}
+              </button>
+            </>
+          }
+        >
+          <div className="px-5 py-5 text-body-md text-on-surface-variant">
+            <p>
+              {modal.guests
+                .slice(0, 5)
+                .map((g) => g.name)
+                .join(', ')}
+              {modal.guests.length > 5 ? ` and ${modal.guests.length - 5} more` : ''} will be taken off your list.
+            </p>
+            <p className="mt-2">Their personal links will stop working and their replies will be deleted. This can’t be undone.</p>
+          </div>
         </Modal>
       )}
       {modal?.type === 'remove' && (

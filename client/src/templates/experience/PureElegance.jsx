@@ -7,12 +7,15 @@
 //
 // The envelope, wax seal and roses are illustrations (/public/pure-elegance); the paper,
 // borders, gold lettering and the flap/card movement are drawn in code.
+//
+// Photos: the first is the cover, in a gold-ringed portrait above the names; with more than one,
+// a gallery of all of them (cover included) follows the details, like the other Premium designs.
 
 import { useEffect, useRef, useState } from 'react'
 import { CalendarDays, Clock, MapPin, Shirt } from 'lucide-react'
 import Reveal from './Reveal'
 import MusicButton from './MusicButton'
-import { ceremonyList, names, prefersReducedMotion, timeRange } from './shared'
+import { ceremonyList, galleryClass, names, prefersReducedMotion, timeRange } from './shared'
 import { formatDate } from '../strings'
 import { Parents, InviteLine } from './Wording'
 import { guestNamedInLine, hasParentsLines } from '../wording'
@@ -94,6 +97,8 @@ export default function PureElegance({ invitation, guestName, rsvp, music, t, la
   const date = formatDate(invitation.eventDate, lang)
   const time = timeRange(invitation.eventTime, invitation.endTime, lang)
   const ceremonies = ceremonyList(invitation, lang)
+  const photos = invitation.photos || []
+  const cover = photos[0]?.url
 
   return (
     <>
@@ -161,6 +166,13 @@ export default function PureElegance({ invitation, guestName, rsvp, music, t, la
                 {!guestNamedInLine(invitation) && (
                   <Reveal variant="fade">
                     <p className={`pl-greeting ${local}`}>{guestName ? t.dear(guestName) : t.dearGuest}</p>
+                  </Reveal>
+                )}
+                {cover && (
+                  <Reveal variant="scale" delay={100}>
+                    <div className="pl-portrait">
+                      <img src={cover} alt="" />
+                    </div>
                   </Reveal>
                 )}
                 <Reveal delay={200}>
@@ -254,6 +266,24 @@ export default function PureElegance({ invitation, guestName, rsvp, music, t, la
                     </li>
                   ))}
                 </ol>
+              </Reveal>
+            </section>
+          )}
+
+          {photos.length > 1 && (
+            <section className="pl-section" aria-labelledby="pl-photos-h">
+              <Reveal className="pl-paper pl-panel">
+                <h2 id="pl-photos-h" className={`pl-eyebrow ${local}`}>
+                  {t.ourMoments}
+                </h2>
+                <GoldRule />
+                <div className={`pl-photos ${galleryClass(photos.length, 6)}`}>
+                  {photos.map((p, i) => (
+                    <Reveal key={p.id} variant="scale" delay={i * 100} className="pl-photo">
+                      <img src={p.url} alt="" loading="lazy" />
+                    </Reveal>
+                  ))}
+                </div>
               </Reveal>
             </section>
           )}

@@ -37,6 +37,27 @@ const nameKey = (s) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
 // Compare phones by their last 9 digits so 0771234567 and +94771234567 match
 const phoneKey = (s) => (s || "").replace(/\D/g, "").slice(-9);
 
+// What an "update" would change on a guest already on the list: only details the file has and
+// the list doesn't (or has differently). Blank cells never clear anything.
+const CHANGE_FIELDS = [
+    ["displayName", "Name on invitation"],
+    ["phone", "Phone"],
+    ["email", "Email"],
+    ["group", "Group"],
+    ["notes", "Notes"],
+];
+const same = (field, a, b) => (field === "phone" ? phoneKey(a) === phoneKey(b) : field === "group" ? nameKey(a) === nameKey(b) : (a || "").trim() === (b || "").trim());
+
+function changesFor(guest, values, cardType) {
+    const changes = [];
+    for (const [field, label] of CHANGE_FIELDS) {
+        const to = values[field];
+        if (to && !same(field, guest[field], to)) changes.push({ field, label, from: guest[field] || "", to });
+    }
+    if ((guest.cardType || "online") !== cardType) changes.push({ field: "cardType", label: "Card", from: guest.cardType || "online", to: cardType });
+    return changes;
+}
+
 function analyse(rows, existing, cardType = "online") {
     const physical = cardType === "physical";
     // Physical-card guests already on the list, by the name they'd type on the QR page
@@ -55,6 +76,7 @@ function analyse(rows, existing, cardType = "online") {
     }
 
     const seen = { phone: new Map(), email: new Map(), name: new Map() };
+    const byId = new Map(existing.map((g) => [g._id.toString(), g]));
 
     return rows.map((input, index) => {
         const rowNumber = Number.isInteger(input?.row) ? input.row : index + 2;
@@ -75,8 +97,8 @@ function analyse(rows, existing, cardType = "online") {
         if (fieldErrors.notes) errors.notes = fieldErrors.notes;
         if (fieldErrors.group) warnings.group = "Group is too long (40 characters at most) — the guest will be imported without it.";
         if (fieldErrors.displayName) errors.displayName = fieldErrors.displayName;
-        if (fieldErrors.email) warnings.email = "Not a valid email — the guest will be imported without it.";
-        if (fieldErrors.phone) warnings.phone = "Not a valid phone number — the guest will be imported without it.";
+        if (fieldErrors.email) warnings.email = `Email: ${fieldErrors.email} The guest will be imported without it.`;
+        if (fieldErrors.phone) warnings.phone = `Phone: ${fieldErrors.phone} The guest will be imported without it.`;
 
         const clean = {
             name: values.name || (typeof raw.name === "string" ? raw.name.trim() : ""),
@@ -130,6 +152,11 @@ function analyse(rows, existing, cardType = "online") {
             if (key && !physicalSeen.has(key)) physicalSeen.set(key, rowNumber);
         }
 
+        if (duplicate?.type === "existing") {
+            const guest = byId.get(duplicate.guestId);
+            duplicate.changes = guest ? changesFor(guest, clean, cardType) : [];
+        }
+
         // Decide the action: the user's choice if it's allowed, otherwise a safe default
         const hasErrors = Object.keys(errors).length > 0;
         const allowed = hasErrors
@@ -176,7 +203,11 @@ async function importGuests(req, res) {
 
     const { guests: planLimit, planName } = limitsFor(invitation, req.user);
     const limit = Math.min(planLimit, MAX_GUESTS_PER_INVITATION);
-    if (existing.length + summary.add > limit) {
+    // How the file fits the package. A check (dryRun) can ask to see this instead of an error,
+    // so the couple sees how many guests are new and can leave some out; a real import never goes over.
+    const room = Math.max(0, limit - existing.length);
+    const fit = { limit, planName, existing: existing.length, adding: summary.add, room, over: existing.length + summary.add > limit };
+    if (fit.over && !(dryRun !== false && req.body?.showLimit === true)) {
         throw new AppError(
             403,
             `This would bring your list to ${existing.length + summary.add} guests. ${guestLimitMessage(planName, limit)}`,
@@ -186,7 +217,7 @@ async function importGuests(req, res) {
     }
 
     if (dryRun !== false) {
-        return res.json({ success: true, dryRun: true, cardType, summary, rows: analysed });
+        return res.json({ success: true, dryRun: true, cardType, summary, fit, rows: analysed });
     }
 
     // ---- Apply ----

@@ -24,6 +24,7 @@ import {
   XCircle,
   Link2,
   Printer,
+  X,
 } from 'lucide-react'
 import { api } from '../lib/api'
 import FormAlert from '../components/FormAlert'
@@ -103,7 +104,10 @@ const NoAutoSend = ({ physical = false }) => (
 
 // ---------- row helpers ----------
 
-const ACTION_LABELS = { add: 'Add as new guest', update: 'Update existing guest', skip: 'Skip this row', exclude: 'Leave out' }
+// What each choice does to this one row (the labels say "this guest", so nobody reads them as
+// adding the whole file)
+const ACTION_LABELS = { add: 'Import this guest', update: 'Update the guest already on my list', skip: 'Skip this row', exclude: 'Leave this row out' }
+const actionLabel = (a, r) => (a === 'add' && r.duplicate ? (r.duplicate.type === 'existing' ? 'Import as a separate, new guest' : 'Import this row too') : ACTION_LABELS[a])
 
 function issueText(r) {
   if (r.errors.name) return { tone: 'error', title: r.errors.name.includes('100') ? 'Name too long' : 'Missing guest name', text: r.errors.name }
@@ -122,19 +126,38 @@ function issueText(r) {
       title: 'Same name as another physical card',
       text: `Same name as row ${r.duplicate.row}. Guests find themselves by name on the QR page, so give one of them a different name in your file (e.g. “Amal Perera (Kandy)”) and upload it again.`,
     }
-  if (r.duplicate?.type === 'existing')
-    return {
-      tone: 'dup',
-      title: 'Already on your list?',
-      text: `Same ${r.duplicate.on} as “${r.duplicate.guestName}”${r.duplicate.guestPhone ? ` (${r.duplicate.guestPhone})` : ''}.`,
-    }
+  if (r.duplicate?.type === 'existing') {
+    // Say which guest this row matched, and why
+    const d = r.duplicate
+    const why = d.on === 'phone' ? `the phone number ${d.guestPhone} is the same` : d.on === 'email' ? `the email ${d.guestEmail} is the same` : 'the name is the same'
+    const who = `This looks like “${d.guestName}”, who is already on your list: ${why}`
+    // A bad email or phone in the file is never copied onto the guest
+    const problems = Object.values(r.warnings)
+      .map((t) => t.replace(' The guest will be imported without it.', ' It won’t be copied to your list.').replace(' — the guest will be imported without it.', '. It won’t be copied to your list.'))
+      .join(' ')
+    if (hasChanges(r)) return { tone: 'dup', title: 'New details for a guest on your list', text: `${who}. The file has new details for them — choose “Update” to use these:`, changes: r.duplicate.changes, problems }
+    if (problems) return { tone: 'warn', title: 'Already on your list — check this row', text: `${who}.`, problems }
+    return { tone: 'same', title: 'Already on your list', text: `${who}. The file has nothing new for them.` }
+  }
   if (r.duplicate?.type === 'file') return { tone: 'dup', title: 'Duplicate in this file', text: `Same ${r.duplicate.on} as row ${r.duplicate.row}.` }
   const w = Object.values(r.warnings)
   if (w.length) return { tone: 'warn', title: 'Will be imported with a change', text: w.join(' ') }
   return null
 }
 
-const rowKind = (r) => (Object.keys(r.errors).length ? 'error' : r.duplicate ? 'dup' : Object.keys(r.warnings).length ? 'warn' : 'ok')
+// A guest already on the list: does the file have anything new for them?
+const hasChanges = (r) => (r.duplicate?.changes?.length ?? 0) > 0
+
+// error · changed (on the list, with new details) · dup (repeated, or a physical-card name clash)
+// · same (on the list, nothing new) · warn (small fix) · ok
+const rowKind = (r) => {
+  if (Object.keys(r.errors).length) return 'error'
+  if (r.duplicate?.type === 'existing' && !r.duplicate.physical) return hasChanges(r) ? 'changed' : Object.keys(r.warnings).length ? 'warn' : 'same'
+  if (r.duplicate) return 'dup'
+  return Object.keys(r.warnings).length ? 'warn' : 'ok'
+}
+const CHANGE_SHOW = { online: 'Online card', physical: 'Physical card' }
+const showValue = (c, v) => (c.field === 'cardType' ? CHANGE_SHOW[v] || v : v)
 
 // ---------- page ----------
 
@@ -171,10 +194,18 @@ export default function ImportGuests() {
   const [importing, setImporting] = useState(false)
   const [result, setResult] = useState(null)
   const [failed, setFailed] = useState('')
+  const [existing, setExisting] = useState(0) // guests already on the list
+  // When a file may not fit, we count its new guests straight away (using the guessed columns):
+  // null, 'checking', or the server's { limit, existing, adding, room, over }
+  const [fitCheck, setFitCheck] = useState(null)
 
+  // The guest list too: how many guests are already on it, for the package limit
   useEffect(() => {
-    api(`/invitations/${id}`)
-      .then((d) => setInvitation(d.invitation))
+    api(`/invitations/${id}/guests`)
+      .then((d) => {
+        setInvitation(d.invitation)
+        setExisting(d.summary?.total ?? d.guests?.length ?? 0)
+      })
       .catch((err) => setLoadError(err.status === 404 ? 'This invitation could not be found.' : err.message))
   }, [id])
 
@@ -196,11 +227,20 @@ export default function ImportGuests() {
     setReading(true)
     try {
       const data = await readGuestFile(f)
+      const guessed = autoMap(data.headers)
       setFile({ name: f.name, size: f.size })
       setSheet(data)
-      setMapping(autoMap(data.headers))
+      setMapping(guessed)
       setAnalysis(null)
       setResult(null)
+      setFitCheck(null)
+      // More rows than free places: rows already on the list don't count, so find out how many are new
+      if (guestLimit && data.rows.length <= guestLimit && data.rows.length > placesLeft && guessed.name >= 0) {
+        setFitCheck('checking')
+        api(`/invitations/${id}/guests/import`, { method: 'POST', body: { rows: buildRows(data.rows, guessed), dryRun: true, showLimit: true, cardType: physical ? 'physical' : 'online' } })
+          .then((d) => setFitCheck(d.fit || null))
+          .catch(() => setFitCheck(null)) // the review step checks again anyway
+      }
     } catch (err) {
       setFile({ name: f.name, size: f.size, bad: true })
       setSheet(null)
@@ -211,12 +251,37 @@ export default function ImportGuests() {
     }
   }
 
+  // The package's guest limit (Simple Card 50, Premium and Printed Cards 150, Premium Plus 300,
+  // Signature 500). A file with more rows than that can never fit, so it can't go further.
+  // A file that only fits partly may still be fine (rows already on the list are updated, not
+  // added), so that's a warning; the review step counts exactly.
+  const guestLimit = invitation?.limits?.guests || 0
+  const planName = invitation?.limits?.planName || 'Your package'
+  const fileRows = sheet?.rows.length || 0
+  const overLimit = Boolean(guestLimit) && fileRows > guestLimit
+  const placesLeft = Math.max(0, guestLimit - existing)
+  const overPlaces = Boolean(guestLimit) && !overLimit && fileRows > placesLeft
+  const fitKnown = fitCheck && fitCheck !== 'checking'
+  const newTooMany = Boolean(fitKnown && fitCheck.over)
+  const blocked = overLimit || newTooMany
+
+  // Take the chosen file away, to choose another
+  function clearFile() {
+    setFile(null)
+    setSheet(null)
+    setFileError('')
+    setMapping({})
+    setAnalysis(null)
+    setFitCheck(null)
+    if (inputRef.current) inputRef.current.value = ''
+  }
+
   // ---- step 2 → 3 ----
   async function check(nextRows) {
     setChecking(true)
     setError('')
     try {
-      const data = await api(`/invitations/${id}/guests/import`, { method: 'POST', body: { rows: nextRows, dryRun: true, cardType: physical ? 'physical' : 'online' } })
+      const data = await api(`/invitations/${id}/guests/import`, { method: 'POST', body: { rows: nextRows, dryRun: true, showLimit: true, cardType: physical ? 'physical' : 'online' } })
       setAnalysis(data)
       // keep the server's resolved action on each row
       setRows(nextRows.map((r, i) => ({ ...r, action: data.rows[i].action })))
@@ -233,7 +298,7 @@ export default function ImportGuests() {
     const built = buildRows(sheet.rows, mapping)
     const data = await check(built)
     if (!data) return
-    const hasIssues = data.rows.some((r) => rowKind(r) !== 'ok')
+    const hasIssues = data.rows.some((r) => !['ok', 'same'].includes(rowKind(r)))
     setFilter(hasIssues ? 'issues' : 'all')
     setShown(PAGE)
     setStep(3)
@@ -243,26 +308,50 @@ export default function ImportGuests() {
   const merged = useMemo(() => (analysis ? analysis.rows.map((r, i) => ({ ...r, action: rows[i]?.action ?? r.action })) : []), [analysis, rows])
 
   const counts = useMemo(() => {
-    const c = { total: merged.length, ok: 0, error: 0, dup: 0, warn: 0, add: 0, update: 0, skip: 0 }
+    const c = { total: merged.length, ok: 0, error: 0, dup: 0, changed: 0, same: 0, warn: 0, ready: 0, readyFix: 0, unchanged: 0, add: 0, update: 0, skip: 0 }
     for (const r of merged) {
-      c[rowKind(r)] += 1
+      const k = rowKind(r)
+      c[k] += 1
+      // Guests already on the list with nothing new aren't "left out": there's simply nothing to do
+      if (k === 'same' && r.action !== 'add' && r.action !== 'update') c.unchanged += 1
+      if (k === 'ok' || (k === 'warn' && !r.duplicate)) c.ready += 1
+      if (k === 'warn' && !r.duplicate) c.readyFix += 1
       if (r.action === 'add') c.add += 1
       else if (r.action === 'update') c.update += 1
       else c.skip += 1
     }
+    c.leftOut = c.skip - c.unchanged
     return c
   }, [merged])
+
+  // Duplicates: how many match a guest already on the list (those can be updated), and the
+  // action chosen for them — all skipped, all updated, or a mix
+  const dupInfo = useMemo(() => {
+    const dups = merged.filter((r) => r.duplicate)
+    const existing = dups.filter((r) => r.allowedActions?.includes('update'))
+    const changed = existing.filter(hasChanges)
+    const mode = changed.length && changed.every((r) => r.action === 'update') ? 'update' : changed.every((r) => r.action === 'skip') ? 'skip' : 'mixed'
+    return { total: dups.length, existing: existing.length, changed: changed.length, mode }
+  }, [merged])
+
+  // With the actions chosen now, do the new guests fit the package?
+  const fit = analysis?.fit
+  const tooManyNew = fit ? Math.max(0, fit.existing + counts.add - fit.limit) : 0
+  const placesFree = fit ? fit.limit - fit.existing - counts.add : Infinity
+
+  // Rows with a wrong phone, email or group (shown under Small fixes)
+  const withWarnings = merged.filter((r) => Object.keys(r.warnings).length > 0).length
 
   const filtered = useMemo(() => {
     return merged
       .map((r, i) => ({ ...r, index: i }))
       .filter((r) => {
         const k = rowKind(r)
-        if (filter === 'issues') return k !== 'ok'
-        if (filter === 'error') return k === 'error'
-        if (filter === 'dup') return k === 'dup'
-        if (filter === 'warn') return k === 'warn'
-        return true
+        if (filter === 'issues') return k !== 'ok' && k !== 'same'
+        if (filter === 'all') return true
+        // Small fixes: every row with a wrong phone, email or group, whatever else it has
+        if (filter === 'warn') return Object.keys(r.warnings).length > 0
+        return k === filter
       })
   }, [merged, filter])
 
@@ -274,7 +363,10 @@ export default function ImportGuests() {
     setRows((list) =>
       list.map((r, i) => {
         const a = merged[i]
-        return a.duplicate && a.allowedActions.includes(action) ? { ...r, action } : r
+        if (!a.duplicate || !a.allowedActions.includes(action)) return r
+        // "Update" only touches guests the file has something new for
+        if (action === 'update' && !hasChanges(a)) return { ...r, action: 'skip' }
+        return { ...r, action }
       }),
     )
   }
@@ -458,7 +550,10 @@ export default function ImportGuests() {
               <Upload size={28} className="text-gold-text" aria-hidden="true" />
               <span className="mt-3 text-title-md text-espresso">{reading ? 'Reading file…' : 'Drag & drop your file here'}</span>
               <span className="mt-1 text-body-sm text-on-surface-variant">or click to choose a file</span>
-              <span className="mt-3 text-label-sm text-on-surface-variant uppercase">.xlsx or .csv · up to 5 MB · up to {MAX_ROWS.toLocaleString()} guests</span>
+              <span className="mt-3 text-label-sm text-on-surface-variant uppercase">
+                .xlsx or .csv · up to 5 MB · up to {(guestLimit ? Math.min(guestLimit, MAX_ROWS) : MAX_ROWS).toLocaleString()} guests
+                {guestLimit > 0 && existing > 0 && ` · ${placesLeft.toLocaleString()} places left`}
+              </span>
               <input
                 ref={inputRef}
                 type="file"
@@ -470,20 +565,81 @@ export default function ImportGuests() {
             </label>
 
             {file && (
-              <div className={`mt-4 flex items-start gap-3 rounded-lg border p-4 ${file.bad ? 'border-error bg-error-container' : 'border-bone bg-white'}`} role={file.bad ? 'alert' : 'status'}>
-                {file.bad ? <XCircle className="mt-0.5 shrink-0 text-error" size={20} aria-hidden="true" /> : <FileSpreadsheet className="mt-0.5 shrink-0 text-gold-text" size={20} aria-hidden="true" />}
+              <div className={`mt-4 flex items-start gap-3 rounded-lg border p-4 ${file.bad || blocked ? 'border-error bg-error-container' : 'border-bone bg-white'}`} role={file.bad || blocked ? 'alert' : 'status'}>
+                {file.bad || blocked ? <XCircle className="mt-0.5 shrink-0 text-error" size={20} aria-hidden="true" /> : <FileSpreadsheet className="mt-0.5 shrink-0 text-gold-text" size={20} aria-hidden="true" />}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-title-md text-espresso">{file.name}</p>
                   <p className="text-body-sm text-on-surface-variant">{formatSize(file.size)}</p>
                   {file.bad ? (
                     <p className="mt-1 text-body-sm text-on-error-container">{fileError}</p>
+                  ) : overLimit ? (
+                    <>
+                      <p className="mt-1 text-body-sm text-on-error-container">
+                        This file has {fileRows.toLocaleString()} guests, but {planName} includes up to {guestLimit.toLocaleString()} guests per invitation.
+                      </p>
+                      <p className="mt-1 text-body-sm text-on-error-container">
+                        Remove some rows and upload it again, or{' '}
+                        <a href="/#pricing" className="font-semibold underline underline-offset-2">
+                          see the packages
+                        </a>
+                        .
+                      </p>
+                    </>
+                  ) : newTooMany ? (
+                    <>
+                      <p className="mt-1 text-body-sm text-on-error-container">
+                        {fileRows - fitCheck.adding > 0 && `${(fileRows - fitCheck.adding).toLocaleString()} of the ${fileRows.toLocaleString()} guests in this file are already on your list. `}
+                        {fitCheck.adding.toLocaleString()} {fitCheck.adding === 1 ? 'is' : 'are'} new, but{' '}
+                        {fitCheck.room > 0 ? `there’s only room for ${fitCheck.room.toLocaleString()} more` : 'your list is full'} ({fitCheck.existing.toLocaleString()} of {fitCheck.limit.toLocaleString()} guests on {planName}).
+                      </p>
+                      <p className="mt-1 text-body-sm text-on-error-container">
+                        {fitCheck.room > 0 ? `Keep at most ${fitCheck.room.toLocaleString()} new guests in the file` : 'Take the new guests out of the file'}, remove guests from your list, or{' '}
+                        <a href="/#pricing" className="font-semibold underline underline-offset-2">
+                          see the packages
+                        </a>
+                        .
+                      </p>
+                    </>
                   ) : (
-                    <p className="mt-1 text-body-sm text-espresso">
-                      <CheckCircle2 size={14} className="mr-1 inline text-gold-text" aria-hidden="true" />
-                      {sheet.rows.length} guest row{sheet.rows.length === 1 ? '' : 's'} found · {sheet.headers.length} columns
-                    </p>
+                    <>
+                      <p className="mt-1 text-body-sm text-espresso">
+                        <CheckCircle2 size={14} className="mr-1 inline text-gold-text" aria-hidden="true" />
+                        {sheet.rows.length} guest row{sheet.rows.length === 1 ? '' : 's'} found · {sheet.headers.length} columns
+                      </p>
+                      {fitCheck === 'checking' && <p className="mt-2 text-body-sm text-on-surface-variant">Checking how many of them are new…</p>}
+                      {fitKnown && (
+                        <p className="mt-2 flex items-start gap-1.5 text-body-sm text-espresso">
+                          <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-gold-text" aria-hidden="true" />
+                          <span>
+                            {fitCheck.adding === 0
+                              ? `All ${fileRows.toLocaleString()} guests are already on your list, so nobody new will be added. The review step shows any new details for them.`
+                              : `${fitCheck.adding.toLocaleString()} new guest${fitCheck.adding === 1 ? '' : 's'} and ${(fileRows - fitCheck.adding).toLocaleString()} already on your list — it fits your ${planName} package.`}
+                          </span>
+                        </p>
+                      )}
+                      {overPlaces && !fitCheck && (
+                        <p className="mt-2 flex items-start gap-1.5 text-body-sm text-espresso">
+                          <AlertTriangle size={14} className="mt-0.5 shrink-0 text-gold-text" aria-hidden="true" />
+                          <span>
+                            {placesLeft > 0
+                              ? `You already have ${existing.toLocaleString()} guests, so there’s room for ${placesLeft.toLocaleString()} more on ${planName}.`
+                              : `You already have ${existing.toLocaleString()} guests, so your ${planName} list is full and no new guests can be added.`}{' '}
+                            Guests already on your list can still be updated; the review step shows exactly how many are new.
+                          </span>
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
+                <button
+                  type="button"
+                  onClick={clearFile}
+                  aria-label={`Remove ${file.name}`}
+                  title="Remove this file"
+                  className="-mt-1 -mr-1 grid h-8 w-8 shrink-0 place-items-center rounded-full text-on-surface-variant hover:bg-surface-container hover:text-espresso"
+                >
+                  <X size={17} aria-hidden="true" />
+                </button>
               </div>
             )}
 
@@ -495,7 +651,7 @@ export default function ImportGuests() {
               <Link to={guestsUrl} className="btn-secondary">
                 Cancel
               </Link>
-              <button type="button" className="btn-primary" disabled={!sheet} onClick={() => setStep(2)}>
+              <button type="button" className="btn-primary" disabled={!sheet || blocked || fitCheck === 'checking'} onClick={() => setStep(2)} title={blocked ? 'This file has more new guests than your package allows' : undefined}>
                 Continue <ArrowRight size={16} aria-hidden="true" />
               </button>
             </div>
@@ -588,49 +744,109 @@ export default function ImportGuests() {
 
           <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
             <Stat label="Rows in file" value={counts.total} />
-            <Stat label="Ready to add" value={counts.ok + counts.warn} note={counts.warn ? `${counts.warn} with a small fix` : 'No problems'} />
+            <Stat label="Ready to add" value={counts.ready} note={counts.readyFix ? `${counts.readyFix} with a small fix` : 'No problems'} />
             <Stat label="Need attention" value={counts.error} note="Missing or invalid name" tone={counts.error ? 'text-error' : ''} />
-            <Stat label="Possible duplicates" value={counts.dup} note="Already listed or repeated" />
+            <Stat label="Already on your list" value={dupInfo.existing} note={dupInfo.existing ? (dupInfo.changed ? `${dupInfo.changed} with new details` : 'Nothing new for them') : 'None'} />
           </div>
 
           <div className="mt-4">
             <FormAlert>{error}</FormAlert>
           </div>
 
-          <div className="card mt-6 flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap gap-2" role="group" aria-label="Show rows">
-              {[
-                ['issues', 'Needs review', counts.error + counts.dup + counts.warn],
-                ['error', 'Errors', counts.error],
-                ['dup', 'Duplicates', counts.dup],
-                ['warn', 'Small fixes', counts.warn],
-                ['all', 'All rows', counts.total],
-              ].map(([v, label, n]) => (
+          {tooManyNew > 0 && (
+            <div className="mt-6 flex items-start gap-3 rounded-lg border border-error bg-error-container p-4 text-on-error-container" role="alert">
+              <XCircle size={20} className="mt-0.5 shrink-0 text-error" aria-hidden="true" />
+              <p className="text-body-md">
+                This would add {counts.add.toLocaleString()} new guests, but {fit.room > 0 ? `there’s only room for ${fit.room.toLocaleString()} more` : 'your list is full'} ({fit.existing.toLocaleString()} of {fit.limit.toLocaleString()} on {fit.planName}). Set {tooManyNew.toLocaleString()} more {tooManyNew === 1 ? 'row' : 'rows'} to “Skip this row” or “Leave this row out”, or{' '}
+                <a href="/#pricing" className="font-semibold underline underline-offset-2">
+                  see the packages
+                </a>
+                .
+              </p>
+            </div>
+          )}
+
+          {/* What to do with guests who are already on the list */}
+          {dupInfo.total > 0 && (
+            <section className="card mt-6 p-5" aria-labelledby="dup-h">
+              <h2 id="dup-h" className="text-title-md text-espresso">
+                {dupInfo.existing > 0
+                  ? `${dupInfo.existing} ${dupInfo.existing === 1 ? 'person in this file is' : 'people in this file are'} already on your guest list`
+                  : `${dupInfo.total} ${dupInfo.total === 1 ? 'row repeats' : 'rows repeat'} a name in this file`}
+              </h2>
+              <p className="mt-1 text-body-sm text-on-surface-variant">
+                {dupInfo.existing > 0 &&
+                  (dupInfo.changed === 0
+                    ? 'The file has nothing new for them, so they’ll be skipped.'
+                    : dupInfo.changed === dupInfo.existing
+                      ? 'The file has new details for all of them. Choose what to do — you can still change single rows below.'
+                      : `The file has new details for ${dupInfo.changed} of them; the other ${dupInfo.existing - dupInfo.changed} are the same and will be skipped. You can still change single rows below.`)}
+                {dupInfo.total > dupInfo.existing && dupInfo.existing > 0 && ` ${dupInfo.total - dupInfo.existing} more ${dupInfo.total - dupInfo.existing === 1 ? 'row repeats' : 'rows repeat'} a name in the file itself and will be skipped.`}
+              </p>
+              {dupInfo.changed > 0 && (
+                <div className="mt-4 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="All duplicates">
+                  {[
+                    ['skip', 'Keep my list as it is', 'Skip these rows. Nothing changes on your list.'],
+                    [
+                      'update',
+                      `Update ${dupInfo.changed === 1 ? 'this guest' : `these ${dupInfo.changed} guests`}`,
+                      'Use the new details from the file. Blank cells don’t clear anything, and their link and reply stay the same.',
+                    ],
+                  ].map(([v, title, note]) => {
+                    const on = dupInfo.mode === v
+                    return (
+                      <button
+                        key={v}
+                        type="button"
+                        role="radio"
+                        aria-checked={on}
+                        onClick={() => setAllDuplicates(v)}
+                        className={`flex items-start gap-3 rounded-xl border p-4 text-left transition ${on ? 'border-gold bg-blush-tint' : 'border-bone bg-white hover:border-gold'}`}
+                      >
+                        <span className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border ${on ? 'border-espresso' : 'border-bone'}`} aria-hidden="true">
+                          {on && <span className="h-2.5 w-2.5 rounded-full bg-espresso" />}
+                        </span>
+                        <span>
+                          <span className="block text-body-md font-semibold text-espresso">{title}</span>
+                          <span className="mt-0.5 block text-body-sm text-on-surface-variant">{note}</span>
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+              {dupInfo.mode === 'mixed' && <p className="mt-3 text-body-sm text-on-surface-variant">You’ve chosen different actions for some rows.</p>}
+            </section>
+          )}
+
+          {/* Which rows to show */}
+          <div className="mt-6 flex gap-1 overflow-x-auto overflow-y-hidden border-b border-bone [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Show rows">
+            {[
+              ['issues', 'Needs review', counts.error + counts.changed + counts.dup + counts.warn],
+              ['error', 'Errors', counts.error],
+              ['changed', 'New details', counts.changed],
+              ['dup', 'Duplicates', counts.dup],
+              ['warn', 'Small fixes', withWarnings],
+              ['same', 'No changes', counts.same],
+              ['all', 'All rows', counts.total],
+            ]
+              .filter(([v, , n]) => n > 0 || v === 'all' || v === filter)
+              .map(([v, label, n]) => (
                 <button
                   key={v}
                   type="button"
-                  aria-pressed={filter === v}
+                  role="tab"
+                  aria-selected={filter === v}
                   onClick={() => {
                     setFilter(v)
                     setShown(PAGE)
                   }}
-                  className={`rounded-full px-3.5 py-1.5 text-label-md uppercase ${filter === v ? 'bg-gold text-espresso' : 'border border-bone bg-white text-on-surface-variant hover:border-gold'}`}
+                  className={`-mb-px flex shrink-0 items-center gap-2 border-b-2 px-3 py-2.5 text-body-sm whitespace-nowrap ${filter === v ? 'border-espresso font-semibold text-espresso' : 'border-transparent text-on-surface-variant hover:text-espresso'}`}
                 >
-                  {label} ({n})
+                  {label}
+                  <span className={`rounded-full px-2 py-0.5 text-label-sm tabular-nums ${filter === v ? 'bg-espresso text-white' : 'bg-surface-container text-on-surface-variant'}`}>{n}</span>
                 </button>
               ))}
-            </div>
-            {counts.dup > 0 && (
-              <div className="flex flex-wrap items-center gap-2 text-body-sm text-on-surface-variant">
-                All duplicates:
-                <button type="button" className="rounded-full border border-bone bg-white px-3 py-1 hover:border-gold" onClick={() => setAllDuplicates('skip')}>
-                  Skip
-                </button>
-                <button type="button" className="rounded-full border border-bone bg-white px-3 py-1 hover:border-gold" onClick={() => setAllDuplicates('update')}>
-                  Update existing
-                </button>
-              </div>
-            )}
           </div>
 
           {filtered.length === 0 ? (
@@ -651,7 +867,7 @@ export default function ImportGuests() {
                     <div className="min-w-0">
                       {isEditing ? (
                         <div className="space-y-2">
-                          {(physical ? ['name', 'email'] : ['name', 'phone', 'email']).map((k) => (
+                          {[...(physical ? ['name', 'email'] : ['name', 'phone', 'email']), ...(r.warnings.group ? ['group'] : [])].map((k) => (
                             <label key={k} className="block">
                               <span className="text-label-sm text-on-surface-variant uppercase">{k === 'name' ? 'Guest name' : k}</span>
                               <input
@@ -685,24 +901,41 @@ export default function ImportGuests() {
                     <div className="min-w-0">
                       {issue ? (
                         <>
-                          <p className={`flex items-center gap-1.5 text-body-sm font-semibold ${issue.tone === 'error' ? 'text-error' : issue.tone === 'dup' ? 'text-gold-text' : 'text-espresso'}`}>
-                            {issue.tone === 'error' ? <XCircle size={15} aria-hidden="true" /> : issue.tone === 'dup' ? <Copy size={15} aria-hidden="true" /> : <AlertTriangle size={15} aria-hidden="true" />}
+                          <p className={`flex items-center gap-1.5 text-body-sm font-semibold ${issue.tone === 'error' ? 'text-error' : issue.tone === 'dup' ? 'text-gold-text' : issue.tone === 'same' ? 'text-on-surface-variant' : 'text-espresso'}`}>
+                            {issue.tone === 'error' ? <XCircle size={15} aria-hidden="true" /> : issue.tone === 'dup' || issue.tone === 'same' ? <Copy size={15} aria-hidden="true" /> : <AlertTriangle size={15} aria-hidden="true" />}
                             {issue.title}
                           </p>
                           <p className="mt-0.5 text-body-sm text-on-surface-variant">{issue.text}</p>
+                          {issue.problems && (
+                            <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+                              <AlertTriangle size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
+                              {issue.problems}
+                            </p>
+                          )}
+                          {issue.changes && (
+                            <ul className="mt-2 space-y-1.5 rounded-lg bg-blush-tint px-3 py-2 text-body-sm">
+                              {issue.changes.map((c) => (
+                                <li key={c.field}>
+                                  <span className="text-on-surface-variant">{c.label}: </span>
+                                  <span className="font-semibold text-espresso">{showValue(c, c.to)}</span>
+                                  <span className="block text-label-sm text-on-surface-variant">{c.from ? `On your list: ${showValue(c, c.from)}` : 'Empty on your list'}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
                         </>
                       ) : (
                         <p className="flex items-center gap-1.5 text-body-sm text-on-surface-variant">
                           <CheckCircle2 size={15} className="text-gold-text" aria-hidden="true" /> Ready
                         </p>
                       )}
-                      {!isEditing && (issue?.tone === 'error' || issue?.tone === 'warn') && (
+                      {!isEditing && (issue?.tone === 'error' || issue?.tone === 'warn' || issue?.problems) && (
                         <button
                           type="button"
                           className="mt-2 inline-flex items-center gap-1 text-body-sm font-semibold text-gold-text underline underline-offset-4"
                           onClick={() => {
                             setEditing(r.index)
-                            setDraft({ name: raw.name, phone: raw.phone, email: raw.email })
+                            setDraft({ name: raw.name, phone: raw.phone, email: raw.email, ...(r.warnings.group && { group: raw.group }) })
                           }}
                         >
                           <PencilLine size={14} aria-hidden="true" /> Fix here
@@ -713,15 +946,25 @@ export default function ImportGuests() {
                     <fieldset className="min-w-0">
                       <legend className="sr-only">What to do with row {r.row}</legend>
                       {r.allowedActions.length === 1 ? (
-                        <p className="text-body-sm text-on-surface-variant">{r.action === 'exclude' ? 'Will be left out' : ACTION_LABELS[r.action]}</p>
+                        <p className="text-body-sm text-on-surface-variant">{r.action === 'exclude' ? 'This row will be left out' : actionLabel(r.action, r)}</p>
                       ) : (
                         <div className="space-y-1.5">
-                          {r.allowedActions.map((a) => (
-                            <label key={a} className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-body-sm ${r.action === a ? 'border-gold bg-blush-tint' : 'border-bone bg-white'}`}>
-                              <input type="radio" name={`act-${r.row}`} checked={r.action === a} onChange={() => setAction(r.index, a)} className="accent-espresso" />
-                              {a === 'add' && r.duplicate ? 'Add as a separate guest' : ACTION_LABELS[a]}
-                            </label>
-                          ))}
+                          {r.allowedActions.map((a) => {
+                            // Adding another guest needs a free place on the list
+                            const full = a === 'add' && r.action !== 'add' && placesFree <= 0
+                            return (
+                              <label
+                                key={a}
+                                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-body-sm ${r.action === a ? 'border-gold bg-blush-tint' : 'border-bone bg-white'} ${full ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+                              >
+                                <input type="radio" name={`act-${r.row}`} checked={r.action === a} onChange={() => setAction(r.index, a)} disabled={full} className="accent-espresso" />
+                                <span>
+                                  {actionLabel(a, r)}
+                                  {full && <span className="block text-label-sm text-on-surface-variant">Your list is full</span>}
+                                </span>
+                              </label>
+                            )
+                          })}
                         </div>
                       )}
                     </fieldset>
@@ -742,7 +985,7 @@ export default function ImportGuests() {
             <button type="button" className="btn-secondary" onClick={() => setStep(2)}>
               <ArrowLeft size={16} aria-hidden="true" /> Back to columns
             </button>
-            <button type="button" className="btn-primary" onClick={() => setStep(4)} disabled={counts.add + counts.update === 0 || checking || editing !== null}>
+            <button type="button" className="btn-primary" onClick={() => setStep(4)} disabled={counts.add + counts.update === 0 || tooManyNew > 0 || checking || editing !== null}>
               Continue <ArrowRight size={16} aria-hidden="true" />
             </button>
           </div>
@@ -760,23 +1003,29 @@ export default function ImportGuests() {
             From <strong>{file.name}</strong> into {names}’s guest list{physical && !physicalOnly ? ', as physical-card guests' : ''}.
           </p>
 
-          <div className="mt-6 grid gap-4 sm:grid-cols-3">
+          <div className={`mt-6 grid gap-4 sm:grid-cols-2 ${counts.unchanged ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
             <Stat label="New guests to add" value={counts.add} note={physical ? 'They reply by the QR code' : 'Each gets a personal link'} />
-            <Stat label="Existing guests to update" value={counts.update} note={physical ? 'Moved to physical card; email, group or notes filled in' : 'Phone, email, group or notes filled in'} />
-            <Stat label="Rows left out" value={counts.skip} note="Skipped duplicates and errors" />
+            <Stat label="Guests to update" value={counts.update} note={physical ? 'Moved to physical card; new details filled in' : 'New details from the file filled in'} />
+            {counts.unchanged > 0 && <Stat label="Already on your list" value={counts.unchanged} note="Nothing new — no change" />}
+            <Stat label="Rows left out" value={counts.leftOut} note={counts.leftOut ? 'Rows you skipped, and rows with errors' : 'None'} />
           </div>
-          <p className="mt-4 text-center text-body-md text-espresso" aria-label={`${counts.add} add plus ${counts.update} update plus ${counts.skip} left out equals ${counts.total} rows`}>
-            {counts.add} add + {counts.update} update + {counts.skip} left out = <strong>{counts.total} rows</strong>
+          <p
+            className="mt-4 text-center text-body-md text-espresso"
+            aria-label={`${counts.add} add plus ${counts.update} update${counts.unchanged ? ` plus ${counts.unchanged} no change` : ''} plus ${counts.leftOut} left out equals ${counts.total} rows`}
+          >
+            {counts.add} add + {counts.update} update{counts.unchanged ? ` + ${counts.unchanged} no change` : ''} + {counts.leftOut} left out = <strong>{counts.total} rows</strong>
           </p>
 
           <div className="mt-6">
             <NoAutoSend physical={physical} />
           </div>
 
-          {counts.skip > 0 && (
+          {counts.leftOut > 0 && (
             <label className="mt-4 flex items-start gap-3 rounded-lg border border-bone bg-white px-4 py-3 text-body-md text-espresso">
               <input type="checkbox" checked={acknowledged} onChange={(e) => setAcknowledged(e.target.checked)} className="mt-1 accent-espresso" />
-              I understand {counts.skip} row{counts.skip === 1 ? '' : 's'} will be left out. I can download them after the import.
+              <span>
+                I understand {counts.leftOut === 1 ? '1 row' : `${counts.leftOut} rows`} from the file won’t be added or used to update anyone. I can download {counts.leftOut === 1 ? 'it' : 'them'} after the import.
+              </span>
             </label>
           )}
 
@@ -798,7 +1047,7 @@ export default function ImportGuests() {
               <ArrowLeft size={16} aria-hidden="true" /> Back to review
             </button>
             {!failed && (
-              <button type="button" className="btn-primary" onClick={runImport} disabled={importing || (counts.skip > 0 && !acknowledged)}>
+              <button type="button" className="btn-primary" onClick={runImport} disabled={importing || (counts.leftOut > 0 && !acknowledged)}>
                 <UserPlus size={16} aria-hidden="true" /> {importing ? 'Importing…' : `Import ${counts.add + counts.update} guest${counts.add + counts.update === 1 ? '' : 's'}`}
               </button>
             )}
@@ -818,10 +1067,11 @@ export default function ImportGuests() {
           <p className="mt-2 text-body-md text-on-surface-variant">
             {file.name} · {result.summary.total} rows
           </p>
-          <div className="mt-8 grid gap-4 text-left sm:grid-cols-3">
+          <div className={`mt-8 grid gap-4 text-left sm:grid-cols-2 ${counts.unchanged ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
             <Stat label="Guests added" value={result.summary.added} note={physical ? 'With physical cards' : 'With their own personal links'} />
             <Stat label="Guests updated" value={result.summary.updated} />
-            <Stat label="Rows left out" value={result.summary.skip} />
+            {counts.unchanged > 0 && <Stat label="Already on your list" value={counts.unchanged} note="No change" />}
+            <Stat label="Rows left out" value={Math.max(0, result.summary.skip - counts.unchanged)} />
           </div>
           <p className="mt-6 text-body-md text-on-surface-variant">{physical
               ? 'They can reply by scanning the QR code on their card. Download the code from your guest list.'

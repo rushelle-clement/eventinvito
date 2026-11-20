@@ -23,18 +23,7 @@ const FULL = { openDetails: true, visitDetails: true };
 function requireFeature(limits, feature, message) {
     if (!limits[feature]) throw new AppError(403, `${message} Your package is ${limits.planName}.`, undefined, "needs_plan");
 }
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-// Keep digits and a leading +, e.g. "077 123 4567" → "0771234567".
-// A 9-digit number starting with 7 is a Sri Lankan mobile that lost its leading 0
-// (Excel often does this to numbers), so the 0 is put back.
-function cleanPhone(value) {
-    const trimmed = String(value).trim();
-    const plus = trimmed.startsWith("+") ? "+" : "";
-    const digits = trimmed.replace(/\D/g, "");
-    if (!plus && /^7\d{8}$/.test(digits)) return `0${digits}`;
-    return plus + digits;
-}
+const { checkPhone, checkEmail } = require("../utils/contactChecks");
 
 function readGuest(body = {}, { partial = false } = {}) {
     const out = {};
@@ -56,15 +45,22 @@ function readGuest(body = {}, { partial = false } = {}) {
     if ("email" in body) {
         const email = text(body.email);
         if (email === null) errors.email = "Must be text.";
-        else if (email && !EMAIL_RE.test(email)) errors.email = "Enter a valid email address, or leave it empty.";
-        else out.email = email.toLowerCase();
+        else if (!email) out.email = "";
+        else {
+            const checked = checkEmail(email);
+            if (checked.error) errors.email = checked.error;
+            else out.email = checked.email;
+        }
     }
     if ("phone" in body) {
         const raw = text(body.phone);
-        const phone = raw ? cleanPhone(raw) : "";
         if (raw === null) errors.phone = "Must be text.";
-        else if (raw && !/^\+?\d{7,15}$/.test(phone)) errors.phone = "Enter a valid phone number, or leave it empty.";
-        else out.phone = phone;
+        else if (!raw) out.phone = "";
+        else {
+            const checked = checkPhone(raw);
+            if (checked.error) errors.phone = checked.error;
+            else out.phone = checked.phone;
+        }
     }
     if ("notes" in body) {
         const notes = text(body.notes);
@@ -275,6 +271,18 @@ async function removeGuest(req, res) {
     res.json({ success: true, message: "Guest removed." });
 }
 
+// POST /api/invitations/:id/guests/remove { guestIds } — removes many guests at once; their links stop working
+async function removeGuests(req, res) {
+    const invitation = await findOwned(req);
+    const { guestIds } = req.body || {};
+    if (!Array.isArray(guestIds) || guestIds.length === 0) throw new AppError(400, "Choose at least one guest.");
+    if (guestIds.length > MAX_GUESTS_PER_INVITATION) throw new AppError(400, "Too many guests in one request.");
+    if (!guestIds.every((id) => typeof id === "string" && mongoose.isValidObjectId(id))) throw new AppError(400, "Some of the chosen guests weren't found.");
+    // Only this couple's guests on this invitation are removed, whatever IDs are sent
+    const result = await Guest.deleteMany({ _id: { $in: guestIds }, invitation: invitation._id, owner: req.user._id });
+    res.json({ success: true, removed: result.deletedCount ?? 0 });
+}
+
 // POST /api/invitations/:id/guests/:guestId/reset-link — old link stops working, a new one is issued
 async function resetGuestLink(req, res) {
     const invitation = await findOwned(req);
@@ -305,6 +313,7 @@ module.exports = {
     addGuest,
     updateGuest,
     removeGuest,
+    removeGuests,
     resetGuestLink,
     markGuestShared,
     setGuestsGroup,

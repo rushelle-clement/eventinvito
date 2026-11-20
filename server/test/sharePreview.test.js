@@ -18,14 +18,19 @@ describe("Link previews", () => {
 
     it("shows the couple, the date, the venue and a picture — never the guest's name", async () => {
         const couple = await registerUser("Couple");
-        const id = await createPublishedInvitation(couple.token, { eventDate: "2026-12-12" });
+        // A date 60 days ahead (the reply-by date is 30 days ahead), so the test never goes stale
+        const eventDate = colomboDay(60);
+        const id = await createPublishedInvitation(couple.token, { eventDate });
         const guest = await addGuest(couple.token, id, { name: "Kasun Fernando" });
         const res = await share(guest.token);
         assert.equal(res.status, 200);
         assert.match(res.headers["content-type"], /text\/html/);
         const html = res.text;
         assert.equal(meta(html, "og:title"), "Amaya &amp; Nuwan · Wedding invitation");
-        assert.match(meta(html, "og:description"), /Saturday,? 12 December 2026 · Mount Lavinia Hotel\. Tap to open your invitation\./);
+        const day = new Date(`${eventDate}T12:00:00Z`);
+        const weekday = day.toLocaleDateString("en-GB", { weekday: "long", timeZone: "UTC" });
+        const date = day.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+        assert.match(meta(html, "og:description"), new RegExp(`${weekday},? ${date} · Mount Lavinia Hotel\\. Tap to open your invitation\\.`));
         assert.equal(meta(html, "og:image"), "https://eventinvito.lk/share/invite-wedding.jpg");
         assert.equal(meta(html, "og:url"), `https://eventinvito.lk/i/${guest.token}`);
         assert.equal(meta(html, "twitter:card"), "summary_large_image");

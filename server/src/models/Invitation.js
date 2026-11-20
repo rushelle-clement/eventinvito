@@ -190,6 +190,12 @@ const invitationSchema = new mongoose.Schema(
 // Free designs are simple static cards: replies but no deadline, no photos and no choice of music
 // (they play their design's default track) (see Template.tier).
 // Needs `template` populated with its tier; an unpopulated template counts as premium.
+// Corporate events and Christmas parties don't show photos (only weddings, engagements,
+// homecomings and birthdays do), whatever was uploaded before
+invitationSchema.methods.showsPhotos = function () {
+    return !this.isFreeDesign() && !["corporate", "christmas"].includes(this.eventType);
+};
+
 invitationSchema.methods.isFreeDesign = function () {
     if (this.printed) return false; // printed cards have a reply-by date, like paid cards
     return this.template?.tier === "free";
@@ -398,7 +404,7 @@ invitationSchema.methods.toGuestJSON = function ({ showAgenda = false } = {}) {
         musicTrack: free ? "" : this.musicTrack,
         // Only sent when the couple chose their own file
         musicUrl: !free && this.musicTrack === "custom" && this.customMusic ? audioUrl(this.customMusic) : null,
-        photos: free ? [] : (this.photos || []).map(photoJSON),
+        photos: this.showsPhotos() ? (this.photos || []).map(photoJSON) : [],
         agenda: showAgenda ? agendaJSON(this.agenda) : [],
     };
 };

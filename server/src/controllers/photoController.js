@@ -39,6 +39,7 @@ async function photoSignature(req, res) {
     requireConfigured();
     const invitation = await findOwned(req);
     const limit = photoLimit(invitation, req.user);
+    if (["corporate", "christmas"].includes(invitation.eventType)) throw new AppError(403, "Corporate and Christmas designs don't show photos.", undefined, "no_photos");
     if (invitation.photos.length >= Math.min(MAX_PHOTOS, limit.max)) throw new AppError(403, limit.message, undefined, "photo_limit");
     res.json({ success: true, upload: cloudinary.uploadSignature(folderFor(invitation)) });
 }

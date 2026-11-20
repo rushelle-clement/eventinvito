@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { LogOut, ShieldCheck, User } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import PlanBadge from './PlanBadge'
 
 export default function UserMenu() {
   const { user, signOut } = useAuth()
@@ -50,6 +51,9 @@ export default function UserMenu() {
           <div className="border-b border-bone px-3 py-3">
             <p className="text-title-md text-espresso">{user?.name}</p>
             <p className="truncate text-body-sm text-on-surface-variant">{user?.email}</p>
+            <div className="mt-2.5">
+              <PlanBadge user={user} onClick={() => setOpen(false)} />
+            </div>
           </div>
           {user?.role === 'admin' && (
             <button

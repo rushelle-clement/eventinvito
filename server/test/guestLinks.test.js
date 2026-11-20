@@ -144,4 +144,23 @@ describe("Guests and personal links", () => {
         assert.equal(off.body.guest.sharedAt, undefined);
         assert.equal((await models.Guest.findById(g.id)).sharedAt, undefined);
     });
+
+    it("removes many guests at once, only from the couple's own list", async () => {
+        const a = await addGuest(owner.token, invitationId, { name: "Bulk One" });
+        const b = await addGuest(owner.token, invitationId, { name: "Bulk Two" });
+        const keep = await addGuest(owner.token, invitationId, { name: "Bulk Keep" });
+        const url = `/api/invitations/${invitationId}/guests/remove`;
+
+        // Someone else can't remove them
+        const stranger = await registerUser("Bulk stranger");
+        assert.equal((await api().post(url).set(auth(stranger.token)).send({ guestIds: [a.id] })).status, 404);
+        assert.equal((await api().post(url).set(auth(owner.token)).send({ guestIds: [] })).status, 400);
+        assert.equal((await api().post(url).set(auth(owner.token)).send({ guestIds: ["nope"] })).status, 400);
+
+        const res = await api().post(url).set(auth(owner.token)).send({ guestIds: [a.id, b.id] });
+        assert.equal(res.status, 200);
+        assert.equal(res.body.removed, 2);
+        assert.equal(await models.Guest.countDocuments({ _id: { $in: [a.id, b.id] } }), 0);
+        assert.ok(await models.Guest.findById(keep.id));
+    });
 });
