@@ -11,6 +11,8 @@ import Modal from '../components/Modal'
 import { invitationTitle, occasionLabel } from '../templates/strings'
 import TemplateThumbnail from '../templates/TemplateThumbnail'
 import { formatDate } from '../templates/strings'
+import Loader from '../components/Loader'
+import { publishCredit } from '../lib/publishCredit'
 
 // Printed Cards: what the event is (it decides which names the invitation asks for)
 const PRINTED_TYPES = [
@@ -188,9 +190,7 @@ export default function Dashboard() {
       </div>
 
       {!invitations && !error && (
-        <p className="mt-10 text-body-md text-on-surface-variant" role="status">
-          Loading your invitations…
-        </p>
+        <Loader label="Loading your invitations" />
       )}
 
       {invitations && list.length === 0 && (
@@ -280,11 +280,26 @@ export default function Dashboard() {
                             : `Online until ${formatDate(inv.onlineUntil, 'en')}`}
                       </p>
                     )}
-                    {inv.status === 'draft' && (
-                      <p className="mt-2 text-body-sm text-gold-text">
-                        {inv.missingForPublish.length ? `${inv.missingForPublish.length} detail${inv.missingForPublish.length === 1 ? '' : 's'} left before publishing` : 'Ready to publish'}
-                      </p>
-                    )}
+                    {inv.status !== 'published' && (() => {
+                      // Not live: what's left before it can be published — details, or a package
+                      const credit = publishCredit({ printed: inv.printed, paid: inv.paid, paidKind: inv.paidKind, freeDesign: inv.tier === 'free' }, user)
+                      const missing = inv.missingForPublish.length
+                      if (inv.status === 'unpublished' && !credit.blocked && !missing) return null
+                      return (
+                        <p className="mt-2 text-body-sm text-gold-text">
+                          {missing ? `${missing} detail${missing === 1 ? '' : 's'} left before publishing` : !credit.blocked && 'Ready to publish'}
+                          {credit.blocked && (
+                            <>
+                              {missing ? ' · ' : ''}
+                              {credit.short}.{' '}
+                              <a href="/#pricing" className="font-semibold underline underline-offset-2">
+                                See the packages
+                              </a>
+                            </>
+                          )}
+                        </p>
+                      )
+                    })()}
                   </div>
                 </div>
                 <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-bone bg-surface-container-low px-5 py-3">

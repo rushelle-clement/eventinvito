@@ -2,9 +2,10 @@
 // Picks the experience for the invitation's template; templates without their own animated
 // version yet use the classic card. Music, theme colours and wording are shared by all.
 
+import { useEffect } from 'react'
 import { getTheme } from '../themes'
 import { STRINGS, stringsFor } from '../strings'
-import { getTrack } from '../music'
+import { defaultTrackFor, getTrack } from '../music'
 import InvitationCard from '../InvitationCard'
 import useBackgroundMusic from './useBackgroundMusic'
 import MusicButton from './MusicButton'
@@ -187,10 +188,25 @@ export default function InvitationExperience({ invitation, guestName, rsvp, star
   const lang = STRINGS[invitation.language] ? invitation.language : 'en'
   const t = stringsFor(lang, invitation.eventType)
   // "custom" = the couple's own file (guests get musicUrl; the couple's preview has customMusic.url)
-  const musicSrc = poster || theme.free
+  // Free designs play their default track (they can't choose one)
+  const musicSrc = poster
     ? null
-    : invitation.musicTrack === 'custom' ? invitation.musicUrl || invitation.customMusic?.url || null : getTrack(invitation.musicTrack)?.src
+    : theme.free
+      ? getTrack(defaultTrackFor(invitation.templateKey, invitation.eventType))?.src
+      : invitation.musicTrack === 'custom' ? invitation.musicUrl || invitation.customMusic?.url || null : getTrack(invitation.musicTrack)?.src
   const music = useBackgroundMusic(musicSrc)
+  // Free designs have no opening screen to tap, so their music starts with the guest's first tap
+  // anywhere on the page (browsers only allow sound after a tap); the music button pauses it.
+  const freeMusic = theme.free && !poster
+  const { available: musicReady, play: playMusic } = music
+  useEffect(() => {
+    if (!freeMusic || !musicReady) return undefined
+    const start = (e) => {
+      if (!e.target.closest?.('.ei-music-btn')) playMusic()
+    }
+    document.addEventListener('pointerdown', start, { once: true })
+    return () => document.removeEventListener('pointerdown', start)
+  }, [freeMusic, musicReady, playMusic])
 
   const Experience = EXPERIENCES[invitation.templateKey] || ClassicCard
 
@@ -210,6 +226,7 @@ export default function InvitationExperience({ invitation, guestName, rsvp, star
     <div className={`ei-root ${poster ? 'is-poster' : ''}`} lang={lang} style={{ ...themeVars(theme), '--ei-top': `${topOffset}px` }}>
       <Experience invitation={invitation} guestName={guestName} rsvp={rsvp || sampleRsvp} music={music} t={t} lang={lang} startOpen={startOpen} poster={poster} />
       {!poster && agendaHref && <DayPlanButton href={agendaHref} lang={lang} />}
+      {freeMusic && <MusicButton music={music} labels={t} />}
       {!poster && <BrandFooter />}
     </div>
   )

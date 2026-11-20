@@ -7,6 +7,7 @@ import { invitationTitle } from '../templates/strings'
 import { ChevronRight, Users } from 'lucide-react'
 import { api } from '../lib/api'
 import FormAlert from '../components/FormAlert'
+import Loader from '../components/Loader'
 
 export default function MyGuests() {
   const [invitations, setInvitations] = useState(null)
@@ -28,9 +29,7 @@ export default function MyGuests() {
         <FormAlert>{error}</FormAlert>
       </div>
       {!invitations && !error && (
-        <p className="mt-6 text-body-md text-on-surface-variant" role="status">
-          Loading…
-        </p>
+        <Loader label="Loading" />
       )}
       {invitations?.length === 0 && (
         <div className="card mt-6 px-6 py-12 text-center">

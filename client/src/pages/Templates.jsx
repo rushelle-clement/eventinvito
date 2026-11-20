@@ -13,6 +13,7 @@ import InvitationCard from '../templates/InvitationCard'
 import TemplateThumbnail from '../templates/TemplateThumbnail'
 import { getTheme, sampleInvitation } from '../templates/themes'
 import { CATEGORIES, categoryOf, categoryOfDesign } from '../lib/categories'
+import Loader from '../components/Loader'
 
 const PLANS = [
   { value: 'all', label: 'All designs' },
@@ -184,9 +185,7 @@ export default function Templates() {
 
       {/* Results */}
       {!templates && !loadError && (
-        <p className="mt-10 text-body-md text-on-surface-variant" role="status">
-          Loading designs…
-        </p>
+        <Loader label="Loading designs" />
       )}
 
       {templates && (

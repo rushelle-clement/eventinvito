@@ -34,6 +34,7 @@ import InvitationCard from '../templates/InvitationCard'
 import TemplateThumbnail from '../templates/TemplateThumbnail'
 import TierBadge from '../components/TierBadge'
 import { getTheme } from '../templates/themes'
+import { defaultTrackFor, getTrack } from '../templates/music'
 import { LANGUAGES, OCCASIONS, invitationTitle, ordinalEn, sampleGuestName } from '../templates/strings'
 import { sinhalaWording } from '../templates/wording'
 import { onlineUntil, untilText } from '../lib/onlineUntil'
@@ -45,6 +46,8 @@ import PhotosSection from '../components/editor/PhotosSection'
 import CeremoniesEditor from '../components/editor/CeremoniesEditor'
 import AgendaEditor from '../components/editor/AgendaEditor'
 import LogoSection from '../components/editor/LogoSection'
+import Loader from '../components/Loader'
+import { publishCredit } from '../lib/publishCredit'
 
 // The fields this screen edits, in the order the server expects
 const FIELDS = [
@@ -314,9 +317,7 @@ export default function InvitationEditor() {
 
   if (!form) {
     return (
-      <p className="py-20 text-center text-body-md text-on-surface-variant" role="status">
-        Loading your invitation…
-      </p>
+      <Loader label="Loading your invitation" />
     )
   }
 
@@ -349,49 +350,7 @@ export default function InvitationEditor() {
   // What publishing this uses: the free card (free designs), a Premium credit (animated designs)
   // or a Printed Cards credit. `blocked`: the account has nothing to publish it with, so the
   // Publish button is turned off and the note says how to upgrade.
-  const credit = (() => {
-    if (user?.role === 'admin') return { note: null, blocked: false }
-    const freeDesign = !!getTheme(form.templateKey).free
-    const free = user?.freeCredits || 0
-    const premium = user?.publishCredits || 0
-    const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
-    let note = null
-    let blocked = false
-    const printedLeft = user?.printedCredits || 0
-    if (printed) {
-      if (!saved.paid) {
-        if (printedLeft > 0) note = `Publishing these printed cards uses 1 of your ${plural(printedLeft, 'Printed Cards invitation')}. After that you can still edit it, unpublish it and publish it again.`
-        else {
-          blocked = true
-          note = 'Publishing printed cards with a QR code needs the Printed Cards package (Rs. 500).'
-        }
-      }
-    } else if (saved.paid) {
-      // Published as a free card, now switched to an animated design
-      if (saved.paidKind === 'free' && !freeDesign) {
-        blocked = premium === 0
-        note = blocked
-          ? 'This invitation was published with your free card, so it can only use free designs. To use an animated design, upgrade to a Premium package.'
-          : `Using an animated design for this invitation uses 1 of your ${plural(premium, 'Premium invitation')}.`
-      }
-    } else if (freeDesign) {
-      if (free > 0) note = 'This is a free design: publishing it uses your free card. After that you can still edit it, unpublish it and publish it again.'
-      else if (premium > 0) note = `You’ve used your free card, so publishing this uses 1 of your ${plural(premium, 'Premium invitation')}.`
-      else {
-        blocked = true
-        note = 'You’ve already used your free card. Choose a Premium package to publish another invitation.'
-      }
-    } else if (premium > 0) {
-      note = `Your account can publish ${plural(premium, 'Premium invitation')}. Publishing this uses ${premium === 1 ? 'it' : 'one'}; after that you can still edit it, unpublish it and publish it again.`
-    } else {
-      blocked = true
-      note =
-        free > 0
-          ? 'Animated designs are part of the Premium packages. Upgrade to publish this one — or switch to a free design (5. Design) to publish it with your free card.'
-          : 'Animated designs are part of the Premium packages. Upgrade to publish this one.'
-    }
-    return { note, blocked }
-  })()
+  const credit = publishCredit({ printed, paid: saved.paid, paidKind: saved.paidKind, freeDesign: !!getTheme(form.templateKey).free }, user)
 
   const preview = (
     <div className="card overflow-hidden">
@@ -880,7 +839,10 @@ export default function InvitationEditor() {
 
           <Section id="music" icon={Music} number={7} title="Music" subtitle="Optional background music" open={open === 'music'} onToggle={toggle}>
             {freeDesign ? (
-              <PremiumOnly>Background music plays on the Premium designs. Your free design has no music.</PremiumOnly>
+              <PremiumOnly>
+                Your free design plays “{getTrack(defaultTrackFor(form.templateKey, form.eventType))?.title}” softly in the background. Choosing another song, or your own, comes with
+                the Premium designs.
+              </PremiumOnly>
             ) : (
               <MusicChooser
                 invitationId={id}

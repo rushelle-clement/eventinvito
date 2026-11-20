@@ -1,6 +1,7 @@
 // The five free designs: a single, beautifully typeset invitation card.
 // Guests reply on the card (no deadline: replies stay open until the event).
-// No opening animation, no music and no photos — those come with the Premium designs.
+// No opening animation and no photos — those come with the Premium designs. Its default music
+// (templates/music.js defaultTrackFor) is played by InvitationExperience.
 // Each design is a variant (its template key) with its own colours, type and ornament
 // (watercolour / line-art images in /public/free; borders and rules are drawn in code).
 

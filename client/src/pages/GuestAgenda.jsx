@@ -7,6 +7,7 @@ import { api } from '../lib/api'
 import AgendaView from '../components/AgendaView'
 import { invitationTitle } from '../templates/strings'
 import { agendaStrings } from '../lib/agenda'
+import Loader from '../components/Loader'
 
 export default function GuestAgenda() {
   const { token } = useParams()
@@ -37,9 +38,7 @@ export default function GuestAgenda() {
   const invitationLink = `/i/${encodeURIComponent(token)}`
   if (state.status === 'loading') {
     return (
-      <p className="grid min-h-screen place-items-center bg-ivory text-body-md text-on-surface-variant" role="status">
-        Opening the day plan…
-      </p>
+      <Loader label="Opening the day plan" full />
     )
   }
   // Link problems (ended, not valid…) and a plan that isn't shown: the invitation page explains

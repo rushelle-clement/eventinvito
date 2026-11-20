@@ -9,6 +9,7 @@ import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import FormAlert from '../components/FormAlert'
 import { formatDate } from '../templates/strings'
+import Loader from '../components/Loader'
 
 const input = 'w-full rounded-lg border border-bone bg-white px-4 py-3 text-body-md text-espresso outline-none focus:border-gold'
 const STATUS = {
@@ -651,9 +652,7 @@ export default function Admin() {
           <FormAlert>{error}</FormAlert>
         </div>
         {!data && !error && (
-          <p className="mt-6 text-body-md text-on-surface-variant" role="status">
-            Loading accounts…
-          </p>
+          <Loader label="Loading accounts" />
         )}
         {accounts && accounts.length === 0 && <p className="mt-6 text-body-md text-on-surface-variant">No accounts found.</p>}
         {accounts && accounts.length > 0 && (

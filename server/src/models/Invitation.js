@@ -187,7 +187,8 @@ const invitationSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
-// Free designs are simple static cards: replies but no deadline, no music or photos (see Template.tier).
+// Free designs are simple static cards: replies but no deadline, no photos and no choice of music
+// (they play their design's default track) (see Template.tier).
 // Needs `template` populated with its tier; an unpopulated template counts as premium.
 invitationSchema.methods.isFreeDesign = function () {
     if (this.printed) return false; // printed cards have a reply-by date, like paid cards

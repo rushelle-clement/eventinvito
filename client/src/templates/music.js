@@ -125,6 +125,13 @@ export const SUGGESTED_TRACK = {
   'networking-cocktail': 'velvet-lounge',
 }
 
+// The music a free design (Simple Card) plays: its suggested track, or one for the occasion.
+// Free cards can't choose; choosing a song (or their own) comes with Premium.
+const OCCASION_TRACK = { birthday: 'happy-birthday-music-box', corporate: 'grand-evening', christmas: 'jingle-bells-music-box' }
+export function defaultTrackFor(templateKey, eventType) {
+  return SUGGESTED_TRACK[templateKey] || OCCASION_TRACK[eventType] || 'piano-romance'
+}
+
 export function getTrack(id) {
   return MUSIC_TRACKS.find((t) => t.id === id) || null
 }

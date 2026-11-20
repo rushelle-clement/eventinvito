@@ -1,0 +1,81 @@
+/* The page loader: a little envelope that opens, lifts its card and closes again.
+   Sizes come from --ldr-w so the same drawing works full-screen and inside a page. */
+.ldr-wrap { display: flex; flex-direction: column; align-items: center; gap: 22px; text-align: center; }
+.ldr { --ldr-w: 120px; position: relative; width: var(--ldr-w); height: calc(var(--ldr-w) * 1.2); perspective: 600px; }
+.ldr.is-small { --ldr-w: 76px; }
+.ldr-env { position: absolute; left: 0; right: 0; bottom: calc(var(--ldr-w) * 0.12); height: calc(var(--ldr-w) * 0.66); }
+.ldr-back { position: absolute; inset: 0; border-radius: 6px; background: #ece2d1; box-shadow: inset 0 0 0 1px rgba(197, 160, 89, 0.25); }
+.ldr-card {
+  position: absolute; left: 9%; right: 9%; bottom: 7%; height: 86%; z-index: 2;
+  border-radius: 3px; background: #fffdf9; box-shadow: 0 1px 4px rgba(43, 38, 37, 0.12);
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 9%; padding-top: 14%;
+  animation: ldr-card 2.6s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+}
+.ldr-card span { display: block; height: 2px; border-radius: 2px; background: var(--color-gold, #c5a059); opacity: 0.75; }
+.ldr-card span:nth-child(1) { width: 46%; height: 3px; }
+.ldr-card span:nth-child(2) { width: 62%; opacity: 0.45; }
+.ldr-card span:nth-child(3) { width: 38%; opacity: 0.45; }
+.ldr-front {
+  position: absolute; inset: 0; z-index: 3; border-radius: 0 0 6px 6px;
+  background: linear-gradient(180deg, #f8f1e5, #f1e6d3);
+  clip-path: polygon(0 0, 50% 52%, 100% 0, 100% 100%, 0 100%);
+  box-shadow: inset 0 -1px 0 rgba(197, 160, 89, 0.25);
+}
+.ldr-flap {
+  position: absolute; left: 0; right: 0; top: 0; height: 58%; z-index: 4;
+  transform-origin: top center; transform-style: preserve-3d;
+  animation: ldr-flap 2.6s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+}
+.ldr-flap::before {
+  content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, #efe4d0, #e6d8bf);
+  clip-path: polygon(0 0, 100% 0, 50% 100%); backface-visibility: hidden;
+}
+/* The inside of the flap, seen once it has opened upwards */
+.ldr-flap::after {
+  content: ""; position: absolute; inset: 0; background: linear-gradient(0deg, #e9dcc4, #ddcba9);
+  clip-path: polygon(0 0, 100% 0, 50% 100%); transform: rotateX(180deg); backface-visibility: hidden;
+}
+.ldr-seal {
+  position: absolute; left: 50%; top: 100%; width: calc(var(--ldr-w) * 0.17); height: calc(var(--ldr-w) * 0.17);
+  transform: translate(-50%, -62%); border-radius: 50%; backface-visibility: hidden;
+  background: radial-gradient(circle at 35% 30%, #e2c27f, var(--color-gold, #c5a059) 55%, #9c7a35);
+  box-shadow: 0 1px 3px rgba(43, 38, 37, 0.3);
+}
+.ldr-shadow {
+  position: absolute; left: 12%; right: 12%; bottom: 0; height: calc(var(--ldr-w) * 0.06);
+  border-radius: 50%; background: rgba(43, 38, 37, 0.1); filter: blur(3px);
+  animation: ldr-shadow 2.6s ease-in-out infinite;
+}
+.ldr-label { font-size: 15px; color: var(--color-on-surface-variant, #5d5552); letter-spacing: 0.01em; }
+.ldr-dots span { display: inline-block; animation: ldr-dot 1.4s ease-in-out infinite; }
+.ldr-dots span:nth-child(2) { animation-delay: 0.2s; }
+.ldr-dots span:nth-child(3) { animation-delay: 0.4s; }
+.ldr-slow { max-width: 280px; font-size: 13px; color: var(--color-on-surface-variant, #5d5552); opacity: 0.85; animation: ei-reveal 0.6s ease both; }
+
+/* 0–25% flap opens · 25–55% card rises · 55–75% card goes back · 75–100% flap closes */
+@keyframes ldr-flap {
+  0%, 8% { transform: rotateX(0deg); z-index: 4; }
+  28% { transform: rotateX(180deg); z-index: 1; }
+  72% { transform: rotateX(180deg); z-index: 1; }
+  92%, 100% { transform: rotateX(0deg); z-index: 4; }
+}
+@keyframes ldr-card {
+  0%, 26% { transform: translateY(0); }
+  46%, 58% { transform: translateY(-46%); }
+  74%, 100% { transform: translateY(0); }
+}
+@keyframes ldr-shadow {
+  0%, 26%, 74%, 100% { transform: scaleX(1); opacity: 1; }
+  46%, 58% { transform: scaleX(0.86); opacity: 0.7; }
+}
+@keyframes ldr-dot { 0%, 60%, 100% { opacity: 0.25; } 30% { opacity: 1; } }
+
+/* The page or invitation that replaces the loader fades in */
+@keyframes ei-reveal { from { opacity: 0; } to { opacity: 1; } }
+.ei-reveal { animation: ei-reveal 0.7s ease both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ldr-flap, .ldr-card, .ldr-shadow { animation: none; }
+  .ldr-seal { animation: ldr-dot 1.6s ease-in-out infinite; }
+  .ei-reveal, .ldr-slow { animation: none; }
+}

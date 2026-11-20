@@ -4,6 +4,7 @@
 
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import Loader from './Loader'
 
 export default function ProtectedRoute({ role }) {
   const { user, status } = useAuth()
@@ -11,9 +12,7 @@ export default function ProtectedRoute({ role }) {
 
   if (status === 'loading') {
     return (
-      <div className="grid min-h-screen place-items-center text-body-md text-on-surface-variant" role="status">
-        Loading…
-      </div>
+      <Loader label="Loading" full />
     )
   }
 

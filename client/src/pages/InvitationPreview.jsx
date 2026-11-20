@@ -8,6 +8,7 @@ import { api } from '../lib/api'
 import FormAlert from '../components/FormAlert'
 import InvitationExperience from '../templates/experience/InvitationExperience'
 import { sampleGuestName } from '../templates/strings'
+import Loader from '../components/Loader'
 
 const BAR_HEIGHT = 56
 
@@ -37,9 +38,7 @@ export default function InvitationPreview() {
 
   if (!invitation) {
     return (
-      <p className="py-20 text-center text-body-md text-on-surface-variant" role="status">
-        Loading preview…
-      </p>
+      <Loader label="Loading preview" full />
     )
   }
 

@@ -8,10 +8,11 @@ import { CalendarDays, CheckCircle2, ChevronRight, Clock, MapPin, QrCode, Search
 import { api } from '../lib/api'
 import { qrStringsFor } from '../lib/qrStrings'
 import { formatDate, formatTime, hostsOf, invitationTitle, isBirthday, isChristmas, isCorporate, stringsFor } from '../templates/strings'
+import Loader from '../components/Loader'
 
 function Shell({ lang, children }) {
   return (
-    <main className="min-h-screen bg-ivory px-margin-mobile py-10 sm:py-16" lang={lang}>
+    <main className="ei-reveal min-h-screen bg-ivory px-margin-mobile py-10 sm:py-16" lang={lang}>
       <div className="mx-auto max-w-md">
         {children}
         <p className="mt-8 text-center font-serif text-body-md text-espresso">
@@ -76,12 +77,15 @@ export default function QrReply() {
   }, [])
 
   useEffect(() => {
+    // The envelope shows for at least a moment, so a fast answer doesn't just flash
+    const started = Date.now()
+    const settle = (next) => setTimeout(() => setState(next), Math.max(0, 700 - (Date.now() - started)))
     api(`/qr/${encodeURIComponent(code)}`, { auth: false })
       .then((data) => {
-        setState({ status: 'ready', invitation: data.invitation })
+        settle({ status: 'ready', invitation: data.invitation })
         document.title = `${invitationTitle(data.invitation, data.invitation.language)} — Reply`
       })
-      .catch((err) => setState({ status: 'error', code: err.code, message: err.message }))
+      .catch((err) => settle({ status: 'error', code: err.code, message: err.message }))
     return () => {
       document.title = 'EventInvito'
     }
@@ -89,9 +93,7 @@ export default function QrReply() {
 
   if (state.status === 'loading') {
     return (
-      <p className="grid min-h-screen place-items-center bg-ivory text-body-md text-on-surface-variant" role="status">
-        Loading…
-      </p>
+      <Loader label="Opening your reply page" full />
     )
   }
 

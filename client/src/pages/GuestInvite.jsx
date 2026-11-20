@@ -8,10 +8,11 @@ import { api } from '../lib/api'
 import InvitationExperience from '../templates/experience/InvitationExperience'
 import RsvpForm from '../templates/RsvpForm'
 import { invitationTitle, isBirthday, isChristmas, isCorporate, stringsFor } from '../templates/strings'
+import Loader from '../components/Loader'
 
 function StatePage({ icon: Icon, title, message, lang }) {
   return (
-    <main className="grid min-h-screen place-items-center bg-ivory px-margin-mobile py-16 text-center" lang={lang}>
+    <main className="ei-reveal grid min-h-screen place-items-center bg-ivory px-margin-mobile py-16 text-center" lang={lang}>
       <div className="card max-w-md px-8 py-12">
         <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-blush-tint text-gold-text" aria-hidden="true">
           <Icon size={24} />
@@ -42,13 +43,16 @@ export default function GuestInvite() {
   useEffect(() => {
     // Sent with the couple's sign-in when they open a guest's link themselves, so it isn't counted
     // as the guest opening it (guests have no sign-in, so nothing is sent for them)
+    // The envelope shows for at least a moment, so a fast answer doesn't just flash
+    const started = Date.now()
+    const settle = (next) => setTimeout(() => setState(next), Math.max(0, 900 - (Date.now() - started)))
     api(`/invite/${encodeURIComponent(token)}`)
       .then((data) => {
-        setState({ status: 'ready', ...data })
+        settle({ status: 'ready', ...data })
         document.title = `${invitationTitle(data.invitation, data.invitation.language)} — Invitation`
       })
       .catch((err) =>
-        setState({
+        settle({
           status: 'error',
           code: err.code === 'ended' ? 'ended' : err.status === 403 ? 'not_published' : err.status === 404 ? 'invalid' : 'other',
           message: err.message,
@@ -62,9 +66,7 @@ export default function GuestInvite() {
 
   if (state.status === 'loading') {
     return (
-      <p className="grid min-h-screen place-items-center bg-ivory text-body-md text-on-surface-variant" role="status">
-        Opening your invitation…
-      </p>
+      <Loader label="Opening your invitation" full />
     )
   }
 
@@ -86,11 +88,13 @@ export default function GuestInvite() {
   const setRsvp = (next) => setState((s) => ({ ...s, rsvp: next }))
 
   return (
-    <InvitationExperience
-      invitation={invitation}
-      guestName={guest.name}
-      agendaHref={invitation.agenda?.length ? `/i/${encodeURIComponent(token)}/agenda` : ''}
-      rsvp={<RsvpForm token={token} invitation={invitation} rsvp={rsvp} onChange={setRsvp} />}
-    />
+    <div className="ei-reveal">
+      <InvitationExperience
+        invitation={invitation}
+        guestName={guest.name}
+        agendaHref={invitation.agenda?.length ? `/i/${encodeURIComponent(token)}/agenda` : ''}
+        rsvp={<RsvpForm token={token} invitation={invitation} rsvp={rsvp} onChange={setRsvp} />}
+      />
+    </div>
   )
 }

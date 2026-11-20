@@ -21,6 +21,7 @@ import Home from './pages/Home'
 import ComingSoon from './pages/ComingSoon'
 import ScrollToTop from './components/ScrollToTop'
 import Admin from './pages/Admin'
+import Loader from './components/Loader'
 
 // Loaded only when opened: the spreadsheet libraries are large and most visitors never need them
 const ImportGuests = lazy(() => import('./pages/ImportGuests'))
@@ -30,9 +31,7 @@ const AgendaPreview = lazy(() => import('./pages/AgendaPreview'))
 const TemplateAgendaDemo = lazy(() => import('./pages/TemplateAgendaDemo'))
 
 const loading = (
-  <p className="py-20 text-center text-body-md text-on-surface-variant" role="status">
-    Loading…
-  </p>
+  <Loader label="Loading" full />
 )
 
 export default function App() {

@@ -24,9 +24,10 @@ const PACKAGES = [
       'Total guests, shared and opened counts',
       'WhatsApp invitation sharing',
       'Event details and Google Maps link',
+      'Background music chosen for your design',
       'Basic guest management',
     ],
-    missing: 'No photos, music, reply-by date or individual opening tracking',
+    missing: 'No photos, choice of music, reply-by date or individual opening tracking',
   },
   {
     key: 'premium',

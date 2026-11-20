@@ -38,6 +38,7 @@ import {
   downloadTemplateXlsx,
   readGuestFile,
 } from '../lib/guestImport'
+import Loader from '../components/Loader'
 
 const STEPS = ['Upload file', 'Match columns', 'Review', 'Confirm']
 const PAGE = 100
@@ -324,9 +325,7 @@ export default function ImportGuests() {
   }
   if (!invitation) {
     return (
-      <p className="py-20 text-center text-body-md text-on-surface-variant" role="status">
-        Loading…
-      </p>
+      <Loader label="Loading" />
     )
   }
 

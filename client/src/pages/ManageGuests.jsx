@@ -48,6 +48,7 @@ import { STRINGS, formatDate, invitationTitle, stringsFor } from '../templates/s
 import { siteUrl } from '../lib/siteUrl'
 import { qrInitials } from '../lib/qrStrings'
 import { downloadQr, drawQr } from '../lib/qrImage'
+import Loader from '../components/Loader'
 
 const RSVP = {
   attending: { label: 'Attending', Icon: CircleCheck, className: 'bg-[#e3f4e8] text-[#1e6b3a]' },
@@ -1164,9 +1165,7 @@ export default function ManageGuests() {
   }
   if (!invitation) {
     return (
-      <p className="py-20 text-center text-body-md text-on-surface-variant" role="status">
-        Loading guests…
-      </p>
+      <Loader label="Loading guests" />
     )
   }
 
