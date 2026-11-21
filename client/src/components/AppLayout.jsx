@@ -43,7 +43,7 @@ export default function AppLayout() {
       <header className="sticky top-0 z-30 border-b border-bone/70 bg-ivory/90 backdrop-blur">
         <div className="mx-auto flex h-18 max-w-[1200px] items-center justify-between gap-3 px-margin-mobile sm:gap-6 md:px-margin">
           <div className="flex items-center gap-10">
-            <Logo className="text-[24px]" />
+            <Logo className="text-[24px]" compact />
             <nav aria-label="Main" className="hidden items-center gap-7 md:flex">
               {NAV.map((item) => (
                 <NavLink key={item.to} to={item.to} end={item.end} className={(st) => navClass({ isActive: st.isActive && !item.hash })}>
