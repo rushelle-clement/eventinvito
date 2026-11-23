@@ -47,7 +47,7 @@ describe("Guest import", () => {
 
         const r = Object.fromEntries(res.body.rows.map((x) => [x.row, x]));
         // tidied: spaces, lower-case email, Excel-stripped leading 0 restored
-        assert.deepEqual(r[2].values, { name: "Nimal Fernando", displayName: "", phone: "0771112222", email: "nimal@example.com", notes: "Groom's side", group: "" });
+        assert.deepEqual(r[2].values, { name: "Nimal Fernando", displayName: "", phone: "0771112222", email: "nimal@example.com", notes: "Groom's side", group: "", cardType: "online" });
         assert.equal(r[2].action, "add");
         assert.ok(r[3].errors.name);
         assert.equal(r[3].action, "exclude");
@@ -116,5 +116,25 @@ describe("Guest import", () => {
             [["displayName", "", "Mr & Mrs Check"], ["email", "", "check@example.com"]]
         );
         assert.equal(changed.action, "skip"); // still the user's choice
+    });
+
+    it("tells a check how a file fits the guest limit, but never imports over it", async () => {
+        const list = await api().get(`/api/invitations/${id}/guests`).set(auth(owner.token));
+        const have = list.body.guests.length;
+        const send = (rows, body) => api().post(`/api/invitations/${id}/guests/import`).set(auth(owner.token)).send({ rows, ...body });
+        // A file that fits: the check says how many are new and how much room is left
+        const fits = await send([{ row: 2, name: "Amal Perera", phone: "0771234567" }, { row: 3, name: "Brand New Guest" }], { dryRun: true });
+        assert.equal(fits.body.fit.adding, 1);
+        assert.equal(fits.body.fit.over, false);
+        const { limit } = fits.body.fit;
+        assert.equal(fits.body.fit.room, limit - have);
+
+        const rows = Array.from({ length: limit - have + 10 }, (_, i) => ({ row: i + 2, name: `Limit Check ${i + 1}` }));
+        assert.equal((await send(rows, { dryRun: true })).body.code, "guest_limit");
+        const check = await send(rows, { dryRun: true, showLimit: true });
+        assert.equal(check.status, 200);
+        assert.equal(check.body.fit.over, true);
+        assert.equal(check.body.fit.adding, rows.length);
+        assert.equal((await send(rows, { dryRun: false, showLimit: true })).status, 403);
     });
 });

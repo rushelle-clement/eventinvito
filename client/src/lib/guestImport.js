@@ -16,6 +16,12 @@ export const FIELDS = [
   { key: 'email', label: 'Email address', aliases: ['email', 'email address', 'e-mail', 'mail'] },
   { key: 'group', label: 'Group / side', aliases: ['group', 'group / side', 'group/side', 'side', 'group / household', 'group/household', 'household', 'family', 'party', 'category', 'කණ්ඩායම', 'பிரிவு'] },
   { key: 'notes', label: 'Notes', aliases: ['notes', 'note', 'comments', 'comment', 'remarks'] },
+  // Only for packages with a QR code: Online (a personal link) or Physical (a printed card)
+  {
+    key: 'cardType',
+    label: 'Card type',
+    aliases: ['card type', 'card', 'type', 'invitation type', 'online / physical', 'online/physical', 'online or physical', 'physical / online', 'කාඩ්පත් වර්ගය', 'அட்டை வகை'],
+  },
 ]
 
 export class ImportFileError extends Error {}
@@ -97,18 +103,47 @@ export function buildRows(rows, mapping) {
       email: pick(cells, 'email'),
       group: pick(cells, 'group'),
       notes: pick(cells, 'notes'),
+      cardType: pick(cells, 'cardType'),
     }
   })
 }
 
 // ---------- downloads ----------
 
-const TEMPLATE_HEADERS = ['Guest Name', 'Name on Invitation', 'Phone Number', 'Email Address', 'Group', 'Notes']
-const TEMPLATE_EXAMPLES = [
-  ['Amal Perera', 'අමල් පෙරේරා මහතා', '0771234567', 'amal@example.com', "Groom's family", ''],
-  ['Kamala Silva', 'කමලා සිල්වා මහත්මිය', '0712345678', '', "Bride's family", 'Aunt'],
-  ['Ruwan Fernando', '', '+94763456789', 'ruwan@example.com', 'Office', ''],
-]
+// Templates, one for each kind of guest list:
+//   online  – everyone gets a personal link (Free, Premium)
+//   mixed   – a Card type column: Online or Physical for each guest (Premium Plus, Signature, and
+//             Printed Cards with the free online card)
+//   printed – everyone gets a printed card: no phone or Card type columns (Printed Cards)
+const TEMPLATES = {
+  online: {
+    headers: ['Guest Name', 'Name on Invitation', 'Phone Number', 'Email Address', 'Group', 'Notes'],
+    widths: [28, 28, 18, 28, 22, 30],
+    rows: [
+      ['Amal Perera', 'අමල් පෙරේරා මහතා', '0771234567', 'amal@example.com', "Groom's family", ''],
+      ['Kamala Silva', 'කමලා සිල්වා මහත්මිය', '0712345678', '', "Bride's family", 'Aunt'],
+      ['Ruwan Fernando', '', '+94763456789', 'ruwan@example.com', 'Office', ''],
+    ],
+  },
+  mixed: {
+    headers: ['Guest Name', 'Name on Invitation', 'Card Type', 'Phone Number', 'Email Address', 'Group', 'Notes'],
+    widths: [28, 28, 14, 18, 28, 22, 30],
+    rows: [
+      ['Amal Perera', 'අමල් පෙරේරා මහතා', 'Online', '0771234567', 'amal@example.com', "Groom's family", ''],
+      ['Kamala Silva', 'කමලා සිල්වා මහත්මිය', 'Physical', '', '', "Bride's family", 'Aunt — printed card'],
+      ['Ruwan Fernando', '', 'Online', '+94763456789', 'ruwan@example.com', 'Office', ''],
+    ],
+  },
+  printed: {
+    headers: ['Guest Name', 'Name on Invitation', 'Email Address', 'Group', 'Notes'],
+    widths: [28, 28, 28, 22, 30],
+    rows: [
+      ['Amal Perera', 'අමල් පෙරේරා මහතා', '', "Groom's family", ''],
+      ['Kamala Silva', 'කමලා සිල්වා මහත්මිය', '', "Bride's family", 'Aunt'],
+      ['Ruwan Fernando', '', 'ruwan@example.com', 'Office', ''],
+    ],
+  },
+}
 
 function download(blob, filename) {
   const url = URL.createObjectURL(blob)
@@ -136,15 +171,17 @@ function toCsv(rows) {
   return '\uFEFF' + rows.map((r) => r.map(esc).join(',')).join('\r\n')
 }
 
-export function downloadTemplateCsv() {
-  download(new Blob([toCsv([TEMPLATE_HEADERS, ...TEMPLATE_EXAMPLES])], { type: 'text/csv;charset=utf-8' }), 'eventinvito-guest-template.csv')
+export function downloadTemplateCsv(kind = 'online') {
+  const t = TEMPLATES[kind] || TEMPLATES.online
+  download(new Blob([toCsv([t.headers, ...t.rows])], { type: 'text/csv;charset=utf-8' }), 'eventinvito-guest-template.csv')
 }
 
-export async function downloadTemplateXlsx() {
-  const header = TEMPLATE_HEADERS.map((value) => ({ value, fontWeight: 'bold' }))
+export async function downloadTemplateXlsx(kind = 'online') {
+  const t = TEMPLATES[kind] || TEMPLATES.online
+  const header = t.headers.map((value) => ({ value, fontWeight: 'bold' }))
   // Phone numbers as text so Excel keeps the leading 0
-  const body = TEMPLATE_EXAMPLES.map((r) => r.map((value) => ({ value, type: String })))
-  const blob = await writeExcelFile([header, ...body], { columns: [{ width: 28 }, { width: 28 }, { width: 18 }, { width: 28 }, { width: 22 }, { width: 30 }] }).toBlob()
+  const body = t.rows.map((r) => r.map((value) => ({ value, type: String })))
+  const blob = await writeExcelFile([header, ...body], { columns: t.widths.map((width) => ({ width })) }).toBlob()
   download(blob, 'eventinvito-guest-template.xlsx')
 }
 

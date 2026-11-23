@@ -147,4 +147,35 @@ describe("QR replies for printed cards", () => {
         assert.equal(saved.cardType, "physical");
         assert.equal(saved.phone, "");
     });
+
+    it("reads the card type of each guest from the file's Card type column", async () => {
+        const rows = [
+            { row: 2, name: "Column Online", phone: "0770000101", cardType: "Online" },
+            { row: 3, name: "Column Paper", phone: "0770000102", cardType: "paper" },
+            { row: 4, name: "Column Blank", phone: "0770000103", cardType: "" },
+            { row: 5, name: "Column Odd", phone: "0770000104", cardType: "maybe" },
+        ];
+        const dry = await api().post(`/api/invitations/${id}/guests/import`).set(auth(owner.token)).send({ rows, dryRun: true });
+        assert.equal(dry.status, 200);
+        const [a, b, c, d] = dry.body.rows;
+        assert.equal(a.values.cardType, "online");
+        assert.equal(a.values.phone, "0770000101");
+        assert.equal(b.values.cardType, "physical");
+        assert.equal(b.values.phone, "", "physical cards have no phone");
+        assert.equal(c.values.cardType, "online", "empty: the package's usual type (online on Premium Plus)");
+        assert.equal(d.values.cardType, "online");
+        assert.match(d.warnings.cardType, /isn’t Online or Physical/);
+        assert.equal(dry.body.summary.addOnline, 3);
+        assert.equal(dry.body.summary.addPhysical, 1);
+
+        // A file without the column: the couple's choice for the whole file
+        const plain = rows.map(({ cardType, ...r }) => r);
+        const all = await api().post(`/api/invitations/${id}/guests/import`).set(auth(owner.token)).send({ rows: plain, dryRun: true, cardType: "physical" });
+        assert.ok(all.body.rows.every((r) => r.values.cardType === "physical"));
+
+        const done = await api().post(`/api/invitations/${id}/guests/import`).set(auth(owner.token)).send({ rows, dryRun: false });
+        assert.equal(done.status, 200);
+        assert.equal((await models.Guest.findOne({ invitation: id, name: "Column Paper" })).cardType, "physical");
+        assert.equal((await models.Guest.findOne({ invitation: id, name: "Column Online" })).cardType, "online");
+    });
 });

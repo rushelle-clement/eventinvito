@@ -4,11 +4,14 @@
 // again here, because the browser can't be trusted (NFR-003):
 //
 //   POST /api/invitations/:id/guests/import
-//   { rows: [{ row, name, email, phone, notes, action? }], dryRun: true|false, cardType?: "online"|"physical" }
+//   { rows: [{ row, name, email, phone, notes, cardType?, action? }], dryRun: true|false, cardType?: "online"|"physical" }
 //
-// cardType: the whole file is online-card guests (personal links) or physical-card guests
-// (printed cards that reply through the QR code). Physical-card guests get no phone number,
-// and two of them can't have the same name, because they find themselves by name.
+// Card type, per guest: online (a personal link) or physical (a printed card; they reply with the
+// QR code). Each row's `cardType` is the file's Card type cell ("Online", "Physical", "Paper"…);
+// an empty cell uses the request's `cardType` — the package's usual type, or what the couple chose
+// for a file without that column. Packages without QR are all online; Printed Cards alone all
+// physical. Physical-card guests get no phone number, and two of them can't have the same name,
+// because they find themselves by name.
 //
 // dryRun: true  → nothing is saved; returns each row's problems, duplicates and the action
 //                 that would be taken. Used for the preview/review screens.
@@ -58,8 +61,21 @@ function changesFor(guest, values, cardType) {
     return changes;
 }
 
-function analyse(rows, existing, cardType = "online") {
-    const physical = cardType === "physical";
+// The Card type column: "Online" / "Physical" in the couple's words. "" = left empty, null = not understood.
+const ONLINE_WORDS = ["online", "online card", "link", "whatsapp", "e-card", "ecard", "digital", "ඔන්ලයින්", "ஆன்லைன்"];
+const PHYSICAL_WORDS = ["physical", "physical card", "paper", "paper card", "printed", "printed card", "print", "card", "qr", "කාඩ්පත", "අච්චු", "அட்டை"];
+function readCardType(value) {
+    const v = String(value ?? "").toLowerCase().replace(/\s+/g, " ").trim();
+    if (!v) return "";
+    if (ONLINE_WORDS.includes(v)) return "online";
+    if (PHYSICAL_WORDS.includes(v)) return "physical";
+    return null;
+}
+const CARD_NAME = { online: "an online card", physical: "a physical card" };
+
+// cards: which card types the package allows ("both", "online" or "physical");
+// defaultCard: what an empty Card type cell (or a file without the column) means
+function analyse(rows, existing, { cards = "both", defaultCard = "online" } = {}) {
     // Physical-card guests already on the list, by the name they'd type on the QR page
     const physicalByName = new Map();
     for (const g of existing) if (g.cardType === "physical") physicalByName.set(qrNames.nameKey(g.name), g);
@@ -80,6 +96,18 @@ function analyse(rows, existing, cardType = "online") {
 
     return rows.map((input, index) => {
         const rowNumber = Number.isInteger(input?.row) ? input.row : index + 2;
+
+        // This row's card type: the Card type cell, or the file's default when it's empty
+        const typed = readCardType(input?.cardType);
+        const cardWarning =
+            cards === "online" && typed === "physical"
+                ? "Physical cards with a QR code are part of Premium Plus. This guest will get an online card."
+                : cards === "both" && typed === null
+                  ? `Card type “${String(input.cardType).slice(0, 30)}” isn’t Online or Physical — this guest will get ${CARD_NAME[defaultCard]}.`
+                  : "";
+        const cardType = cards === "physical" ? "physical" : cards === "online" ? "online" : typed || defaultCard;
+        const physical = cardType === "physical";
+
         const raw = {
             name: typeof input?.name === "string" ? input.name.replace(/\s+/g, " ") : input?.name,
             displayName: typeof input?.displayName === "string" ? input.displayName.replace(/\s+/g, " ") : input?.displayName ?? "",
@@ -99,6 +127,7 @@ function analyse(rows, existing, cardType = "online") {
         if (fieldErrors.displayName) errors.displayName = fieldErrors.displayName;
         if (fieldErrors.email) warnings.email = `Email: ${fieldErrors.email} The guest will be imported without it.`;
         if (fieldErrors.phone) warnings.phone = `Phone: ${fieldErrors.phone} The guest will be imported without it.`;
+        if (cardWarning) warnings.cardType = cardWarning;
 
         const clean = {
             name: values.name || (typeof raw.name === "string" ? raw.name.trim() : ""),
@@ -107,6 +136,7 @@ function analyse(rows, existing, cardType = "online") {
             phone: fieldErrors.phone ? "" : values.phone || "",
             notes: values.notes || "",
             group: fieldErrors.group ? "" : canonicalGroup(values.group || "", groupNames),
+            cardType,
         };
 
         if (clean.group && !groupNames.includes(clean.group)) groupNames.push(clean.group);
@@ -172,14 +202,17 @@ function analyse(rows, existing, cardType = "online") {
 }
 
 function summarise(analysed) {
-    const s = { total: analysed.length, valid: 0, invalid: 0, duplicates: 0, warnings: 0, add: 0, update: 0, skip: 0 };
+    const s = { total: analysed.length, valid: 0, invalid: 0, duplicates: 0, warnings: 0, add: 0, update: 0, skip: 0, addOnline: 0, addPhysical: 0 };
     for (const r of analysed) {
         if (Object.keys(r.errors).length) s.invalid += 1;
         else s.valid += 1;
         if (r.duplicate) s.duplicates += 1;
         if (Object.keys(r.warnings).length) s.warnings += 1;
-        if (r.action === "add") s.add += 1;
-        else if (r.action === "update") s.update += 1;
+        if (r.action === "add") {
+            s.add += 1;
+            if (r.values.cardType === "physical") s.addPhysical += 1;
+            else s.addOnline += 1;
+        } else if (r.action === "update") s.update += 1;
         else s.skip += 1; // skip + exclude
     }
     return s;
@@ -189,16 +222,21 @@ async function importGuests(req, res) {
     const invitation = await findOwned(req);
     requireFeature(limitsFor(invitation, req.user), "import", "Importing guests from Excel or CSV is part of Premium and above.");
     const { rows, dryRun } = req.body || {};
-    // Printed Cards: every guest has a physical card, whatever was sent
-    const cardType = limitsFor(invitation, req.user).onlineCards === false ? "physical" : req.body?.cardType ?? "online";
+    // Card types: each row's Card type cell, or `cardType` (the file's default: the package's usual
+    // type, or what the couple chose for a file without the column). Printed Cards alone: all physical.
+    const limits = limitsFor(invitation, req.user);
+    const cards = limits.onlineCards === false ? "physical" : limits.qrRsvp ? "both" : "online";
+    const usual = limits.plan === "printed" ? "physical" : "online";
+    let cardType = req.body?.cardType ?? usual;
     if (!["online", "physical"].includes(cardType)) throw new AppError(400, "Choose online or physical cards.");
-    if (cardType === "physical") requireFeature(limitsFor(invitation, req.user), "qrRsvp", "Physical cards with a QR code are part of Premium Plus and Signature.");
+    if (cardType === "physical" && cards === "online") requireFeature(limits, "qrRsvp", "Physical cards with a QR code are part of Premium Plus and Signature.");
+    if (cards !== "both") cardType = cards;
 
     if (!Array.isArray(rows) || rows.length === 0) throw new AppError(400, "The file has no guest rows to import.");
     if (rows.length > MAX_ROWS) throw new AppError(400, `Please import up to ${MAX_ROWS} rows at a time. Split larger lists into several files.`);
 
     const existing = await Guest.find({ invitation: invitation._id, owner: req.user._id }).select("name displayName email phone notes group cardType");
-    const analysed = analyse(rows, existing, cardType);
+    const analysed = analyse(rows, existing, { cards, defaultCard: cardType });
     const summary = summarise(analysed);
 
     const { guests: planLimit, planName } = limitsFor(invitation, req.user);
@@ -217,10 +255,8 @@ async function importGuests(req, res) {
     }
 
     // Printed Cards with the free online card: the online guests have their own, smaller limit
-    if (cardType === "online") {
-        const toOnline = analysed.filter((r) => r.action === "update" && r.duplicate?.changes?.some((c) => c.field === "cardType")).length;
-        await checkOnlineRoom(invitation, limitsFor(invitation, req.user), summary.add + toOnline);
-    }
+    const toOnline = analysed.filter((r) => r.action === "update" && r.values.cardType === "online" && r.duplicate?.changes?.some((c) => c.field === "cardType")).length;
+    if (summary.addOnline + toOnline) await checkOnlineRoom(invitation, limits, summary.addOnline + toOnline);
 
     if (dryRun !== false) {
         return res.json({ success: true, dryRun: true, cardType, summary, fit, rows: analysed });
@@ -237,7 +273,6 @@ async function importGuests(req, res) {
         return {
             _id: new mongoose.Types.ObjectId(),
             ...r.values,
-            cardType,
             invitation: invitation._id,
             owner: req.user._id,
             tokenHash,
@@ -262,9 +297,9 @@ async function importGuests(req, res) {
             if (r.values.notes) guest.notes = r.values.notes;
             if (r.values.displayName) guest.displayName = r.values.displayName;
             if (r.values.group) guest.group = r.values.group;
-            // The guest moves to this file's card type (physical cards have no phone)
-            guest.cardType = cardType;
-            if (cardType === "physical") guest.phone = "";
+            // The guest moves to this row's card type (physical cards have no phone)
+            guest.cardType = r.values.cardType;
+            if (r.values.cardType === "physical") guest.phone = "";
             await guest.save();
         }
     } catch (err) {

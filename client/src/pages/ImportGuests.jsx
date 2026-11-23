@@ -167,12 +167,17 @@ export default function ImportGuests() {
   const [loadError, setLoadError] = useState('')
 
   const [step, setStep] = useState(1)
-  // Online-card and physical-card guests are imported from separate files
-  const [cardType, setCardType] = useState(() => (new URLSearchParams(window.location.search).get('card') === 'physical' ? 'physical' : 'online'))
-  // Printed Cards package: every guest has a physical card
-  const physicalOnly = invitation?.limits?.onlineCards === false
-  const physical = physicalOnly || cardType === 'physical'
-  const fields = physical ? FIELDS.filter((f) => f.key !== 'phone') : FIELDS
+  // Card types. "mixed": each guest is Online or Physical (a Card type column) — Premium Plus,
+  // Signature, and Printed Cards with the free online card. "printed": everyone has a printed card.
+  // "online": everyone gets a link (no QR code in the package).
+  const limits = invitation?.limits || {}
+  const physicalOnly = limits.onlineCards === false
+  const cardMode = physicalOnly ? 'printed' : limits.qrRsvp ? 'mixed' : 'online'
+  // What an empty Card type cell means: the package's usual type
+  const usualCard = limits.plan === 'printed' ? 'physical' : 'online'
+  // For a file without a Card type column: everyone in it is… (starts on the usual type)
+  const [fileCard, setFileCard] = useState(null)
+  const fields = FIELDS.filter((f) => (f.key === 'cardType' ? cardMode === 'mixed' : f.key === 'phone' ? cardMode !== 'printed' : true))
   const [file, setFile] = useState(null) // { name, size }
   const [sheet, setSheet] = useState(null) // { headers, rows }
   const [fileError, setFileError] = useState('')
@@ -181,6 +186,11 @@ export default function ImportGuests() {
   const inputRef = useRef(null)
 
   const [mapping, setMapping] = useState({})
+  const hasCardColumn = cardMode === 'mixed' && mapping.cardType >= 0
+  // The card type sent with the rows: used for empty cells, or for the whole file without the column
+  const cardType = cardMode === 'printed' ? 'physical' : cardMode === 'online' ? 'online' : hasCardColumn ? usualCard : fileCard || usualCard
+  // The whole import is printed cards (wording for the steps and the summary)
+  const physical = cardType === 'physical' && !hasCardColumn
   const [rows, setRows] = useState([]) // what we send: { row, name, phone, email, notes, action? }
   const [analysis, setAnalysis] = useState(null) // { summary, rows }
   const [checking, setChecking] = useState(false)
@@ -204,8 +214,8 @@ export default function ImportGuests() {
     api(`/invitations/${id}/guests`)
       .then((d) => {
         setInvitation(d.invitation)
-        // Printed Cards with the free online card: most guests are on paper, so start there
-        if (d.invitation?.limits?.plan === 'printed' && !new URLSearchParams(window.location.search).get('card')) setCardType('physical')
+        // ?card=physical (from the guest list's physical-card filter) starts a file without the column on physical
+        if (new URLSearchParams(window.location.search).get('card') === 'physical') setFileCard('physical')
         setExisting(d.summary?.total ?? d.guests?.length ?? 0)
       })
       .catch((err) => setLoadError(err.status === 404 ? 'This invitation could not be found.' : err.message))
@@ -239,7 +249,7 @@ export default function ImportGuests() {
       // More rows than free places: rows already on the list don't count, so find out how many are new
       if (guestLimit && data.rows.length <= guestLimit && data.rows.length > placesLeft && guessed.name >= 0) {
         setFitCheck('checking')
-        api(`/invitations/${id}/guests/import`, { method: 'POST', body: { rows: buildRows(data.rows, guessed), dryRun: true, showLimit: true, cardType: physical ? 'physical' : 'online' } })
+        api(`/invitations/${id}/guests/import`, { method: 'POST', body: { rows: buildRows(data.rows, guessed), dryRun: true, showLimit: true, cardType: cardMode === 'mixed' && !(guessed.cardType >= 0) ? fileCard || usualCard : usualCard } })
           .then((d) => setFitCheck(d.fit || null))
           .catch(() => setFitCheck(null)) // the review step checks again anyway
       }
@@ -283,7 +293,7 @@ export default function ImportGuests() {
     setChecking(true)
     setError('')
     try {
-      const data = await api(`/invitations/${id}/guests/import`, { method: 'POST', body: { rows: nextRows, dryRun: true, showLimit: true, cardType: physical ? 'physical' : 'online' } })
+      const data = await api(`/invitations/${id}/guests/import`, { method: 'POST', body: { rows: nextRows, dryRun: true, showLimit: true, cardType } })
       setAnalysis(data)
       // keep the server's resolved action on each row
       setRows(nextRows.map((r, i) => ({ ...r, action: data.rows[i].action })))
@@ -310,7 +320,7 @@ export default function ImportGuests() {
   const merged = useMemo(() => (analysis ? analysis.rows.map((r, i) => ({ ...r, action: rows[i]?.action ?? r.action })) : []), [analysis, rows])
 
   const counts = useMemo(() => {
-    const c = { total: merged.length, ok: 0, error: 0, dup: 0, changed: 0, same: 0, warn: 0, ready: 0, readyFix: 0, unchanged: 0, add: 0, update: 0, skip: 0 }
+    const c = { total: merged.length, ok: 0, error: 0, dup: 0, changed: 0, same: 0, warn: 0, ready: 0, readyFix: 0, unchanged: 0, addOnline: 0, addPhysical: 0, add: 0, update: 0, skip: 0 }
     for (const r of merged) {
       const k = rowKind(r)
       c[k] += 1
@@ -318,7 +328,11 @@ export default function ImportGuests() {
       if (k === 'same' && r.action !== 'add' && r.action !== 'update') c.unchanged += 1
       if (k === 'ok' || (k === 'warn' && !r.duplicate)) c.ready += 1
       if (k === 'warn' && !r.duplicate) c.readyFix += 1
-      if (r.action === 'add') c.add += 1
+      if (r.action === 'add') {
+        c.add += 1
+        if (r.values.cardType === 'physical') c.addPhysical += 1
+        else c.addOnline += 1
+      }
       else if (r.action === 'update') c.update += 1
       else c.skip += 1
     }
@@ -384,7 +398,7 @@ export default function ImportGuests() {
     setImporting(true)
     setFailed('')
     try {
-      const data = await api(`/invitations/${id}/guests/import`, { method: 'POST', body: { rows, dryRun: false, cardType: physical ? 'physical' : 'online' } })
+      const data = await api(`/invitations/${id}/guests/import`, { method: 'POST', body: { rows, dryRun: false, cardType } })
       setResult(data)
       setStep(5)
     } catch (err) {
@@ -482,10 +496,10 @@ export default function ImportGuests() {
             </h2>
             <p className="mt-2 text-body-md text-on-surface-variant">Start from our file so the columns are in the right place. You can also use your own spreadsheet — you’ll match the columns next.</p>
             <div className="mt-5 flex flex-wrap gap-3">
-              <button type="button" className="btn-primary px-5 py-2.5" onClick={() => downloadTemplateXlsx()}>
+              <button type="button" className="btn-primary px-5 py-2.5" onClick={() => downloadTemplateXlsx(cardMode)}>
                 <Download size={16} aria-hidden="true" /> Excel (.xlsx)
               </button>
-              <button type="button" className="btn-secondary px-5 py-2.5" onClick={downloadTemplateCsv}>
+              <button type="button" className="btn-secondary px-5 py-2.5" onClick={() => downloadTemplateCsv(cardMode)}>
                 <Download size={16} aria-hidden="true" /> CSV (.csv)
               </button>
             </div>
@@ -499,10 +513,20 @@ export default function ImportGuests() {
               ))}
             </ul>
             <p className="mt-3 text-body-sm text-on-surface-variant">
-              {physical
+              {cardMode === 'printed'
                 ? 'One card per row. Use each name as written on the card: guests type it to find themselves. No phone numbers needed.'
                 : 'One person per row. Plus-ones can’t be added. Add a phone number to share by WhatsApp.'}
             </p>
+            {cardMode === 'mixed' && (
+              <div className="mt-3 rounded-lg border border-gold/30 bg-blush-tint px-4 py-3 text-body-sm text-espresso">
+                <p className="font-semibold">Card type: Online or Physical</p>
+                <p className="mt-1 text-on-surface-variant">
+                  Write <strong className="text-espresso">Online</strong> for guests who get a personal link on WhatsApp
+                  {limits.onlineGuests ? ` (up to ${limits.onlineGuests} on the free online card)` : ''}, and <strong className="text-espresso">Physical</strong> for guests who get a printed card and reply with the QR code. Leave it empty for{' '}
+                  {usualCard === 'physical' ? 'a printed card' : 'an online card'}. Physical-card guests don’t need a phone number.
+                </p>
+              </div>
+            )}
           </section>
 
           <section className="card p-6" aria-labelledby="up-h">
@@ -511,35 +535,7 @@ export default function ImportGuests() {
               Upload your guest list
             </h2>
 
-            {!physicalOnly && (invitation?.limits?.qrRsvp || physical) && (
-              <fieldset className="mt-5">
-                <legend className="text-label-md text-espresso uppercase">Who is in this file?</legend>
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                  {[
-                    {
-                      value: 'online',
-                      label: 'Online-card guests',
-                      note: invitation?.limits?.onlineGuests ? `Free online card, up to ${invitation.limits.onlineGuests} guests` : 'Each gets a personal link',
-                      Icon: Link2,
-                    },
-                    { value: 'physical', label: 'Physical-card guests', note: 'They reply by the QR code', Icon: Printer },
-                  ].map((o) => (
-                    <label
-                      key={o.value}
-                      className={`flex cursor-pointer items-start gap-2.5 rounded-lg border px-3.5 py-3 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-gold ${cardType === o.value ? 'border-gold bg-gold/10' : 'border-bone bg-white hover:border-gold'}`}
-                    >
-                      <input type="radio" name="cardType" value={o.value} checked={cardType === o.value} onChange={() => setCardType(o.value)} className="sr-only" />
-                      <o.Icon size={17} className="mt-0.5 shrink-0 text-gold-text" aria-hidden="true" />
-                      <span>
-                        <span className="block text-title-md text-espresso">{o.label}</span>
-                        <span className="block text-body-sm text-on-surface-variant">{o.note}</span>
-                      </span>
-                    </label>
-                  ))}
-                </div>
-                <p className="mt-2 text-body-sm text-on-surface-variant">Import online and physical-card guests from separate files.</p>
-              </fieldset>
-            )}
+
 
             <label
               onDragOver={(e) => {
@@ -715,6 +711,32 @@ export default function ImportGuests() {
               )
             })}
           </div>
+          {/* No Card type column: one answer for the whole file (it starts on the package's usual type) */}
+          {cardMode === 'mixed' && !hasCardColumn && (
+            <fieldset className="card mt-4 p-5">
+              <legend className="sr-only">Card type for everyone in this file</legend>
+              <p className="text-title-md text-espresso">Your file has no Card type column. Everyone in this file is:</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {[
+                  { value: 'online', label: 'Online card', note: limits.onlineGuests ? `Free online card, up to ${limits.onlineGuests} guests` : 'Each gets a personal link', Icon: Link2 },
+                  { value: 'physical', label: 'Physical card', note: 'They reply by the QR code', Icon: Printer },
+                ].map((o) => (
+                  <label
+                    key={o.value}
+                    className={`flex cursor-pointer items-start gap-2.5 rounded-lg border px-3.5 py-3 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-gold ${cardType === o.value ? 'border-gold bg-gold/10' : 'border-bone bg-white hover:border-gold'}`}
+                  >
+                    <input type="radio" name="fileCard" value={o.value} checked={cardType === o.value} onChange={() => setFileCard(o.value)} className="sr-only" />
+                    <o.Icon size={17} className="mt-0.5 shrink-0 text-gold-text" aria-hidden="true" />
+                    <span>
+                      <span className="block text-title-md text-espresso">{o.label}</span>
+                      <span className="block text-body-sm text-on-surface-variant">{o.note}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <p className="mt-2 text-body-sm text-on-surface-variant">To mix both in one file, add a Card type column with Online or Physical for each guest.</p>
+            </fieldset>
+          )}
           {mapping.group >= 0 && (
             <p className="mt-3 flex items-center gap-2 text-body-sm text-on-surface-variant">
               <Info size={15} aria-hidden="true" /> Guests are put in the group from that column (e.g. “Bride’s family”), so you can filter and count them by group.
@@ -874,9 +896,9 @@ export default function ImportGuests() {
                     <div className="min-w-0">
                       {isEditing ? (
                         <div className="space-y-2">
-                          {[...(physical ? ['name', 'email'] : ['name', 'phone', 'email']), ...(r.warnings.group ? ['group'] : [])].map((k) => (
+                          {[...(r.values.cardType === 'physical' ? ['name', 'email'] : ['name', 'phone', 'email']), ...(r.warnings.group ? ['group'] : []), ...(r.warnings.cardType ? ['cardType'] : [])].map((k) => (
                             <label key={k} className="block">
-                              <span className="text-label-sm text-on-surface-variant uppercase">{k === 'name' ? 'Guest name' : k}</span>
+                              <span className="text-label-sm text-on-surface-variant uppercase">{k === 'name' ? 'Guest name' : k === 'cardType' ? 'Card type (Online or Physical)' : k}</span>
                               <input
                                 value={draft[k] ?? ''}
                                 onChange={(e) => setDraft((d) => ({ ...d, [k]: e.target.value }))}
@@ -897,7 +919,13 @@ export default function ImportGuests() {
                         <>
                           <p className={`truncate text-title-md ${r.values.name ? 'text-espresso' : 'text-error italic'}`}>{r.values.name || raw.name || '[No name]'}</p>
                           {raw.displayName && <p className="truncate text-body-sm text-espresso">{raw.displayName}</p>}
-                          {!physical && <p className={`truncate text-body-sm ${r.warnings.phone ? 'text-error line-through' : 'text-on-surface-variant'}`}>{raw.phone || '—'}</p>}
+                          {cardMode === 'mixed' && (
+                            <p className={`mt-0.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-label-sm ${r.values.cardType === 'physical' ? 'bg-[#f1ebf8] text-[#5b3d86]' : 'bg-surface-container text-on-surface-variant'}`}>
+                              {r.values.cardType === 'physical' ? <Printer size={12} aria-hidden="true" /> : <Link2 size={12} aria-hidden="true" />}
+                              {r.values.cardType === 'physical' ? 'Physical card' : 'Online card'}
+                            </p>
+                          )}
+                          {r.values.cardType !== 'physical' && <p className={`truncate text-body-sm ${r.warnings.phone ? 'text-error line-through' : 'text-on-surface-variant'}`}>{raw.phone || '—'}</p>}
                           <p className={`truncate text-body-sm ${r.warnings.email ? 'text-error line-through' : 'text-on-surface-variant'}`}>{raw.email || ''}</p>
                           {r.values.group && <p className="truncate text-body-sm text-gold-text">Group: {r.values.group}</p>}
                           {raw.notes && <p className="truncate text-body-sm text-on-surface-variant italic">{raw.notes}</p>}
@@ -942,7 +970,7 @@ export default function ImportGuests() {
                           className="mt-2 inline-flex items-center gap-1 text-body-sm font-semibold text-gold-text underline underline-offset-4"
                           onClick={() => {
                             setEditing(r.index)
-                            setDraft({ name: raw.name, phone: raw.phone, email: raw.email, ...(r.warnings.group && { group: raw.group }) })
+                            setDraft({ name: raw.name, phone: raw.phone, email: raw.email, ...(r.warnings.group && { group: raw.group }), ...(r.warnings.cardType && { cardType: raw.cardType }) })
                           }}
                         >
                           <PencilLine size={14} aria-hidden="true" /> Fix here
@@ -1011,7 +1039,11 @@ export default function ImportGuests() {
           </p>
 
           <div className={`mt-6 grid gap-4 sm:grid-cols-2 ${counts.unchanged ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
-            <Stat label="New guests to add" value={counts.add} note={physical ? 'They reply by the QR code' : 'Each gets a personal link'} />
+            <Stat
+              label="New guests to add"
+              value={counts.add}
+              note={cardMode === 'mixed' && counts.addOnline && counts.addPhysical ? `${counts.addOnline} online · ${counts.addPhysical} physical` : physical || (counts.add && !counts.addOnline) ? 'They reply by the QR code' : 'Each gets a personal link'}
+            />
             <Stat label="Guests to update" value={counts.update} note={physical ? 'Moved to physical card; new details filled in' : 'New details from the file filled in'} />
             {counts.unchanged > 0 && <Stat label="Already on your list" value={counts.unchanged} note="Nothing new — no change" />}
             <Stat label="Rows left out" value={counts.leftOut} note={counts.leftOut ? 'Rows you skipped, and rows with errors' : 'None'} />
@@ -1075,13 +1107,19 @@ export default function ImportGuests() {
             {file.name} · {result.summary.total} rows
           </p>
           <div className={`mt-8 grid gap-4 text-left sm:grid-cols-2 ${counts.unchanged ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
-            <Stat label="Guests added" value={result.summary.added} note={physical ? 'With physical cards' : 'With their own personal links'} />
+            <Stat
+              label="Guests added"
+              value={result.summary.added}
+              note={result.summary.addOnline && result.summary.addPhysical ? `${result.summary.addOnline} online · ${result.summary.addPhysical} physical` : result.summary.addPhysical ? 'With physical cards' : 'With their own personal links'}
+            />
             <Stat label="Guests updated" value={result.summary.updated} />
             {counts.unchanged > 0 && <Stat label="Already on your list" value={counts.unchanged} note="No change" />}
             <Stat label="Rows left out" value={Math.max(0, result.summary.skip - counts.unchanged)} />
           </div>
-          <p className="mt-6 text-body-md text-on-surface-variant">{physical
-              ? 'They can reply by scanning the QR code on their card. Download the code from your guest list.'
+          <p className="mt-6 text-body-md text-on-surface-variant">{result.summary.addPhysical && result.summary.addOnline
+              ? 'No invitations have been sent. Share the online guests’ links from your guest list, and download your QR code to print on the cards.'
+              : result.summary.addPhysical || physical
+              ? 'They can reply by scanning the QR code on their card. Download the code from the QR code page.'
               : 'No invitations have been sent. Share each guest’s link from your guest list when you’re ready.'}</p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <Link to={guestsUrl} className="btn-primary">

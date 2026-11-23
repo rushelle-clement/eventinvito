@@ -141,6 +141,10 @@ describe("Printed Cards package", () => {
         assert.equal(over.status, 403);
         assert.equal(over.body.code, "online_limit");
 
+        // An empty Card type means physical on Printed Cards; "Online" rows get the free online card
+        const mixed = await api().post(`/api/invitations/${id}/guests/import`).set(auth(couple.token)).send({ rows: [{ row: 2, name: "Mixed Paper" }, { row: 3, name: "Mixed Link", phone: "0779990001", cardType: "online" }], dryRun: true });
+        assert.deepEqual(mixed.body.rows.map((r) => r.values.cardType), ["physical", "online"]);
+
         // Can't switch it off while someone has the online card
         const off = await patch({ onlineCard: false });
         assert.equal(off.status, 400);
