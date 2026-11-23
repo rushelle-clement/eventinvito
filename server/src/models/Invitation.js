@@ -179,6 +179,16 @@ const invitationSchema = new mongoose.Schema(
         // Printed Cards only: some guests get the free online card (a Simple Card design) instead of
         // a paper one, in the same guest list (up to FREE_ONLINE_GUESTS of them)
         onlineCard: { type: Boolean, default: false },
+
+        // After the first publish (utils/publishedLocks.js): the names it was published with (only
+        // small spelling fixes after that), one-off unlocks an admin can give, and what changed since
+        publishedNames: { type: mongoose.Schema.Types.Mixed },
+        namesUnlocked: { type: Boolean, default: false },
+        datesUnlocked: { type: Boolean, default: false },
+        changeLog: {
+            type: [new mongoose.Schema({ at: Date, field: String, from: String, to: String }, { _id: false })],
+            default: [],
+        },
         qrCode: { type: String, unique: true, sparse: true },
 
         publishedAt: { type: Date },
@@ -321,6 +331,9 @@ invitationSchema.methods.toOwnerJSON = function (owner) {
         qr: this.qrJSON(owner),
         printed: Boolean(this.printed),
         onlineCard: Boolean(this.printed && this.onlineCard),
+        // Published already: names only take small fixes; an ended event's date is fixed
+        namesLocked: this.isPaid() && !this.namesUnlocked,
+        datesLocked: this.isPaid() && this.hasEnded() && !this.datesUnlocked,
         publishedAt: this.publishedAt,
         createdAt: this.createdAt,
         updatedAt: this.updatedAt,

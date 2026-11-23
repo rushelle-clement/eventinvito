@@ -10,6 +10,7 @@ import { formatDate, invitationTitle } from '../templates/strings'
 import FormAlert from '../components/FormAlert'
 import Loader from '../components/Loader'
 import QrPanel from '../components/QrPanel'
+import PublishStatus from '../components/PublishStatus'
 
 export default function InvitationQr() {
   const { id } = useParams()
@@ -86,6 +87,9 @@ export default function InvitationQr() {
           <Users size={16} aria-hidden="true" /> Manage guests
         </Link>
       </div>
+
+      {/* Live or not, with Publish right here */}
+      <PublishStatus invitation={invitation} onPublished={(inv) => setData((d) => ({ ...d, invitation: { ...d.invitation, ...inv } }))} />
 
       <div className="mt-6">
         <FormAlert>{error}</FormAlert>

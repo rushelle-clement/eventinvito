@@ -1,9 +1,9 @@
 // Wording for the printed-card QR reply page (/r/:code), per invitation language.
-// "the couple" becomes "the hosts" for birthdays, corporate events and Christmas parties.
+// "the couple" becomes "the person who invited you" for birthdays, corporate events and Christmas parties.
 // NOTE: Sinhala and Tamil are a first draft, like templates/strings.js.
 
 const WHO = {
-  en: { couple: 'the couple', hosts: 'the hosts' },
+  en: { couple: 'the couple', hosts: 'the person who invited you' },
   si: { couple: 'මනාලයා සහ මනාලිය', hosts: 'ආරාධනා කළ අය' },
   ta: { couple: 'மணமக்களை', hosts: 'அழைத்தவர்களை' },
 }
@@ -13,6 +13,8 @@ const QR = {
     heading: 'Reply to your invitation',
     findLabel: 'Type your name as it appears on your card',
     findPlaceholder: 'e.g. Amal Perera',
+    hint: 'Start typing — matching names appear as you type.',
+    searchingNames: 'Looking for your name…',
     find: 'Find my name',
     finding: 'Searching…',
     pick: 'Tap your name',
@@ -20,7 +22,7 @@ const QR = {
     tooShort: 'Please type at least 3 letters of your name.',
     tooMany: 'Many guests match that. Please type your full name.',
     notFound: (who) => `We couldn’t find your name. Please contact ${who}.`,
-    unavailable: (who) => `Replies by QR code aren’t open right now. Please contact ${who}.`,
+    unavailable: (who) => `Replies by QR code aren’t open yet. Please contact ${who}.`,
     replied: (a) => `You replied: ${a}`,
     replyBy: (d) => `Please reply by ${d}`,
     change: 'Change my reply',
@@ -30,6 +32,8 @@ const QR = {
     heading: 'ඔබගේ ආරාධනාවට පිළිතුරු දෙන්න',
     findLabel: 'ඔබගේ කාඩ්පතේ ඇති පරිදි ඔබගේ නම ටයිප් කරන්න',
     findPlaceholder: 'උදා. අමල් පෙරේරා',
+    hint: 'ටයිප් කිරීම අරඹන්න — ගැළපෙන නම් පහතින් පෙන්වයි.',
+    searchingNames: 'ඔබගේ නම සොයමින්…',
     find: 'මගේ නම සොයන්න',
     finding: 'සොයමින්…',
     pick: 'ඔබගේ නම තෝරන්න',
@@ -47,6 +51,8 @@ const QR = {
     heading: 'உங்கள் அழைப்பிதழுக்குப் பதிலளிக்கவும்',
     findLabel: 'உங்கள் அட்டையில் உள்ளபடி உங்கள் பெயரைத் தட்டச்சு செய்யவும்',
     findPlaceholder: 'எ.கா. அமல் பெரேரா',
+    hint: 'தட்டச்சு செய்யத் தொடங்கவும் — பொருந்தும் பெயர்கள் கீழே தோன்றும்.',
+    searchingNames: 'உங்கள் பெயரைத் தேடுகிறது…',
     find: 'என் பெயரைத் தேடு',
     finding: 'தேடுகிறது…',
     pick: 'உங்கள் பெயரைத் தொடவும்',

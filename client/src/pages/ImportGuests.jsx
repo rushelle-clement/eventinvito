@@ -40,9 +40,9 @@ import {
   readGuestFile,
 } from '../lib/guestImport'
 import Loader from '../components/Loader'
+import Pagination from '../components/Pagination'
 
 const STEPS = ['Upload file', 'Match columns', 'Review', 'Confirm']
-const PAGE = 100
 
 function formatSize(bytes) {
   return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`
@@ -196,7 +196,9 @@ export default function ImportGuests() {
   const [checking, setChecking] = useState(false)
   const [error, setError] = useState('')
   const [filter, setFilter] = useState('issues')
-  const [shown, setShown] = useState(PAGE)
+  // Review pages: the page belongs to one tab and page size (changing either goes back to page 1)
+  const [pageSize, setPageSize] = useState(25)
+  const [pageState, setPageState] = useState({ key: '', page: 1 })
   const [editing, setEditing] = useState(null) // row number being edited
   const [draft, setDraft] = useState({})
 
@@ -312,7 +314,7 @@ export default function ImportGuests() {
     if (!data) return
     const hasIssues = data.rows.some((r) => !['ok', 'same'].includes(rowKind(r)))
     setFilter(hasIssues ? 'issues' : 'all')
-    setShown(PAGE)
+    setPageState({ key: '', page: 1 })
     setStep(3)
   }
 
@@ -370,6 +372,11 @@ export default function ImportGuests() {
         return k === filter
       })
   }, [merged, filter])
+
+  const pageKey = `${filter}|${pageSize}`
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const page = Math.min(pageState.key === pageKey ? pageState.page : 1, pageCount)
+  const setPage = (n) => setPageState({ key: pageKey, page: Math.max(1, Math.min(pageCount, n)) })
 
   function setAction(index, action) {
     setRows((list) => list.map((r, i) => (i === index ? { ...r, action } : r)))
@@ -868,7 +875,6 @@ export default function ImportGuests() {
                   aria-selected={filter === v}
                   onClick={() => {
                     setFilter(v)
-                    setShown(PAGE)
                   }}
                   className={`-mb-px flex shrink-0 items-center gap-2 border-b-2 px-3 py-2.5 text-body-sm whitespace-nowrap ${filter === v ? 'border-espresso font-semibold text-espresso' : 'border-transparent text-on-surface-variant hover:text-espresso'}`}
                 >
@@ -885,7 +891,7 @@ export default function ImportGuests() {
             </div>
           ) : (
             <ul className="mt-4 space-y-3">
-              {filtered.slice(0, shown).map((r) => {
+              {filtered.slice((page - 1) * pageSize, page * pageSize).map((r) => {
                 const issue = issueText(r)
                 const raw = rows[r.index]
                 const isEditing = editing === r.index
@@ -1008,13 +1014,18 @@ export default function ImportGuests() {
               })}
             </ul>
           )}
-          {filtered.length > shown && (
-            <div className="mt-4 text-center">
-              <button type="button" className="btn-secondary" onClick={() => setShown((n) => n + PAGE)}>
-                Show more ({filtered.length - shown} left)
-              </button>
-            </div>
-          )}
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={filtered.length}
+            onPage={(n) => {
+              setPage(n)
+              document.getElementById('rev-h')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }}
+            onPageSize={setPageSize}
+            label="Review pages"
+            className="mt-4"
+          />
 
           <div className="mt-8 flex flex-wrap justify-between gap-3">
             <button type="button" className="btn-secondary" onClick={() => setStep(2)}>

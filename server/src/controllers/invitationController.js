@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const Invitation = require("../models/Invitation");
 const Template = require("../models/Template");
 const Guest = require("../models/Guest");
+const { LOGGED_FIELDS, checkPublishedLocks, recordPublishedChanges, rememberPublishedNames } = require("../utils/publishedLocks");
 const User = require("../models/User");
 const AppError = require("../utils/AppError");
 const { customDesignWaiting, KEPT_FOR_CUSTOM } = require("../utils/customDesigns");
@@ -388,7 +389,12 @@ async function updateInvitation(req, res) {
     if (upgrade && !((req.user.publishCredits || 0) > 0)) throw paidPrinted ? NEEDS_ONLINE() : NEEDS_PREMIUM(); // checked before anything changes
     if (upgrade) await keepForCustom(req.user, newTemplate.key);
 
+    // Published already: it stays the same event (names, and an ended event's date)
+    checkPublishedLocks(invitation, changes, req.user);
+    const before = Object.fromEntries(LOGGED_FIELDS.map((f) => [f, invitation[f]]));
+
     Object.assign(invitation, changes);
+    recordPublishedChanges(invitation, before);
     if (onlineCard !== undefined) invitation.onlineCard = onlineCard;
     if (toOnline) invitation.printed = false; // guests keep their physical cards and the QR code keeps working
     if (newTemplate) {
@@ -472,6 +478,7 @@ async function publishInvitation(req, res) {
     }
     invitation.status = "published";
     invitation.publishedAt ??= new Date();
+    rememberPublishedNames(invitation);
     try {
         await invitation.save();
     } catch (err) {
@@ -508,6 +515,7 @@ async function publishPrinted(req, res, invitation) {
     }
     invitation.status = "published";
     invitation.publishedAt ??= new Date();
+    rememberPublishedNames(invitation);
     try {
         await invitation.save();
     } catch (err) {

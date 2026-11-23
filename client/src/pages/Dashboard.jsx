@@ -14,6 +14,7 @@ import { formatDate } from '../templates/strings'
 import Loader from '../components/Loader'
 import { publishCredit } from '../lib/publishCredit'
 import { qrLockNote } from '../lib/accountPlan'
+import PublishStatus from '../components/PublishStatus'
 import { siteUrl } from '../lib/siteUrl'
 import { qrInitials } from '../lib/qrStrings'
 import { drawQr } from '../lib/qrImage'
@@ -104,7 +105,7 @@ function PrintedModal({ onClose }) {
 }
 
 // Printed Cards: the four steps, each with where it stands and where to do it
-function PrintedSteps({ inv, user }) {
+function PrintedSteps({ inv, user, onPublished }) {
   const missing = inv.missingForPublish?.length || 0
   const total = inv.guestCounts?.total || 0
   const live = inv.status === 'published' && !inv.ended
@@ -136,13 +137,15 @@ function PrintedSteps({ inv, user }) {
           ? 'Closed'
           : 'Publish to open the QR reply page',
       to: `/invitations/${inv.id}/edit`,
+      action: !live && !inv.ended && <PublishStatus invitation={inv} onPublished={onPublished} compact />,
     },
   ]
   return (
     <ol className="mt-3 divide-y divide-bone rounded-lg border border-bone bg-white">
       {steps.map((st, i) => (
         <li key={st.title}>
-          <Link to={st.to} className="flex items-center gap-3 px-3 py-2.5 hover:bg-surface-container-low">
+          <div className="flex items-center gap-2 pr-3 hover:bg-surface-container-low">
+          <Link to={st.to} className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5">
             <span
               className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-label-sm ${st.done ? 'bg-[#e3f4e8] text-[#1e6b3a]' : 'bg-surface-container text-on-surface-variant'}`}
               aria-hidden="true"
@@ -155,6 +158,8 @@ function PrintedSteps({ inv, user }) {
             </span>
             <span className="sr-only">{st.done ? 'done' : 'to do'}</span>
           </Link>
+          {st.action}
+          </div>
         </li>
       ))}
     </ol>
@@ -352,7 +357,13 @@ export default function Dashboard() {
                       </div>
                     )}
                     {/* Its QR code for physical cards, once there is one */}
-                    {inv.printed && <PrintedSteps inv={inv} user={user} />}
+                    {inv.printed && (
+                      <PrintedSteps
+                        inv={inv}
+                        user={user}
+                        onPublished={(next) => setInvitations((list) => list.map((i) => (i.id === next.id ? { ...i, ...next, guestCounts: i.guestCounts } : i)))}
+                      />
+                    )}
                     {!inv.printed && inv.limits?.qrRsvp && inv.qr?.enabled && (
                       <Link to={`/invitations/${inv.id}/qr`} className="mt-3 flex items-center gap-3 rounded-lg border border-bone bg-white p-2 pr-3 hover:border-gold">
                         {inv.qr.locked ? (

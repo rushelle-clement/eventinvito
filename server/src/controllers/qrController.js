@@ -19,7 +19,7 @@ const { findOwned } = require("./invitationController");
 const { requireFeature } = require("./guestController");
 
 const MAX_MATCHES = 5;
-const UNAVAILABLE = "Replies by QR code aren't open for this invitation. Please contact the couple.";
+const UNAVAILABLE = "Replies by QR code aren't open yet. Please contact the person who invited you.";
 const ENDED = "This event has ended. Thank you for celebrating with us.";
 
 // ---------- owner ----------

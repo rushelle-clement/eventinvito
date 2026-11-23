@@ -26,6 +26,7 @@ import {
   CalendarClock,
   QrCode,
   Sparkles,
+  Lock,
 } from 'lucide-react'
 import { api } from '../lib/api'
 import FormAlert from '../components/FormAlert'
@@ -85,6 +86,21 @@ function same(a, b) {
 
 // ---------- small form building blocks ----------
 
+// Under the names once it's been published: they belong to this event now (small fixes only)
+function NamesLockNote({ saved }) {
+  if (!saved.paid) return null
+  return saved.namesLocked ? (
+    <p className="flex items-start gap-2 rounded-lg bg-surface-container-low px-3 py-2.5 text-body-sm text-on-surface-variant">
+      <Lock size={15} className="mt-0.5 shrink-0 text-gold-text" aria-hidden="true" />
+      <span>Published, so these names belong to this event. You can fix small spelling mistakes; to change a name, contact us.</span>
+    </p>
+  ) : (
+    <p className="rounded-lg bg-blush-tint px-3 py-2.5 text-body-sm text-espresso">EventInvito has allowed you to change the names once. Save the new names and they’ll stay.</p>
+  )
+}
+
+const ENDED_DATE_NOTE = 'This event has taken place, so its date can’t be moved. Contact us if the event has been moved.'
+
 function Section({ id, icon: Icon, number, title, subtitle, open, onToggle, children }) {
   return (
     <section className="card">
@@ -101,7 +117,8 @@ function Section({ id, icon: Icon, number, title, subtitle, open, onToggle, chil
           </span>
           <span className="flex-1">
             <span className="block text-title-md text-espresso">
-              {number}. {title}
+              {number ? `${number}. ` : ''}
+              {title}
             </span>
             <span className="block text-body-sm text-on-surface-variant">{subtitle}</span>
           </span>
@@ -461,19 +478,23 @@ export default function InvitationEditor() {
 
       {/* What publishing this uses: the free card (free designs) or a Premium credit (animated designs) */}
       {(() => {
-        const { note, blocked } = credit
+        const { note, blocked, used } = credit
         if (!note) return null
         return (
           <div className={`mt-4 rounded-lg px-4 py-3 text-body-sm ${blocked ? 'border border-gold/40 bg-blush-tint text-espresso' : 'bg-surface-container-low text-on-surface-variant'}`}>
             <p>{note}</p>
             {blocked && (
               <>
-                <p className="mt-1.5">
-                  <a href="/#pricing" className="font-semibold text-gold-text underline underline-offset-4">
-                    See the packages
-                  </a>
-                  {(contact?.email || contact?.phone) && ' or contact us to upgrade:'}
-                </p>
+                {used ? (
+                  (contact?.email || contact?.phone) && <p className="mt-1.5">Contact us:</p>
+                ) : (
+                  <p className="mt-1.5">
+                    <a href="/#pricing" className="font-semibold text-gold-text underline underline-offset-4">
+                      See the packages
+                    </a>
+                    {(contact?.email || contact?.phone) && ' or contact us to upgrade:'}
+                  </p>
+                )}
                 <ContactLine className="mt-1" />
               </>
             )}
@@ -531,6 +552,107 @@ export default function InvitationEditor() {
       <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,480px)_minmax(0,1fr)]">
         {/* Settings */}
         <div className="space-y-4">
+          {/* Printed Cards: one short form — only what the QR reply page shows, and when replies close */}
+          {printed && (
+            <section className="card p-5 sm:p-6" aria-labelledby="pe-h">
+              <h2 id="pe-h" className="font-serif text-headline-sm text-espresso">
+                Your event
+              </h2>
+              <p className="mt-1 text-body-sm text-on-surface-variant">Guests see these after scanning the QR code, so they know which event they’re replying to.</p>
+              <div className="mt-5 space-y-5">
+                <label className="block">
+                  <span className="text-label-md text-espresso">Language of the reply page</span>
+                  <select
+                    value={form.language}
+                    onChange={(e) => update('language', e.target.value)}
+                    className="mt-1.5 w-full rounded-lg border border-bone bg-white px-4 py-3 text-body-md outline-none focus:border-gold"
+                  >
+                    {LANGUAGES.filter((l) => !l.comingSoon || l.code === form.language).map((l) => (
+                      <option key={l.code} value={l.code}>
+                        {l.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {christmas ? (
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <Field label="Party title" name="eventTitle" value={form.eventTitle} onChange={update} error={errors.eventTitle} maxLength={100} required placeholder="e.g. Christmas Party" />
+                    <Field label="Hosted by" name="companyName" value={form.companyName} onChange={update} error={errors.companyName} maxLength={80} required placeholder="e.g. The Perera family" />
+                  </div>
+                ) : corporate ? (
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <Field label="Company name" name="companyName" value={form.companyName} onChange={update} error={errors.companyName} maxLength={80} required placeholder="e.g. Lumora Holdings" />
+                    <Field label="Event title" name="eventTitle" value={form.eventTitle} onChange={update} error={errors.eventTitle} maxLength={100} required placeholder="e.g. Annual Awards Night" />
+                  </div>
+                ) : birthday ? (
+                  <div className="grid gap-5 sm:grid-cols-[1fr_9rem]">
+                    <Field label="Birthday person" name="celebrant" value={form.celebrant} onChange={update} error={errors.celebrant} maxLength={60} required placeholder="e.g. Kavindi" />
+                    <Field label="Turning" name="age" type="number" inputMode="numeric" min={0} max={120} value={form.age} onChange={update} error={errors.age} placeholder="Optional" />
+                  </div>
+                ) : (
+                  <>
+                    <fieldset>
+                      <legend className="mb-2 text-label-md text-espresso">Occasion</legend>
+                      <div className="grid grid-cols-3 gap-2">
+                        {OCCASIONS.map((o) => (
+                          <label
+                            key={o.value}
+                            className={`flex cursor-pointer items-center justify-center rounded-lg border px-2 py-2.5 text-center text-body-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-gold ${form.eventType === o.value ? 'border-gold bg-blush-tint font-semibold text-espresso' : 'border-bone bg-white text-espresso'}`}
+                          >
+                            <input type="radio" name="eventType" value={o.value} checked={form.eventType === o.value} onChange={() => update('eventType', o.value)} className="sr-only" />
+                            {o.label}
+                          </label>
+                        ))}
+                      </div>
+                    </fieldset>
+                    <div className="grid gap-5 sm:grid-cols-2">
+                      <Field label="First partner" name="partnerOne" value={form.partnerOne} onChange={update} error={errors.partnerOne} maxLength={60} required placeholder="e.g. Amaya" />
+                      <Field label="Second partner" name="partnerTwo" value={form.partnerTwo} onChange={update} error={errors.partnerTwo} maxLength={60} required placeholder="e.g. Nuwan" />
+                    </div>
+                  </>
+                )}
+                <NamesLockNote saved={saved} />
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <Field label="Event date" name="eventDate" type="date" value={form.eventDate} onChange={update} error={errors.eventDate} required min={today} hint={saved.datesLocked ? ENDED_DATE_NOTE : undefined} />
+                  <Field label="Start time" name="eventTime" type="time" value={form.eventTime} onChange={update} error={errors.eventTime} required />
+                </div>
+                <Field label="Venue name" name="venueName" value={form.venueName} onChange={update} error={errors.venueName} maxLength={120} required placeholder="e.g. Mount Lavinia Hotel" />
+                {saved.onlineCard && (
+                  <Field
+                    label="Venue address"
+                    name="address"
+                    value={form.address}
+                    onChange={update}
+                    error={errors.address}
+                    maxLength={250}
+                    placeholder="Street, city"
+                    hint="Optional. Shown on the free online card; paper-card guests have it on their card."
+                  />
+                )}
+                <Field
+                  label="Reply by"
+                  name="rsvpDeadline"
+                  type="date"
+                  value={form.rsvpDeadline}
+                  onChange={update}
+                  error={errors.rsvpDeadline}
+                  required
+                  min={today}
+                  max={form.eventDate || undefined}
+                  hint="Guests can reply or change their answer until the end of this day. You can still enter replies yourself after it."
+                />
+              </div>
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <button type="button" className="btn-primary" onClick={save} disabled={!dirty || status.type === 'saving'}>
+                  <Save size={16} aria-hidden="true" /> {status.type === 'saving' ? 'Saving…' : 'Save'}
+                </button>
+                <span className="text-body-sm text-on-surface-variant">{dirty ? 'Unsaved changes' : 'All changes saved'}</span>
+              </div>
+            </section>
+          )}
+
+          {!printed && (
+            <>
           <Section id="language" icon={Languages} number={1} title="Language" subtitle="One language per invitation" open={open === 'language'} onToggle={toggle}>
             <fieldset>
               <legend className="mb-3 text-body-sm text-on-surface-variant">
@@ -682,6 +804,7 @@ export default function InvitationEditor() {
                 </div>
               </>
             )}
+            <NamesLockNote saved={saved} />
             <Field
               label="Event date"
               name="eventDate"
@@ -692,7 +815,9 @@ export default function InvitationEditor() {
               required
               min={today}
               hint={
-                until
+                saved.datesLocked
+                  ? ENDED_DATE_NOTE
+                  : until
                   ? `Guests can open your invitation until ${untilText(until)}, the day after your last event. After that their link shows a short note that it has ended.`
                   : 'Guests can open your invitation until the day after your last event.'
               }
@@ -731,6 +856,9 @@ export default function InvitationEditor() {
               hint="Optional. Paste a Google Maps link so guests can find the venue."
             />}
           </Section>
+
+            </>
+          )}
 
           {!printed && (<>
           <Section id="wording" icon={NotebookPen} number={4} title="Wording" subtitle="The words on your invitation" open={open === 'wording'} onToggle={toggle}>
@@ -879,6 +1007,7 @@ export default function InvitationEditor() {
           </Section>
           </>)}
 
+          {!printed && (
           <Section id="rsvp" icon={TicketCheck} number={printed ? 4 : 8} title="RSVP Settings" subtitle={freeDesign ? 'Guests reply on your card' : 'When guests must reply by'} open={open === 'rsvp'} onToggle={toggle}>
             {freeDesign ? (
               <>
@@ -912,10 +1041,11 @@ export default function InvitationEditor() {
               </>
             )}
           </Section>
+          )}
 
           {/* The day plan is for weddings, engagements, homecomings and corporate events (not birthdays) */}
           {printed && (
-            <Section id="design" icon={Sparkles} number={5} title="Online guests" subtitle="A free online card for some guests" open={open === 'design'} onToggle={toggle}>
+            <Section id="design" icon={Sparkles} title="Online guests (optional)" subtitle="A free online card for some guests" open={open === 'design'} onToggle={toggle}>
               {/* The free online card: some guests get a WhatsApp link instead of a paper card */}
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -1067,7 +1197,17 @@ export default function InvitationEditor() {
                   </li>
                 ))}
               </ol>
-              <p className="mt-4 text-body-sm text-on-surface-variant">The reply page shows your names, date, time and venue name, then the reply form.</p>
+              {/* What a guest sees after scanning, from the details as they're typed */}
+              <p className="mt-5 text-label-md text-espresso uppercase">What guests see after scanning</p>
+              <div className="mt-2 rounded-xl border border-bone bg-ivory p-5 text-center">
+                <p className="text-label-sm text-gold-text uppercase">You’re invited</p>
+                <p className="mt-1 font-serif text-title-lg text-espresso">{form.partnerOne || form.partnerTwo || form.celebrant || form.eventTitle ? invitationTitle(form) : 'Your names'}</p>
+                <p className="mt-2 text-body-sm text-on-surface-variant">
+                  {[form.eventDate ? untilText(form.eventDate) : 'Date', form.eventTime, form.venueName || 'Venue'].filter(Boolean).join(' · ')}
+                </p>
+                <div className="mt-4 rounded-lg border border-bone bg-white px-3 py-2 text-left text-body-sm text-on-surface-variant">Type your name as it appears on your card</div>
+                <p className="mt-2 text-body-sm text-on-surface-variant">→ they tap their name, then Attending or Not attending</p>
+              </div>
               {saved.onlineCard && <p className="mt-2 text-body-sm text-on-surface-variant">Guests marked Online get a personal link to your free online card instead.</p>}
               <div className="mt-5 flex flex-wrap gap-2">
                 <Link to={`/invitations/${id}/guests`} className="btn-secondary">

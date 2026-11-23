@@ -16,6 +16,15 @@ export function publishCredit({ printed = false, paid = false, paidKind = null, 
   if (printed) {
     if (paid) return { note: null, blocked: false }
     if (printedLeft > 0) return { note: `Publishing these printed cards uses 1 of your ${plural(printedLeft, 'Printed Cards invitation')}. After that you can still edit it, unpublish it and publish it again.`, blocked: false }
+    // Already used on another event: say so, instead of offering the package as if they'd never had it
+    if (user?.printedMember) {
+      return {
+        note: 'You’ve already used your Printed Cards package on another event. To publish this one too, contact us for another Printed Cards package (Rs. 500).',
+        blocked: true,
+        used: true,
+        short: 'Printed Cards package already used — contact us for another',
+      }
+    }
     return { note: 'Publishing printed cards with a QR code needs the Printed Cards package (Rs. 500).', blocked: true, short: 'Needs the Printed Cards package to publish' }
   }
   if (paid) {

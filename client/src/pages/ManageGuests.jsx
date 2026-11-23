@@ -27,7 +27,6 @@ import {
   Info,
   SkipForward,
   PartyPopper,
-  ChevronLeft,
   ChevronRight,
   QrCode,
   Undo2,
@@ -47,6 +46,7 @@ import { FAMILY, TITLES, formatAddress, parseAddress } from '../lib/addressing'
 import { MAX_GROUP_LENGTH, groupChoices, groupCounts, groupKey } from '../lib/guestGroups'
 import { STRINGS, formatDate, invitationTitle, stringsFor } from '../templates/strings'
 import Loader from '../components/Loader'
+import Pagination from '../components/Pagination'
 import { useAuth } from '../context/AuthContext'
 import { qrLockNote } from '../lib/accountPlan'
 
@@ -794,18 +794,6 @@ function GroupsPanel({ rows, active, onPick, showOpened = true }) {
       </ul>
     </section>
   )
-}
-
-// Page buttons: the first, the last and those around the current page, with … between
-function pageNumbers(page, count) {
-  const keep = new Set([1, count, page - 1, page, page + 1].filter((n) => n >= 1 && n <= count))
-  const list = [...keep].sort((a, b) => a - b)
-  const out = []
-  list.forEach((n, i) => {
-    if (i && n - list[i - 1] > 1) out.push('…')
-    out.push(n)
-  })
-  return out
 }
 
 // The menu is placed on the screen itself (position: fixed), so the guest list's rounded,
@@ -1712,53 +1700,15 @@ export default function ManageGuests() {
           </ul>
 
           {/* Pages */}
-          {visible.length > 25 && (
-            <nav className="flex flex-col gap-3 border-t border-bone px-5 py-3 text-body-sm text-on-surface-variant sm:flex-row sm:items-center sm:justify-between" aria-label="Guest list pages">
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                <span className="tabular-nums">
-                  {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, visible.length)} of {visible.length}
-                </span>
-                <label className="flex items-center gap-2">
-                  Show
-                  <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} className="rounded-full border border-bone bg-ivory py-1 pr-7 pl-3 text-body-sm text-espresso outline-none focus:border-gold">
-                    {[25, 50, 100].map((n) => (
-                      <option key={n} value={n}>
-                        {n}
-                      </option>
-                    ))}
-                  </select>
-                  per page
-                </label>
-              </div>
-              {pageCount > 1 && (
-                <div className="flex items-center gap-1">
-                  <button type="button" className="grid h-9 w-9 place-items-center rounded-full hover:bg-surface-container disabled:opacity-40" onClick={() => setPage(page - 1)} disabled={page === 1} aria-label="Previous page">
-                    <ChevronLeft size={18} aria-hidden="true" />
-                  </button>
-                  {pageNumbers(page, pageCount).map((n, i) =>
-                    n === '…' ? (
-                      <span key={`gap-${i}`} className="px-1">
-                        …
-                      </span>
-                    ) : (
-                      <button
-                        key={n}
-                        type="button"
-                        onClick={() => setPage(n)}
-                        aria-current={n === page ? 'page' : undefined}
-                        className={`h-9 min-w-9 rounded-full px-2 tabular-nums ${n === page ? 'bg-espresso text-white' : 'text-espresso hover:bg-surface-container'}`}
-                      >
-                        {n}
-                      </button>
-                    ),
-                  )}
-                  <button type="button" className="grid h-9 w-9 place-items-center rounded-full hover:bg-surface-container disabled:opacity-40" onClick={() => setPage(page + 1)} disabled={page === pageCount} aria-label="Next page">
-                    <ChevronRight size={18} aria-hidden="true" />
-                  </button>
-                </div>
-              )}
-            </nav>
-          )}
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={visible.length}
+            onPage={setPage}
+            onPageSize={setPageSize}
+            label="Guest list pages"
+            className="border-t border-bone px-5 py-3"
+          />
         </div>
       )}
 

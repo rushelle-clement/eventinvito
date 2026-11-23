@@ -3,7 +3,7 @@
 // package; Signature's is its custom design) and sets the limits (guests, photos, own song, Excel). Also: turn accounts
 // off, set new passwords, and create accounts for couples who can't sign up themselves. Only admin accounts can open it (see App.jsx and the server's /api/admin).
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Check, ChevronLeft, ChevronRight, Copy, Eye, KeyRound, LayoutGrid, Minus, Plus, Power, Search, ShieldCheck, Sparkles, UserPlus, Wand2 } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
@@ -153,7 +153,10 @@ function CreateAccount({ onCreated }) {
 const short = (iso) => formatDate(iso, 'en', { day: 'numeric', month: 'short', year: 'numeric' })
 
 // One account as a table row; "New password" opens a second row underneath
-function AccountRow({ account, me, onChange, lockAfterEvent }) {
+// Names for the fields in an invitation's change history
+const CHANGE_LABELS = { partnerOne: 'First name', partnerTwo: 'Second name', celebrant: 'Birthday person', companyName: 'Company / host', eventTitle: 'Title', eventDate: 'Date', venueName: 'Venue' }
+
+function AccountRow({ account, me, onChange, lockAfterEvent, onShowInvitations }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [newPassword, setNewPassword] = useState(null) // null = closed
@@ -176,6 +179,33 @@ function AccountRow({ account, me, onChange, lockAfterEvent }) {
       setBusy(false)
     }
   }
+
+  // Credit counters change on the screen straight away; the new number is saved a moment after
+  // the last click (several quick clicks send one save). On an error the saved number comes back.
+  const [counts, setCounts] = useState({}) // numbers clicked but not saved yet
+  const timers = useRef({})
+  const shown = (key) => counts[key] ?? account[key] ?? 0
+  function bump(field, key, delta) {
+    const next = Math.max(0, Math.min(50, shown(key) + delta))
+    setCounts((c) => ({ ...c, [key]: next }))
+    clearTimeout(timers.current[key])
+    timers.current[key] = setTimeout(async () => {
+      setError('')
+      try {
+        const d = await api(`/admin/users/${account.id}`, { method: 'PATCH', body: { [field]: next } })
+        onChange(d.user)
+      } catch (err) {
+        setError(err.message)
+      } finally {
+        setCounts((c) => {
+            const rest = { ...c }
+            delete rest[key]
+            return rest
+          })
+      }
+    }, 500)
+  }
+  useEffect(() => () => Object.values(timers.current).forEach(clearTimeout), [])
 
   async function savePassword() {
     if (await patch({ password: newPassword })) {
@@ -200,6 +230,7 @@ function AccountRow({ account, me, onChange, lockAfterEvent }) {
             )}
           </p>
           <p className="max-w-[16rem] truncate text-body-sm text-on-surface-variant">{account.email}</p>
+          <p className="text-[12px] text-on-surface-variant">Joined {short(account.createdAt.slice(0, 10))}</p>
         </td>
         <td className={cell}>
           <span className={`inline-block rounded-full px-2.5 py-0.5 text-label-sm whitespace-nowrap uppercase ${st.cls}`}>{st.label}</span>
@@ -210,7 +241,7 @@ function AccountRow({ account, me, onChange, lockAfterEvent }) {
           ) : (
             <>
               <select
-                className="w-full max-w-[11rem] rounded-lg border border-bone bg-white px-2.5 py-1.5 text-body-sm text-espresso outline-none focus:border-gold"
+                className="w-[10.5rem] rounded-lg border border-bone bg-white px-2.5 py-1.5 text-body-sm text-espresso outline-none focus:border-gold"
                 value={account.plan || 'free'}
                 onChange={(e) => {
                   const plan = e.target.value
@@ -247,12 +278,12 @@ function AccountRow({ account, me, onChange, lockAfterEvent }) {
                 // Printed Cards package (Rs. 500): paper cards with a QR code, no online design
                 ['printedCredits', 'printedCredits', 'Printed Cards package'],
               ].map(([field, key, label]) => (
-                <div key={field} className="flex items-center gap-1.5" aria-label={`${label}: ${account[key] || 0} left for ${account.name}`}>
-                  <button type="button" className="btn-secondary h-7 w-7 !p-0" onClick={() => patch({ [field]: (account[key] || 0) - 1 })} disabled={busy || !(account[key] > 0)} aria-label={`One fewer ${label}`}>
+                <div key={field} className="flex items-center gap-1.5" aria-label={`${label}: ${shown(key)} left for ${account.name}`}>
+                  <button type="button" className="btn-secondary h-7 w-7 !p-0" onClick={() => bump(field, key, -1)} disabled={!(shown(key) > 0)} aria-label={`One fewer ${label}`}>
                     <Minus size={13} aria-hidden="true" />
                   </button>
-                  <strong className="w-5 text-center text-title-md text-espresso">{account[key] || 0}</strong>
-                  <button type="button" className="btn-secondary h-7 w-7 !p-0" onClick={() => patch({ [field]: (account[key] || 0) + 1 })} disabled={busy || (account[key] || 0) >= 50} aria-label={`One more ${label}`}>
+                  <strong className={`w-5 text-center text-title-md ${key in counts ? 'text-gold-text' : 'text-espresso'}`}>{shown(key)}</strong>
+                  <button type="button" className="btn-secondary h-7 w-7 !p-0" onClick={() => bump(field, key, 1)} disabled={shown(key) >= 50} aria-label={`One more ${label}`}>
                     <Plus size={13} aria-hidden="true" />
                   </button>
                   <span className="text-body-sm whitespace-nowrap text-on-surface-variant">{label}</span>
@@ -278,6 +309,11 @@ function AccountRow({ account, me, onChange, lockAfterEvent }) {
                     {i.eventDate ? short(i.eventDate) : 'no date'} ·{' '}
                     {i.ended ? 'ended' : i.status === 'published' ? `online until ${formatDate(i.onlineUntil, 'en', { day: 'numeric', month: 'short' })}` : i.status}
                   </span>
+                  {i.changes?.length > 0 && (
+                    <button type="button" className="mt-0.5 block text-[12px] text-gold-text underline underline-offset-2" onClick={() => onShowInvitations(account.email)}>
+                      {i.changes.length} change{i.changes.length === 1 ? '' : 's'} · view
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
@@ -288,10 +324,9 @@ function AccountRow({ account, me, onChange, lockAfterEvent }) {
             </span>
           )}
         </td>
-        <td className={`${cell} text-body-sm whitespace-nowrap text-on-surface-variant`}>{short(account.createdAt.slice(0, 10))}</td>
         <td className={cell}>
           <div className="flex flex-col items-start gap-1.5">
-            <div className="flex gap-1.5">
+            <div className="flex flex-col items-start gap-1.5">
               {!isMe && (
                 <button type="button" className="btn-secondary px-3 py-1.5 text-body-sm" onClick={() => patch({ disabled: !account.disabled })} disabled={busy}>
                   <Power size={14} aria-hidden="true" /> {account.disabled ? 'Turn on' : 'Turn off'}
@@ -544,8 +579,8 @@ function CustomDesigns({ onChanged }) {
   }, [])
 
   return (
-    <section className="mt-12" aria-labelledby="custom-h">
-      <h2 id="custom-h" className="flex items-center gap-2 font-serif text-headline-sm text-espresso">
+    <section className="mt-8" aria-labelledby="custom-h">
+      <h2 id="custom-h" className="sr-only">
         <Sparkles size={20} className="text-gold-text" aria-hidden="true" /> Custom designs
       </h2>
       <p className="mt-1 max-w-2xl text-body-sm text-on-surface-variant">
@@ -571,6 +606,170 @@ function CustomDesigns({ onChanged }) {
             />
           ))}
         </ul>
+      )}
+    </section>
+  )
+}
+
+// The Invitations tab: every published invitation, what changed after publishing, and the
+// one-off permissions (a real name change, or moving an ended event's date)
+function InvitationsTab({ initialQuery = '' }) {
+  const [query, setQuery] = useState(initialQuery)
+  const [onlyChanged, setOnlyChanged] = useState(false)
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(20)
+  const [data, setData] = useState(null)
+  const [error, setError] = useState('')
+  const [busyId, setBusyId] = useState('')
+
+  useEffect(() => {
+    const t = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({ page: String(page), limit: String(limit) })
+        if (query.trim()) params.set('q', query.trim())
+        if (onlyChanged) params.set('changed', '1')
+        setData(await api(`/admin/invitations?${params}`))
+        setError('')
+      } catch (err) {
+        setError(err.message)
+      }
+    }, query ? 300 : 0)
+    return () => clearTimeout(t)
+  }, [query, onlyChanged, page, limit])
+
+  async function unlock(inv, body) {
+    setBusyId(inv.id)
+    setError('')
+    try {
+      const d = await api(`/admin/invitations/${inv.id}`, { method: 'PATCH', body })
+      setData((x) => ({ ...x, invitations: x.invitations.map((i) => (i.id === inv.id ? { ...i, ...d.invitation } : i)) }))
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusyId('')
+    }
+  }
+
+  const cell = 'px-4 py-3 align-top'
+  return (
+    <section className="mt-8" aria-labelledby="inv-h">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 id="inv-h" className="font-serif text-headline-sm text-espresso">
+            Published invitations
+          </h2>
+          <p className="mt-1 max-w-2xl text-body-sm text-on-surface-variant">
+            After publishing, the names can only get small spelling fixes and an ended event’s date can’t move. Changes are listed here. If a couple really needs a change, allow it once:
+            it locks again after they save.
+          </p>
+        </div>
+        <div className="flex flex-col gap-2 sm:items-end">
+          <label className="relative block sm:w-72">
+            <span className="sr-only">Search invitations</span>
+            <Search size={16} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-on-surface-variant" aria-hidden="true" />
+            <input
+              className={`${input} pl-10`}
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value)
+                setPage(1)
+              }}
+              placeholder="Search names, account or email"
+            />
+          </label>
+          <label className="inline-flex cursor-pointer items-center gap-2 text-body-sm text-espresso">
+            <input
+              type="checkbox"
+              className="h-4 w-4 accent-espresso"
+              checked={onlyChanged}
+              onChange={(e) => {
+                setOnlyChanged(e.target.checked)
+                setPage(1)
+              }}
+            />
+            Only with changes after publishing
+          </label>
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <FormAlert>{error}</FormAlert>
+      </div>
+      {!data && !error && <Loader label="Loading invitations" />}
+      {data && data.invitations.length === 0 && <p className="mt-6 text-body-md text-on-surface-variant">No invitations found.</p>}
+      {data && data.invitations.length > 0 && (
+        <>
+          <div className="card mt-4 overflow-x-auto">
+            <table className="w-full min-w-[960px] text-left">
+              <thead className="bg-surface-container-low text-label-sm text-on-surface-variant uppercase">
+                <tr>
+                  <th scope="col" className="px-4 py-3 font-semibold">Invitation</th>
+                  <th scope="col" className="px-4 py-3 font-semibold">Account</th>
+                  <th scope="col" className="px-4 py-3 font-semibold">Event</th>
+                  <th scope="col" className="px-4 py-3 font-semibold">Changes after publishing</th>
+                  <th scope="col" className="px-4 py-3 font-semibold">Allow once</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.invitations.map((i) => (
+                  <tr key={i.id} className="border-t border-bone">
+                    <td className={cell}>
+                      <p className="font-semibold text-espresso">{i.names}</p>
+                      <span className={`mt-1 inline-block rounded-full px-1.5 py-px text-[11px] uppercase ${i.paidKind === 'free' ? 'bg-surface-container-high text-on-surface-variant' : i.paidKind === 'printed' ? 'bg-[#f1ebf8] text-[#5b3d86]' : 'bg-gold/20 text-gold-text'}`}>
+                        {i.paidKind === 'free' ? 'Free' : i.paidKind === 'printed' ? 'Printed' : 'Premium'}
+                      </span>
+                    </td>
+                    <td className={`${cell} text-body-sm`}>
+                      <p className="text-espresso">{i.owner?.name || '—'}</p>
+                      <p className="max-w-[14rem] truncate text-on-surface-variant">{i.owner?.email}</p>
+                    </td>
+                    <td className={`${cell} text-body-sm text-on-surface-variant`}>
+                      {i.eventDate ? short(i.eventDate) : 'no date'}
+                      <span className="block">{i.ended ? 'ended' : i.status}</span>
+                    </td>
+                    <td className={`${cell} text-body-sm`}>
+                      {i.changes.length === 0 ? (
+                        <span className="text-on-surface-variant">None</span>
+                      ) : (
+                        <ul className="space-y-1">
+                          {i.changes.map((c, k) => (
+                            <li key={k}>
+                              <span className="text-on-surface-variant">{short(String(c.at).slice(0, 10))} · {CHANGE_LABELS[c.field] || c.field}:</span> {c.from || '—'} →{' '}
+                              <span className="font-semibold text-espresso">{c.to || '—'}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </td>
+                    <td className={cell}>
+                      <div className="flex flex-col items-start gap-1.5">
+                        <button type="button" className="btn-secondary px-3 py-1.5 text-body-sm" onClick={() => unlock(i, { namesUnlocked: !i.namesUnlocked })} disabled={busyId === i.id}>
+                          {i.namesUnlocked ? 'Name change allowed · undo' : 'Allow a name change'}
+                        </button>
+                        {i.ended && (
+                          <button type="button" className="btn-secondary px-3 py-1.5 text-body-sm" onClick={() => unlock(i, { datesUnlocked: !i.datesUnlocked })} disabled={busyId === i.id}>
+                            {i.datesUnlocked ? 'New date allowed · undo' : 'Allow a new date'}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <Pagination
+            page={data.page}
+            pages={data.pages}
+            total={data.total}
+            limit={data.limit}
+            onPage={(p) => setPage(Math.max(1, Math.min(data.pages, p)))}
+            onLimit={(l) => {
+              setLimit(l)
+              setPage(1)
+            }}
+          />
+        </>
       )}
     </section>
   )
@@ -604,28 +803,75 @@ export default function Admin() {
 
   const replace = (next) => setData((d) => d && { ...d, users: d.users.map((a) => (a.id === next.id ? next : a)) })
   const accounts = data?.users
+  // Tabs: accounts (packages and credits), creating an account, published invitations
+  // (changes, permissions) and custom designs. The address keeps the tab (#create etc.)
+  const TABS = [
+    ['accounts', 'Accounts'],
+    ['create', 'Create account'],
+    ['invitations', 'Invitations'],
+    ['designs', 'Custom designs'],
+  ]
+  const [tab, setTab] = useState(() => {
+    const h = window.location.hash.slice(1)
+    return TABS.some(([v]) => v === h) ? h : 'accounts'
+  })
+  const [invQuery, setInvQuery] = useState('')
+  const showTab = (t, q = '') => {
+    setInvQuery(q)
+    setTab(t)
+    window.history.replaceState(null, '', t === 'accounts' ? '#' : `#${t}`)
+  }
+  const refresh = () => load({ q: query.trim(), page, limit })
 
   return (
     <div className="mx-auto max-w-[1200px] px-margin-mobile py-10 md:px-margin">
       <p className="text-label-sm text-on-surface-variant uppercase">Admin</p>
-      <h1 className="mt-2 font-serif text-headline-lg-mobile text-espresso md:text-headline-lg">Accounts</h1>
-      <p className="mt-2 max-w-2xl text-body-md text-on-surface-variant">
-        Couples sign up themselves and get one free card. When a couple pays, search for their email and choose their package: it sets their limits and
-        adds the Premium invitations (1 for Premium, 2 for Premium Plus and Signature). Drafts are always free.
-      </p>
-
-      <div className="mt-8 max-w-[960px]">
-        <CreateAccount
-          onCreated={() => {
-            // Newest accounts are listed first: show page 1 again
-            setQuery('')
-            if (page === 1) load({ q: '', page: 1, limit })
-            else setPage(1)
-          }}
-        />
+      <h1 className="mt-2 font-serif text-headline-lg-mobile text-espresso md:text-headline-lg">{TABS.find(([v]) => v === tab)[1]}</h1>
+      <div className="mt-5 flex flex-wrap gap-x-1 border-b border-bone" role="tablist" aria-label="Admin sections">
+        {TABS.map(([v, label]) => (
+          <button
+            key={v}
+            type="button"
+            role="tab"
+            aria-selected={tab === v}
+            onClick={() => showTab(v)}
+            className={`-mb-px shrink-0 border-b-2 px-4 py-2.5 text-body-md whitespace-nowrap ${tab === v ? 'border-espresso font-semibold text-espresso' : 'border-transparent text-on-surface-variant hover:text-espresso'}`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
-      <section className="mt-10" aria-labelledby="list-h">
+      {tab === 'invitations' && <InvitationsTab key={invQuery} initialQuery={invQuery} />}
+
+      {tab === 'designs' && <CustomDesigns onChanged={refresh} />}
+
+      {tab === 'create' && (
+        <>
+          <p className="mt-6 max-w-2xl text-body-md text-on-surface-variant">
+            Couples usually sign up themselves. Use this for a couple who asked you to set things up: give them the sign-in details shown after creating.
+          </p>
+          <div className="mt-6 max-w-[960px]">
+            <CreateAccount
+              onCreated={() => {
+                // Newest accounts are listed first: show page 1 again
+                setQuery('')
+                if (page === 1) load({ q: '', page: 1, limit })
+                else setPage(1)
+              }}
+            />
+          </div>
+        </>
+      )}
+
+      {tab === 'accounts' && (
+      <>
+      <p className="mt-6 max-w-2xl text-body-md text-on-surface-variant">
+        Couples sign up themselves and get one free card. When a couple pays, search for their email and choose their package: it sets their limits and
+        adds its Premium invitation (1 with each package). Drafts are always free.
+      </p>
+
+      <section className="mt-8" aria-labelledby="list-h">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 id="list-h" className="font-serif text-headline-sm text-espresso">
@@ -667,13 +913,12 @@ export default function Admin() {
                     <th scope="col" className="px-4 py-3 font-semibold">Package</th>
                     <th scope="col" className="px-4 py-3 font-semibold">Left to publish</th>
                     <th scope="col" className="px-4 py-3 font-semibold">Published invitation</th>
-                    <th scope="col" className="px-4 py-3 font-semibold">Created</th>
                     <th scope="col" className="px-4 py-3 font-semibold">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {accounts.map((a) => (
-                    <AccountRow key={a.id} account={a} me={user} onChange={replace} lockAfterEvent={data.lockAfterEvent} />
+                    <AccountRow key={a.id} account={a} me={user} onChange={replace} lockAfterEvent={data.lockAfterEvent} onShowInvitations={(email) => showTab('invitations', email)} />
                   ))}
                 </tbody>
               </table>
@@ -692,8 +937,8 @@ export default function Admin() {
           </>
         )}
       </section>
-
-      <CustomDesigns onChanged={() => load({ q: query.trim(), page, limit })} />
+      </>
+      )}
     </div>
   )
 }

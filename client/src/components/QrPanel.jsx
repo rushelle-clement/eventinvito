@@ -2,7 +2,7 @@
 // code to print (Premium Plus, Signature and Printed Cards). Used on the invitation's QR code page.
 
 import { useEffect, useRef, useState } from 'react'
-import { AlertTriangle, Check, Copy, Download, ExternalLink, Info, Lock, QrCode } from 'lucide-react'
+import { Check, Copy, Download, ExternalLink, Info, Lock, QrCode } from 'lucide-react'
 import { api } from '../lib/api'
 import { copyText } from '../lib/share'
 import { invitationTitle } from '../templates/strings'
@@ -66,13 +66,14 @@ export default function QrPanel({ invitation, physical, viaQr, live, physicalOnl
                     'Print this one code on all your cards. Guests scan it, find their name and reply.'
                   ) : (
                     <>
-                      Print one code on all your paper cards. Guests marked <strong className="text-espresso">Physical card</strong> scan it, find their name and reply.
+                      Print one code on all your paper cards. Guests marked <strong className="text-espresso">Physical card</strong> scan it, find their name and reply. The switch turns QR replies on or off; guests can only reply once the invitation is published.
                     </>
                   )}
                 </p>
               </div>
             </div>
-            {!qr.locked && (
+            {/* Printed Cards: the QR code is the whole package, so it's always on (publishing opens it) */}
+            {!qr.locked && !physicalOnly && (
             <button
               type="button"
               role="switch"
@@ -118,12 +119,7 @@ export default function QrPanel({ invitation, physical, viaQr, live, physicalOnl
                     : 'Choose “Physical card” when you add a guest, or import a separate Excel file for your physical-card guests. Only they can reply with this code.'}
                 </p>
               )}
-              {!live && (
-                <p className="mt-3 flex items-start gap-2 rounded-lg bg-blush-tint px-4 py-3 text-body-sm text-espresso">
-                  <AlertTriangle size={16} className="mt-0.5 shrink-0 text-gold-text" aria-hidden="true" />
-                  The QR page opens once your invitation is published. You can print the code now: it won’t change.
-                </p>
-              )}
+
               <div className="mt-4 flex flex-wrap gap-2">
                 <button type="button" className="btn-primary px-4 py-2 text-body-sm" onClick={() => downloadQr(url, initials, fileName)}>
                   <Download size={15} aria-hidden="true" /> Download QR (PNG)
@@ -131,9 +127,11 @@ export default function QrPanel({ invitation, physical, viaQr, live, physicalOnl
                 <button type="button" className="btn-secondary px-3.5 py-2 text-body-sm" onClick={copy}>
                   {copied ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />} {copied ? 'Copied' : 'Copy link'}
                 </button>
-                <a href={url} target="_blank" rel="noreferrer" className="btn-secondary px-3.5 py-2 text-body-sm">
-                  <ExternalLink size={15} aria-hidden="true" /> Open reply page
-                </a>
+                {live && (
+                  <a href={url} target="_blank" rel="noreferrer" className="btn-secondary px-3.5 py-2 text-body-sm">
+                    <ExternalLink size={15} aria-hidden="true" /> Open reply page
+                  </a>
+                )}
               </div>
             </>
           )}

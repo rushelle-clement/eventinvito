@@ -42,7 +42,60 @@ function invitationSummary(i) {
         eventDate: i.eventDate,
         onlineUntil: i.onlineUntil(),
         ended: i.hasEnded(),
+        // After publishing: what changed (newest first), and the one-off unlocks
+        changes: (i.changeLog || []).slice(-20).reverse().map((c) => ({ at: c.at, field: c.field, from: c.from, to: c.to })),
+        namesUnlocked: Boolean(i.namesUnlocked),
+        datesUnlocked: Boolean(i.datesUnlocked),
     };
+}
+
+// GET /api/admin/invitations?q=&page=&limit=&changed=1 — published (paid) invitations, newest
+// first, with what changed after publishing. q matches the names or the owner's name / email.
+async function listInvitations(req, res) {
+    const q = str(req.query?.q).slice(0, 100);
+    const limit = PAGE_SIZES.includes(Number(req.query?.limit)) ? Number(req.query.limit) : 20;
+    const filter = { status: { $ne: "archived" }, $or: [{ creditUsed: true }, { publishedAt: { $ne: null } }] };
+    if (req.query?.changed === "1") filter["changeLog.0"] = { $exists: true };
+    if (q) {
+        const rx = { $regex: escapeRegex(q), $options: "i" };
+        const owners = await User.find({ $or: [{ name: rx }, { email: rx }] }).select("_id");
+        filter.$and = [{ $or: [{ owner: { $in: owners.map((u) => u._id) } }, ...["partnerOne", "partnerTwo", "celebrant", "companyName", "eventTitle"].map((f) => ({ [f]: rx }))] }];
+    }
+    const total = await Invitation.countDocuments(filter);
+    const pages = Math.max(1, Math.ceil(total / limit));
+    const page = Math.min(pages, Math.max(1, parseInt(req.query?.page, 10) || 1));
+    const list = await Invitation.find(filter)
+        .sort({ updatedAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit);
+    const owners = new Map((await User.find({ _id: { $in: list.map((i) => i.owner) } }).select("name email")).map((u) => [String(u._id), u]));
+    res.json({
+        success: true,
+        invitations: list.map((i) => {
+            const o = owners.get(String(i.owner));
+            return { ...invitationSummary(i), changeCount: (i.changeLog || []).length, owner: o ? { name: o.name, email: o.email } : null };
+        }),
+        page,
+        pages,
+        total,
+        limit,
+    });
+}
+
+// PATCH /api/admin/invitations/:id  { namesUnlocked?, datesUnlocked? }
+// Lets a couple make one real name change, or move an ended event's date (it locks again after)
+async function updateInvitationLocks(req, res) {
+    if (!mongoose.isValidObjectId(req.params.id)) throw new AppError(404, "Invitation not found.");
+    const invitation = await Invitation.findById(req.params.id);
+    if (!invitation) throw new AppError(404, "Invitation not found.");
+    for (const key of ["namesUnlocked", "datesUnlocked"]) {
+        if (key in (req.body || {})) {
+            if (typeof req.body[key] !== "boolean") throw new AppError(400, `${key} must be true or false.`);
+            invitation[key] = req.body[key];
+        }
+    }
+    await invitation.save();
+    res.json({ success: true, invitation: invitationSummary(invitation) });
 }
 
 async function accountJSON(user, invitations, customs = []) {
@@ -76,7 +129,7 @@ async function listAccounts(req, res) {
         .skip((page - 1) * limit)
         .limit(limit);
     const invitations = await Invitation.find({ owner: { $in: users.map((u) => u._id) }, status: { $ne: "archived" } }).select(
-        "owner partnerOne partnerTwo celebrant age companyName eventTitle eventType status eventDate ceremonies timeZone creditUsed creditKind publishedAt printed"
+        "owner partnerOne partnerTwo celebrant age companyName eventTitle eventType status eventDate ceremonies timeZone creditUsed creditKind publishedAt printed changeLog namesUnlocked datesUnlocked"
     );
     const customs = await Template.find({ reservedFor: { $in: users.map((u) => String(u.email).toLowerCase()) } });
     res.json({
@@ -147,7 +200,7 @@ async function updateUserAccount(req, res) {
     await user.save();
 
     const invitations = await Invitation.find({ owner: user._id, status: { $ne: "archived" } }).select(
-        "owner partnerOne partnerTwo celebrant age companyName eventTitle eventType status eventDate ceremonies timeZone creditUsed creditKind publishedAt printed"
+        "owner partnerOne partnerTwo celebrant age companyName eventTitle eventType status eventDate ceremonies timeZone creditUsed creditKind publishedAt printed changeLog namesUnlocked datesUnlocked"
     );
     const customs = await Template.find({ reservedFor: String(user.email).toLowerCase() });
     res.json({ success: true, user: await accountJSON(user, invitations, customs) });
@@ -219,4 +272,4 @@ function passwordSuggestion(req, res) {
     res.json({ success: true, password: suggestPassword() });
 }
 
-module.exports = { PLAN_CREDITS, listCustomDesigns, updateCustomDesign, listAccounts, createUserAccount, updateUserAccount, passwordSuggestion };
+module.exports = { listInvitations, updateInvitationLocks, PLAN_CREDITS, listCustomDesigns, updateCustomDesign, listAccounts, createUserAccount, updateUserAccount, passwordSuggestion };

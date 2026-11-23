@@ -9,48 +9,56 @@ import { api } from '../lib/api'
 import { qrStringsFor } from '../lib/qrStrings'
 import { formatDate, formatTime, hostsOf, invitationTitle, isBirthday, isChristmas, isCorporate, stringsFor } from '../templates/strings'
 import Loader from '../components/Loader'
+import { siteHost, siteUrl } from '../lib/siteUrl'
 
+// The page frame: soft ivory, the card in the middle, and who made it at the bottom
 function Shell({ lang, children }) {
   return (
-    <main className="ei-reveal min-h-screen bg-ivory px-margin-mobile py-10 sm:py-16" lang={lang}>
-      <div className="mx-auto max-w-md">
-        {children}
-        <p className="mt-8 text-center font-serif text-body-md text-espresso">
-          EventInvito<span className="text-gold">.</span>
-        </p>
-      </div>
+    <main className="ei-reveal flex min-h-screen flex-col bg-ivory px-margin-mobile pt-10 pb-8 sm:pt-16" lang={lang}>
+      <div className="mx-auto w-full max-w-md flex-1">{children}</div>
+      <footer className="mx-auto mt-10 flex w-full max-w-md flex-col items-center gap-1.5 text-center" lang="en">
+        <a href={siteUrl()} className="inline-flex items-center gap-2 font-serif text-body-md text-espresso">
+          <img src="/brand/eventinvito-mark.png" alt="" width="28" height="28" className="h-7 w-7" />
+          <span>
+            EventInvito<span className="text-gold">.</span>
+          </span>
+        </a>
+        <a href={siteUrl()} className="text-label-sm tracking-wide text-on-surface-variant hover:text-gold-text">
+          {siteHost()}
+        </a>
+      </footer>
     </main>
   )
 }
 
+// The event, like the top of a printed card: who, then when and where
 function Header({ invitation }) {
   const lang = invitation.language
   const t = stringsFor(lang, invitation.eventType)
   const title = isBirthday(invitation) || isCorporate(invitation) || isChristmas(invitation) ? invitationTitle(invitation, lang) : hostsOf(invitation, lang)
   const time = formatTime(invitation.eventTime, lang)
+  const details = [
+    invitation.eventDate && { Icon: CalendarDays, text: formatDate(invitation.eventDate, lang) },
+    time && { Icon: Clock, text: time },
+    invitation.venueName && { Icon: MapPin, text: invitation.venueName },
+  ].filter(Boolean)
   return (
-    <header className="text-center">
-      <p className="eyebrow">{t.youAreInvited}</p>
-      <h1 className="mt-2 font-serif text-headline-lg-mobile text-espresso">{title}</h1>
-      <ul className="mx-auto mt-4 flex max-w-xs flex-col items-center gap-1.5 text-body-md text-on-surface-variant">
-        {invitation.eventDate && (
-          <li className="flex items-center gap-2">
-            <CalendarDays size={16} className="shrink-0 text-gold-text" aria-hidden="true" />
-            {formatDate(invitation.eventDate, lang)}
+    <header className="relative overflow-hidden rounded-t-2xl border border-b-0 border-bone bg-white px-6 pt-8 pb-6 text-center">
+      <span className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-gold/40 via-gold to-gold/40" aria-hidden="true" />
+      <p className="text-label-sm tracking-[0.25em] text-gold-text uppercase">{t.youAreInvited}</p>
+      <h1 className="mt-3 font-serif text-headline-lg-mobile leading-tight text-espresso">{title}</h1>
+      <div className="mx-auto mt-4 flex items-center justify-center gap-2" aria-hidden="true">
+        <span className="h-px w-10 bg-gold/60" />
+        <span className="h-1.5 w-1.5 rotate-45 bg-gold" />
+        <span className="h-px w-10 bg-gold/60" />
+      </div>
+      <ul className="mt-4 space-y-1.5 text-body-md text-espresso">
+        {details.map(({ Icon, text }) => (
+          <li key={text} className="flex items-center justify-center gap-2">
+            <Icon size={16} className="shrink-0 text-gold-text" aria-hidden="true" />
+            {text}
           </li>
-        )}
-        {time && (
-          <li className="flex items-center gap-2">
-            <Clock size={16} className="shrink-0 text-gold-text" aria-hidden="true" />
-            {time}
-          </li>
-        )}
-        {invitation.venueName && (
-          <li className="flex items-center gap-2">
-            <MapPin size={16} className="shrink-0 text-gold-text" aria-hidden="true" />
-            {invitation.venueName}
-          </li>
-        )}
+        ))}
       </ul>
     </header>
   )
@@ -60,13 +68,16 @@ export default function QrReply() {
   const { code } = useParams()
   const [state, setState] = useState({ status: 'loading' })
   const [query, setQuery] = useState('')
-  const [search, setSearch] = useState(null) // { matches, tooMany } after a search
+  const [search, setSearch] = useState(null) // { q, matches, tooMany } for the last search
   const [searching, setSearching] = useState(false)
   const [message, setMessage] = useState('')
-  const [guest, setGuest] = useState(null) // the guest they tapped
+  const [open, setOpen] = useState(false) // the list of names under the box
+  const [active, setActive] = useState(-1) // the name picked with the arrow keys
+  const [guest, setGuest] = useState(null) // the guest they chose
   const [sending, setSending] = useState('')
   const [sent, setSent] = useState(false)
   const inputRef = useRef(null)
+  const lastAsked = useRef('')
 
   useEffect(() => {
     const meta = document.createElement('meta')
@@ -91,14 +102,41 @@ export default function QrReply() {
     }
   }, [code])
 
+  // Search as they type: from 3 letters, a moment after they stop typing
+  const lettersTyped = query.replace(/[^\p{L}\p{N}]/gu, '').length
+  useEffect(() => {
+    if (state.status !== 'ready' || guest) return undefined
+    const q = query.trim()
+    if (lettersTyped < 3) return undefined // too short: the list stays hidden (see showList)
+    const timer = setTimeout(async () => {
+      lastAsked.current = q
+      setSearching(true)
+      try {
+        const data = await api(`/qr/${encodeURIComponent(code)}/find`, { method: 'POST', body: { name: q }, auth: false })
+        if (lastAsked.current !== q) return // they kept typing: a newer search is on its way
+        setSearch({ q, ...data })
+        setActive(data.matches.length ? 0 : -1)
+        setOpen(true)
+        setMessage('')
+      } catch (err) {
+        if (lastAsked.current !== q) return
+        setSearch(null)
+        const qs = qrStringsFor(state.invitation.language, state.invitation.eventType)
+        setMessage(err.status === 404 ? qs.unavailable(qs.who) : err.message)
+      } finally {
+        if (lastAsked.current === q) setSearching(false)
+      }
+    }, 350)
+    return () => clearTimeout(timer)
+  }, [query, lettersTyped, code, state, guest])
+
   if (state.status === 'loading') {
-    return (
-      <Loader label="Opening your reply page" full />
-    )
+    return <Loader label="Opening your reply page" full />
   }
 
   if (state.status === 'error') {
-    const q = qrStringsFor('en')
+    // We can't tell whose event it is from a closed code, so the wording doesn't say "the couple"
+    const q = qrStringsFor('en', 'other')
     return (
       <Shell lang="en">
         <div className="card px-8 py-12 text-center" role="alert">
@@ -116,26 +154,29 @@ export default function QrReply() {
   const t = stringsFor(lang, invitation.eventType)
   const q = qrStringsFor(lang, invitation.eventType)
   const deadline = formatDate(invitation.rsvpDeadline, lang, { day: 'numeric', month: 'long', year: 'numeric' })
-  const answerLabel = (s) => (s === 'attending' ? t.accept : t.decline)
+  const answerLabel = (st) => (st === 'attending' ? t.accept : t.decline)
+  const matches = search?.matches || []
+  const showList = open && lettersTyped >= 3 && search && !searching
 
-  async function find(e) {
-    e.preventDefault()
+  function choose(m) {
+    setGuest(m)
+    setOpen(false)
     setMessage('')
-    setSearch(null)
-    if (query.replace(/[^\p{L}\p{N}]/gu, '').length < 3) {
-      setMessage(q.tooShort)
-      return
-    }
-    setSearching(true)
-    try {
-      const data = await api(`/qr/${encodeURIComponent(code)}/find`, { method: 'POST', body: { name: query }, auth: false })
-      setSearch(data)
-      if (data.tooMany) setMessage(q.tooMany)
-      else if (!data.matches.length) setMessage(q.notFound(q.who))
-    } catch (err) {
-      setMessage(err.code === 'name_too_short' ? q.tooShort : err.status === 404 ? q.unavailable(q.who) : err.message || t.tryAgain)
-    } finally {
-      setSearching(false)
+  }
+
+  function onKeyDown(e) {
+    if (!showList || !matches.length) return
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setActive((a) => (a + 1) % matches.length)
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setActive((a) => (a - 1 + matches.length) % matches.length)
+    } else if (e.key === 'Enter' && active >= 0) {
+      e.preventDefault()
+      choose(matches[active])
+    } else if (e.key === 'Escape') {
+      setOpen(false)
     }
   }
 
@@ -167,7 +208,7 @@ export default function QrReply() {
     <Shell lang={lang}>
       <Header invitation={invitation} />
 
-      <section className="card mt-8 p-6" aria-labelledby="qr-h">
+      <section className="rounded-b-2xl border border-bone bg-surface-container-low px-6 pt-6 pb-7 shadow-[0_24px_48px_-32px_rgba(43,38,37,0.35)]" aria-labelledby="qr-h">
         <h2 id="qr-h" className="text-center font-serif text-headline-sm text-espresso">
           {q.heading}
         </h2>
@@ -178,51 +219,56 @@ export default function QrReply() {
             {t.closed}
           </p>
         ) : !guest ? (
-          /* ---- 1. Find your name ---- */
-          <>
-            <form onSubmit={find} className="mt-5" noValidate>
-              <label htmlFor="qr-name" className="text-label-md text-espresso">
-                {q.findLabel}
-              </label>
-              <div className="mt-2 flex gap-2">
-                <input
-                  id="qr-name"
-                  ref={inputRef}
-                  className="min-w-0 flex-1 rounded-lg border border-bone bg-white px-4 py-3 text-body-md outline-none focus:border-gold focus:shadow-[0_0_0_3px_rgba(197,160,89,0.15)]"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder={q.findPlaceholder}
-                  autoComplete="name"
-                  maxLength={100}
-                  autoFocus
-                />
-                <button type="submit" className="btn-primary shrink-0 px-4" disabled={searching} aria-label={q.find}>
-                  <Search size={18} aria-hidden="true" />
-                  <span className="hidden sm:inline">{searching ? q.finding : q.find}</span>
-                </button>
-              </div>
-            </form>
+          /* ---- 1. Find your name: names appear as they type ---- */
+          <div className="mt-6">
+            <label htmlFor="qr-name" className="text-label-md text-espresso">
+              {q.findLabel}
+            </label>
+            <div className="relative mt-2">
+              <Search size={18} className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-on-surface-variant" aria-hidden="true" />
+              <input
+                id="qr-name"
+                ref={inputRef}
+                role="combobox"
+                aria-expanded={Boolean(showList && matches.length)}
+                aria-controls="qr-names"
+                aria-autocomplete="list"
+                aria-activedescendant={showList && active >= 0 ? `qr-name-${active}` : undefined}
+                className="w-full rounded-xl border border-bone bg-white py-3.5 pr-11 pl-11 text-body-md outline-none focus:border-gold focus:shadow-[0_0_0_3px_rgba(197,160,89,0.15)]"
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value)
+                  setOpen(true)
+                  setMessage('')
+                }}
+                onFocus={() => setOpen(true)}
+                onKeyDown={onKeyDown}
+                placeholder={q.findPlaceholder}
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+                maxLength={100}
+                autoFocus
+              />
+              {searching && (
+                <span className="absolute top-1/2 right-4 h-4 w-4 -translate-y-1/2 animate-spin rounded-full border-2 border-gold/30 border-t-gold" role="status" aria-label={q.searchingNames} />
+              )}
 
-            {message && (
-              <p className="mt-4 flex items-start gap-2 rounded-lg bg-blush-tint px-4 py-3 text-body-md text-espresso" role="status">
-                {search && !search.tooMany && !search.matches.length && <UserX size={18} className="mt-0.5 shrink-0 text-gold-text" aria-hidden="true" />}
-                {message}
-              </p>
-            )}
-
-            {search?.matches?.length > 0 && (
-              <div className="mt-5">
-                <p className="text-label-md text-on-surface-variant uppercase">{q.pick}</p>
-                <ul className="mt-2 divide-y divide-bone overflow-hidden rounded-lg border border-bone bg-white">
-                  {search.matches.map((m) => (
-                    <li key={m.id}>
+              {/* The names that match */}
+              {showList && matches.length > 0 && (
+                <ul id="qr-names" role="listbox" className="absolute inset-x-0 top-full z-10 mt-2 overflow-hidden rounded-xl border border-bone bg-white shadow-float">
+                  <li className="px-4 pt-2.5 pb-1 text-label-sm text-on-surface-variant uppercase" role="presentation">
+                    {q.pick}
+                  </li>
+                  {matches.map((m, i) => (
+                    <li key={m.id} id={`qr-name-${i}`} role="option" aria-selected={i === active}>
                       <button
                         type="button"
-                        onClick={() => {
-                          setGuest(m)
-                          setMessage('')
-                        }}
-                        className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left text-title-md text-espresso hover:bg-blush-tint focus-visible:bg-blush-tint"
+                        tabIndex={-1}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => choose(m)}
+                        onMouseEnter={() => setActive(i)}
+                        className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-title-md text-espresso ${i === active ? 'bg-blush-tint' : ''}`}
                       >
                         <span className="min-w-0 truncate">{m.name}</span>
                         <ChevronRight size={18} className="shrink-0 text-gold-text" aria-hidden="true" />
@@ -230,13 +276,34 @@ export default function QrReply() {
                     </li>
                   ))}
                 </ul>
-              </div>
+              )}
+            </div>
+
+            {/* Under the box: a hint, or what the search found */}
+            {lettersTyped < 3 ? (
+              <p className="mt-2 text-body-sm text-on-surface-variant">{q.hint}</p>
+            ) : showList && search.tooMany ? (
+              <p className="mt-3 rounded-lg bg-blush-tint px-4 py-3 text-body-sm text-espresso" role="status">
+                {q.tooMany}
+              </p>
+            ) : showList && !matches.length ? (
+              <p className="mt-3 flex items-start gap-2 rounded-lg bg-blush-tint px-4 py-3 text-body-sm text-espresso" role="status">
+                <UserX size={18} className="mt-0.5 shrink-0 text-gold-text" aria-hidden="true" />
+                {q.notFound(q.who)}
+              </p>
+            ) : null}
+            {message && (
+              <p className="mt-3 rounded-lg bg-error-container px-4 py-3 text-body-sm text-on-error-container" role="alert">
+                {message}
+              </p>
             )}
-          </>
+            {/* Leaves room for the list of names on short phones */}
+            {showList && matches.length > 0 && <div style={{ height: `${matches.length * 52 + 40}px` }} aria-hidden="true" />}
+          </div>
         ) : sent ? (
           /* ---- 3. Thank you ---- */
           <div className="mt-6 text-center" role="status">
-            <CheckCircle2 size={36} className="mx-auto text-gold-text" aria-hidden="true" />
+            <CheckCircle2 size={40} className="mx-auto text-gold-text" aria-hidden="true" />
             <p className="mt-3 font-serif text-title-lg text-espresso">{t.dear(guest.name)}</p>
             <p className="mt-2 text-body-md text-espresso">{guest.status === 'attending' ? t.thanksYes : t.thanksNo}</p>
             <p className="mt-3 text-body-sm text-on-surface-variant">{deadline ? t.canChangeUntil(deadline) : t.canChangeAnytime}</p>
