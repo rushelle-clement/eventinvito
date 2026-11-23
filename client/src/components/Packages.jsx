@@ -63,7 +63,6 @@ const PACKAGES = [
     guests: 'Up to 300 guests per invitation',
     intro: 'Everything in Premium, plus:',
     features: [
-      '2 invitations, each with its own design, guest list and replies (e.g. engagement and wedding)',
       'Photo gallery with up to 6 photos',
       'Upload your own background song',
       'Day plan with a live timeline (weddings and corporate events)',
@@ -85,7 +84,6 @@ const PACKAGES = [
       'Exclusive custom invitation design',
       'Personalised colours, typography and layout',
       'Custom animations and design elements',
-      '1 more invitation in any of our designs',
       'Two rounds of design revisions',
       'Dedicated design assistance',
       'Delivery within 7–10 working days',

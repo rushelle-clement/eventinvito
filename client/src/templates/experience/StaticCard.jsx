@@ -134,6 +134,8 @@ export default function StaticCard({ invitation, guestName, rsvp, t, lang, embed
               <h2 id="sc-rsvp-h" className={`sc-label ${local}`}>
                 {t.rsvpPrompt}
               </h2>
+              {/* Free cards have no reply-by date, except the free online card of a Printed Cards event */}
+              {invitation.rsvpDeadline && <p className="sc-sub">{t.rsvpBy(formatDate(invitation.rsvpDeadline, lang, { day: 'numeric', month: 'long', year: 'numeric' }))}</p>}
               {rsvp}
             </section>
           )}

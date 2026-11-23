@@ -38,6 +38,9 @@ const userSchema = new mongoose.Schema(
         // Printed Cards package: invitations it may publish as printed cards with a QR code only
         // (no online design). A separate allowance from the Premium credits.
         printedCredits: { type: Number, default: 0, min: 0 },
+        // Has (had) the Printed Cards package: stays true after its credit is used, so the account
+        // keeps its Printed Cards badge and can start more printed-card drafts
+        printedMember: { type: Boolean, default: false },
         // Turned off by an admin: can't sign in
         disabled: { type: Boolean, default: false },
         // Set by an admin: keep the account open after its invitation has ended
@@ -72,6 +75,7 @@ userSchema.methods.toPublicJSON = function () {
         publishCredits: this.publishCredits || 0,
         freeCredits: this.freeCredits || 0,
         printedCredits: this.printedCredits || 0,
+        printedMember: Boolean(this.printedMember || this.printedCredits > 0),
         plan: require("../utils/packages").accountPlan(this),
         createdAt: this.createdAt,
     };

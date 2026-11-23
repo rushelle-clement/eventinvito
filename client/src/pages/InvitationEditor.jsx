@@ -220,7 +220,7 @@ export default function InvitationEditor() {
       return true
     }
     // Printed cards moving to online invitations: once published, that uses a Premium invitation
-    if (saved.printed && 'templateKey' in changes && saved.paid) {
+    if (saved.printed && 'templateKey' in changes && saved.paid && templates.find((t) => t.key === changes.templateKey)?.tier !== 'free') {
       const ok = window.confirm('Move these printed cards to online invitations? This uses 1 of your Premium invitations. Your guests, replies and QR code are kept.')
       if (!ok) return false
     }
@@ -240,7 +240,7 @@ export default function InvitationEditor() {
       if (first) setOpen(sectionFor(first))
       return false
     }
-  }, [form, saved, id, status.type])
+  }, [form, saved, id, status.type, templates])
 
   // Ctrl+S / Cmd+S saves
   useEffect(() => {
@@ -253,6 +253,21 @@ export default function InvitationEditor() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [save])
+
+  // Printed Cards: switch the free online card on or off (saved straight away)
+  const [onlineBusy, setOnlineBusy] = useState(false)
+  async function toggleOnlineCard() {
+    setOnlineBusy(true)
+    setErrors((e) => ({ ...e, onlineCard: undefined }))
+    try {
+      const data = await api(`/invitations/${id}`, { method: 'PATCH', body: { onlineCard: !saved.onlineCard } })
+      setSaved((prev) => ({ ...prev, onlineCard: data.invitation.onlineCard, limits: data.invitation.limits }))
+    } catch (err) {
+      setErrors((e) => ({ ...e, onlineCard: err.message }))
+    } finally {
+      setOnlineBusy(false)
+    }
+  }
 
   async function openAgendaPreview() {
     if (dirty && !(await save())) return
@@ -471,7 +486,7 @@ export default function InvitationEditor() {
           <p className="text-body-md text-[#1e6b3a]">
             {printed ? (
               <>
-                <strong>Your QR reply page is live.</strong> Next, add your guests and download your QR code from the guest list to print on your cards.
+                <strong>Your QR reply page is live.</strong> Next, add your guests, then download your QR code to print on your cards.
               </>
             ) : (
               <>
@@ -900,35 +915,83 @@ export default function InvitationEditor() {
 
           {/* The day plan is for weddings, engagements, homecomings and corporate events (not birthdays) */}
           {printed && (
-            <Section id="design" icon={Sparkles} number={5} title="Online invitations" subtitle="Add an animated invitation later" open={open === 'design'} onToggle={toggle}>
-              <p className="text-body-sm text-on-surface-variant">
-                Want to send some guests an online invitation too? Upgrade to Premium Plus (you only pay the difference), then choose a design here and save. Your guests, replies and QR code stay as they are.
-              </p>
-              {(!saved.paid || (user?.publishCredits || 0) > 0) ? (
-                <div className="mt-4 grid grid-cols-2 gap-3" role="radiogroup" aria-label="Template">
-                  {templates.filter((t) => kindOf(t.eventType) === kindOf(form.eventType)).map((t) => (
-                    <button
-                      key={t.key}
-                      type="button"
-                      role="radio"
-                      aria-checked={form.templateKey === t.key && form.templateKey !== saved.templateKey}
-                      onClick={() => update('templateKey', t.key)}
-                      className={`overflow-hidden rounded-lg border-2 text-left transition-colors ${form.templateKey === t.key && form.templateKey !== saved.templateKey ? 'border-gold' : 'border-bone hover:border-gold/50'}`}
-                    >
-                      <span className="relative block">
-                        <TemplateThumbnail templateKey={t.key} invitation={previewInvitation} height={150} />
-                        <TierBadge tier={t.tier} custom={t.custom} className="absolute top-2 left-2" />
-                      </span>
-                      <span className="block px-3 py-2 text-body-sm font-semibold text-espresso">{t.name}</span>
-                    </button>
-                  ))}
+            <Section id="design" icon={Sparkles} number={5} title="Online guests" subtitle="A free online card for some guests" open={open === 'design'} onToggle={toggle}>
+              {/* The free online card: some guests get a WhatsApp link instead of a paper card */}
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-body-md text-espresso">Send some guests a free online card</p>
+                  <p className="mt-1 text-body-sm text-on-surface-variant">
+                    Up to 50 guests can get a personal link on WhatsApp to a simple card, instead of a paper card. Mark them as <strong className="text-espresso">Online</strong> in your guest list; everyone else keeps their paper card and the QR code. All replies come to the same list.
+                  </p>
                 </div>
-              ) : (
-                <div className="mt-3 rounded-lg border border-gold/40 bg-blush-tint px-4 py-3 text-body-sm text-espresso">
-                  <p>Contact us to upgrade:</p>
-                  <ContactLine className="mt-1" />
-                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={Boolean(saved.onlineCard)}
+                  aria-label="Send some guests a free online card"
+                  onClick={toggleOnlineCard}
+                  disabled={onlineBusy}
+                  className={`relative mt-1 h-7 w-12 shrink-0 rounded-full transition-colors disabled:opacity-60 ${saved.onlineCard ? 'bg-gold' : 'bg-outline-variant'}`}
+                >
+                  <span className={`absolute top-1 left-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${saved.onlineCard ? 'translate-x-5' : ''}`} aria-hidden="true" />
+                </button>
+              </div>
+              {errors.onlineCard && <p className="mt-2 text-body-sm text-error">{errors.onlineCard}</p>}
+
+              {saved.onlineCard && (
+                <>
+                  <p className="mt-5 text-label-md text-espresso uppercase">Design of the online card</p>
+                  <div className="mt-2 grid grid-cols-2 gap-3" role="radiogroup" aria-label="Online card design">
+                    {templates
+                      .filter((t) => t.tier === 'free' && kindOf(t.eventType) === kindOf(form.eventType))
+                      .map((t) => (
+                        <button
+                          key={t.key}
+                          type="button"
+                          role="radio"
+                          aria-checked={form.templateKey === t.key}
+                          onClick={() => update('templateKey', t.key)}
+                          className={`overflow-hidden rounded-lg border-2 text-left transition-colors ${form.templateKey === t.key ? 'border-gold' : 'border-bone hover:border-gold/50'}`}
+                        >
+                          <TemplateThumbnail templateKey={t.key} invitation={previewInvitation} height={150} />
+                          <span className="block px-3 py-2 text-body-sm font-semibold text-espresso">{t.name}</span>
+                        </button>
+                      ))}
+                  </div>
+                  <p className="mt-2 text-body-sm text-on-surface-variant">Press Save after choosing. Guests see your names, date, venue and the reply form.</p>
+                </>
               )}
+
+              {/* More than that is Premium Plus */}
+              <div className="mt-5 rounded-lg border border-bone bg-surface-container-low px-4 py-3 text-body-sm text-on-surface-variant">
+                <p>
+                  <strong className="text-espresso">Want an animated design, photos and music, or more online guests?</strong> Upgrade to Premium Plus — you only pay the difference. Your guests, replies and QR code stay as they are.
+                </p>
+                {saved.paid && (user?.publishCredits || 0) > 0 ? (
+                  <div className="mt-3 grid grid-cols-2 gap-3" role="radiogroup" aria-label="Premium design">
+                    {templates
+                      .filter((t) => t.tier !== 'free' && kindOf(t.eventType) === kindOf(form.eventType))
+                      .map((t) => (
+                        <button
+                          key={t.key}
+                          type="button"
+                          role="radio"
+                          aria-checked={form.templateKey === t.key}
+                          onClick={() => update('templateKey', t.key)}
+                          className={`overflow-hidden rounded-lg border-2 bg-white text-left transition-colors ${form.templateKey === t.key ? 'border-gold' : 'border-bone hover:border-gold/50'}`}
+                        >
+                          <span className="relative block">
+                            <TemplateThumbnail templateKey={t.key} invitation={previewInvitation} height={150} />
+                            <TierBadge tier={t.tier} custom={t.custom} className="absolute top-2 left-2" />
+                          </span>
+                          <span className="block px-3 py-2 text-body-sm font-semibold text-espresso">{t.name}</span>
+                        </button>
+                      ))}
+                  </div>
+                ) : (
+                  <ContactLine className="mt-2" />
+                )}
+              </div>
               {errors.templateKey && <p className="mt-2 text-body-sm text-error">{errors.templateKey}</p>}
             </Section>
           )}
@@ -995,7 +1058,7 @@ export default function InvitationEditor() {
                 {[
                   'Fill in your event details and reply-by date, then publish.',
                   'Add your guests one by one or import them from Excel, using the names written on their cards.',
-                  'Download your QR code from the guest list and print it on every card.',
+                  'Download your QR code and print it on every card.',
                   'Guests scan it, type their name, tap it and reply. You see every reply on your guest list.',
                 ].map((t, i) => (
                   <li key={t} className="flex gap-3">
@@ -1005,9 +1068,15 @@ export default function InvitationEditor() {
                 ))}
               </ol>
               <p className="mt-4 text-body-sm text-on-surface-variant">The reply page shows your names, date, time and venue name, then the reply form.</p>
-              <Link to={`/invitations/${id}/guests`} className="btn-secondary mt-5">
-                <Users size={16} aria-hidden="true" /> Guests and QR code
-              </Link>
+              {saved.onlineCard && <p className="mt-2 text-body-sm text-on-surface-variant">Guests marked Online get a personal link to your free online card instead.</p>}
+              <div className="mt-5 flex flex-wrap gap-2">
+                <Link to={`/invitations/${id}/guests`} className="btn-secondary">
+                  <Users size={16} aria-hidden="true" /> Guests
+                </Link>
+                <Link to={`/invitations/${id}/qr`} className="btn-secondary">
+                  <QrCode size={16} aria-hidden="true" /> QR code
+                </Link>
+              </div>
             </section>
           </div>
         ) : (

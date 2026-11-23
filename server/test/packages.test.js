@@ -139,12 +139,12 @@ describe("Packages", () => {
         const plus = await create({ email: "plus@test.local", plan: "plus" });
         assert.equal(plus.status, 201);
         assert.equal(plus.body.user.plan, "plus");
-        assert.equal(plus.body.user.publishCredits, 2, "Premium Plus includes two invitations");
+        assert.equal(plus.body.user.publishCredits, 1, "Premium Plus includes one invitation");
         assert.equal((await create({ email: "premium@test.local", plan: "premium" })).body.user.publishCredits, 1);
         assert.equal((await create({ email: "bad@test.local", plan: "gold" })).status, 400);
 
         const patch = await api().patch(`/api/admin/users/${plus.body.user.id}`).set(auth(admin.token)).send({ plan: "signature" });
         assert.equal(patch.body.user.plan, "signature");
-        assert.equal(patch.body.user.publishCredits, 2, "changing the package alone doesn't change credits");
+        assert.equal(patch.body.user.publishCredits, 1, "changing the package alone doesn't change credits");
     });
 });

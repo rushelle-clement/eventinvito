@@ -1,6 +1,6 @@
 // Admin page: couples sign up themselves (with one free card); when a couple pays, find their
-// account here and choose their package, which adds its Premium credits (1 for Premium, 2 for
-// Premium Plus and Signature) and sets the limits (guests, photos, own song, Excel). Also: turn accounts
+// account here and choose their package, which adds its Premium credit (1 invitation with each
+// package; Signature's is its custom design) and sets the limits (guests, photos, own song, Excel). Also: turn accounts
 // off, set new passwords, and create accounts for couples who can't sign up themselves. Only admin accounts can open it (see App.jsx and the server's /api/admin).
 
 import { useCallback, useEffect, useState } from 'react'
@@ -22,8 +22,8 @@ const STATUS = {
 const PLANS = [
   { value: 'free', label: 'Simple Card', credits: 0, limits: '50 guests · replies, no deadline' },
   { value: 'premium', label: 'Premium', credits: 1, limits: '150 guests · 3 photos · opened tracking · groups + group stats · import' },
-  { value: 'plus', label: 'Premium Plus', credits: 2, limits: '300 guests · 6 photos · own song · Excel · day plan · QR for printed cards' },
-  { value: 'signature', label: 'Signature', credits: 2, limits: '500 guests · custom design + 1 more · everything in Plus' },
+  { value: 'plus', label: 'Premium Plus', credits: 1, limits: '300 guests · 6 photos · own song · Excel · day plan · QR for printed cards' },
+  { value: 'signature', label: 'Signature', credits: 1, limits: '500 guests · custom design · everything in Plus' },
 ]
 const planOf = (value) => PLANS.find((p) => p.value === value) || PLANS[0]
 
@@ -245,7 +245,7 @@ function AccountRow({ account, me, onChange, lockAfterEvent }) {
                 ['credits', 'publishCredits', 'Premium'],
                 ['freeCredits', 'freeCredits', 'Free card'],
                 // Printed Cards package (Rs. 500): paper cards with a QR code, no online design
-                ['printedCredits', 'printedCredits', 'Printed cards'],
+                ['printedCredits', 'printedCredits', 'Printed Cards package'],
               ].map(([field, key, label]) => (
                 <div key={field} className="flex items-center gap-1.5" aria-label={`${label}: ${account[key] || 0} left for ${account.name}`}>
                   <button type="button" className="btn-secondary h-7 w-7 !p-0" onClick={() => patch({ [field]: (account[key] || 0) - 1 })} disabled={busy || !(account[key] > 0)} aria-label={`One fewer ${label}`}>

@@ -44,7 +44,7 @@ async function createAccount({ name, email, password, publishCredits = 0, freeCr
     let user;
     try {
         // Role is never taken from the request — new accounts are always customers
-        user = await User.create({ name, email, passwordHash, publishCredits, freeCredits, printedCredits, ...(plan && { plan }) });
+        user = await User.create({ name, email, passwordHash, publishCredits, freeCredits, printedCredits, printedMember: printedCredits > 0, ...(plan && { plan }) });
     } catch (err) {
         if (err.code === 11000) {
             // Race: same email registered between the check and the insert

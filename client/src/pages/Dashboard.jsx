@@ -1,7 +1,7 @@
 // Host dashboard — layout from the Stitch "Host Dashboard" screen.
 // Lists the signed-in user's invitations. Guest and RSVP numbers arrive with Phases 3–4.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Archive, CalendarDays, CalendarHeart, CircleCheck, Eye, MailOpen, MapPin, PencilLine, Plus, Printer, QrCode, Send, Users } from 'lucide-react'
 import { api } from '../lib/api'
@@ -13,6 +13,20 @@ import TemplateThumbnail from '../templates/TemplateThumbnail'
 import { formatDate } from '../templates/strings'
 import Loader from '../components/Loader'
 import { publishCredit } from '../lib/publishCredit'
+import { qrLockNote } from '../lib/accountPlan'
+import { siteUrl } from '../lib/siteUrl'
+import { qrInitials } from '../lib/qrStrings'
+import { drawQr } from '../lib/qrImage'
+
+// A small picture of an invitation's QR code, for its card
+function QrThumb({ invitation }) {
+  const ref = useRef(null)
+  const code = invitation.qr?.code
+  useEffect(() => {
+    if (code && ref.current) drawQr(ref.current, `${siteUrl()}/r/${code}`, qrInitials(invitation), 160)
+  }, [code, invitation])
+  return <canvas ref={ref} className="h-14 w-14 shrink-0 rounded border border-bone bg-white" aria-hidden="true" />
+}
 
 // Printed Cards: what the event is (it decides which names the invitation asks for)
 const PRINTED_TYPES = [
@@ -63,7 +77,7 @@ function PrintedModal({ onClose }) {
       <div className="space-y-4 px-5 py-5">
         <FormAlert>{error}</FormAlert>
         <p className="text-body-md text-on-surface-variant">
-          For invitations you print yourself. You get one QR code to put on every card; guests scan it, find their name and reply. There’s no online invitation design.
+          For invitations you print yourself. You get one QR code to put on every card; guests scan it, find their name and reply. You can also send up to 50 guests a free online card from the same guest list.
         </p>
         <fieldset>
           <legend className="mb-2 text-label-md text-espresso uppercase">What are you celebrating?</legend>
@@ -82,10 +96,68 @@ function PrintedModal({ onClose }) {
         <p className="rounded-lg bg-surface-container-low px-4 py-3 text-body-sm text-on-surface-variant">
           {credits > 0
             ? `You have ${credits} Printed Cards invitation${credits === 1 ? '' : 's'} to publish. Drafts are free.`
-            : 'Drafts are free. Publishing needs the Printed Cards package (Rs. 500): contact us when you’re ready.'}
+            : 'You’ve used your Printed Cards package. Drafts are free; publishing another one needs the package again (Rs. 500).'}
         </p>
       </div>
     </Modal>
+  )
+}
+
+// Printed Cards: the four steps, each with where it stands and where to do it
+function PrintedSteps({ inv, user }) {
+  const missing = inv.missingForPublish?.length || 0
+  const total = inv.guestCounts?.total || 0
+  const live = inv.status === 'published' && !inv.ended
+  const steps = [
+    {
+      done: !missing,
+      title: 'Event details',
+      note: missing ? `${missing} to fill in` : 'Done',
+      to: `/invitations/${inv.id}/edit`,
+    },
+    {
+      done: total > 0,
+      title: 'Guest list',
+      note: total ? `${total} guest${total === 1 ? '' : 's'}${inv.onlineCard ? ' · some with the free online card' : ''}` : 'Add or import your guests',
+      to: `/invitations/${inv.id}/guests`,
+    },
+    {
+      done: !inv.qr?.locked,
+      title: 'QR code',
+      note: inv.qr?.locked ? qrLockNote(user).short : 'Ready to download and print',
+      to: `/invitations/${inv.id}/qr`,
+    },
+    {
+      done: live,
+      title: 'Replies',
+      note: live
+        ? `${inv.guestCounts?.viaQr || 0} by QR · open until ${formatDate(inv.rsvpDeadline, 'en')}`
+        : inv.ended
+          ? 'Closed'
+          : 'Publish to open the QR reply page',
+      to: `/invitations/${inv.id}/edit`,
+    },
+  ]
+  return (
+    <ol className="mt-3 divide-y divide-bone rounded-lg border border-bone bg-white">
+      {steps.map((st, i) => (
+        <li key={st.title}>
+          <Link to={st.to} className="flex items-center gap-3 px-3 py-2.5 hover:bg-surface-container-low">
+            <span
+              className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-label-sm ${st.done ? 'bg-[#e3f4e8] text-[#1e6b3a]' : 'bg-surface-container text-on-surface-variant'}`}
+              aria-hidden="true"
+            >
+              {st.done ? <CircleCheck size={15} /> : i + 1}
+            </span>
+            <span className="min-w-0 flex-1 text-body-sm">
+              <span className="block font-semibold text-espresso">{st.title}</span>
+              <span className="block text-on-surface-variant">{st.note}</span>
+            </span>
+            <span className="sr-only">{st.done ? 'done' : 'to do'}</span>
+          </Link>
+        </li>
+      ))}
+    </ol>
   )
 }
 
@@ -104,6 +176,10 @@ export default function Dashboard() {
   const [archiving, setArchiving] = useState(null)
   const [busy, setBusy] = useState(false)
   const [printedOpen, setPrintedOpen] = useState(false)
+  // Printed Cards is a package the admin turns on; Premium Plus and Signature have QR on their own invitations
+  const canPrint =
+    user?.role === 'admin' ||
+    (!['plus', 'signature'].includes(user?.plan) && (user?.printedMember || (user?.printedCredits || 0) > 0 || (invitations || []).some((i) => i.printed && i.paidKind === 'printed')))
   // Just reset their password (ResetPassword sends them here)
   const passwordChanged = Boolean(useLocation().state?.passwordChanged)
 
@@ -161,9 +237,11 @@ export default function Dashboard() {
           )}
         </div>
         <div className="flex flex-wrap gap-3 self-start md:self-auto">
-          <button type="button" className="btn-secondary" onClick={() => setPrintedOpen(true)}>
-            <Printer size={17} aria-hidden="true" /> Printed cards (QR)
-          </button>
+          {canPrint && (
+            <button type="button" className="btn-secondary" onClick={() => setPrintedOpen(true)}>
+              <Printer size={17} aria-hidden="true" /> New printed cards (QR)
+            </button>
+          )}
           <Link to="/templates" className="btn-primary">
             <Plus size={18} aria-hidden="true" /> Create New Invitation
           </Link>
@@ -205,9 +283,11 @@ export default function Dashboard() {
           <Link to="/templates" className="btn-primary mt-6">
             <Plus size={18} aria-hidden="true" /> Create your first invitation
           </Link>
-          <button type="button" className="mt-3 text-body-sm text-gold-text underline underline-offset-4" onClick={() => setPrintedOpen(true)}>
-            Printing your cards? Get a QR code for replies instead
-          </button>
+          {canPrint && (
+            <button type="button" className="mt-3 text-body-sm text-gold-text underline underline-offset-4" onClick={() => setPrintedOpen(true)}>
+              Printing your cards? Start your printed cards with a QR code
+            </button>
+          )}
         </section>
       )}
 
@@ -271,7 +351,27 @@ export default function Dashboard() {
                         )}
                       </div>
                     )}
-                    {inv.status === 'published' && inv.onlineUntil && (
+                    {/* Its QR code for physical cards, once there is one */}
+                    {inv.printed && <PrintedSteps inv={inv} user={user} />}
+                    {!inv.printed && inv.limits?.qrRsvp && inv.qr?.enabled && (
+                      <Link to={`/invitations/${inv.id}/qr`} className="mt-3 flex items-center gap-3 rounded-lg border border-bone bg-white p-2 pr-3 hover:border-gold">
+                        {inv.qr.locked ? (
+                          <span className="grid h-14 w-14 shrink-0 place-items-center rounded border border-bone bg-blush-tint text-gold-text" aria-hidden="true">
+                            <QrCode size={22} />
+                          </span>
+                        ) : (
+                          <QrThumb invitation={inv} />
+                        )}
+                        <span className="min-w-0 flex-1 text-body-sm">
+                          <span className="block font-semibold text-espresso">QR code for physical cards</span>
+                          <span className="block text-on-surface-variant">
+                            {inv.qr.locked ? qrLockNote(user).short : `${inv.guestCounts?.viaQr || 0} replied by QR`}
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-body-sm font-semibold text-gold-text">Open</span>
+                      </Link>
+                    )}
+                    {!inv.printed && inv.status === 'published' && inv.onlineUntil && (
                       <p className="mt-2 text-body-sm text-on-surface-variant">
                         {inv.ended
                           ? `Ended on ${formatDate(inv.onlineUntil, 'en')}`
@@ -280,7 +380,7 @@ export default function Dashboard() {
                             : `Online until ${formatDate(inv.onlineUntil, 'en')}`}
                       </p>
                     )}
-                    {inv.status !== 'published' && (() => {
+                    {!inv.printed && inv.status !== 'published' && (() => {
                       // Not live: what's left before it can be published — details, or a package
                       const credit = publishCredit({ printed: inv.printed, paid: inv.paid, paidKind: inv.paidKind, freeDesign: inv.tier === 'free' }, user)
                       const missing = inv.missingForPublish.length
@@ -304,7 +404,7 @@ export default function Dashboard() {
                 </div>
                 <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-bone bg-surface-container-low px-5 py-3">
                   <Link to={`/invitations/${inv.id}/edit`} className="btn-secondary px-4 py-2 text-body-sm">
-                    <PencilLine size={15} aria-hidden="true" /> Edit
+                    <PencilLine size={15} aria-hidden="true" /> {inv.printed ? 'Event details' : 'Edit'}
                   </Link>
                   {!inv.printed && (
                     <Link to={`/invitations/${inv.id}/preview`} className="btn-secondary px-4 py-2 text-body-sm">
@@ -314,6 +414,11 @@ export default function Dashboard() {
                   <Link to={`/invitations/${inv.id}/guests`} className="btn-secondary px-4 py-2 text-body-sm">
                     <Users size={15} aria-hidden="true" /> Guests
                   </Link>
+                  {inv.printed && (
+                    <Link to={`/invitations/${inv.id}/qr`} className="btn-secondary px-4 py-2 text-body-sm">
+                      <QrCode size={15} aria-hidden="true" /> QR code
+                    </Link>
+                  )}
                   <button
                     type="button"
                     onClick={() => setArchiving(inv)}

@@ -204,6 +204,8 @@ export default function ImportGuests() {
     api(`/invitations/${id}/guests`)
       .then((d) => {
         setInvitation(d.invitation)
+        // Printed Cards with the free online card: most guests are on paper, so start there
+        if (d.invitation?.limits?.plan === 'printed' && !new URLSearchParams(window.location.search).get('card')) setCardType('physical')
         setExisting(d.summary?.total ?? d.guests?.length ?? 0)
       })
       .catch((err) => setLoadError(err.status === 404 ? 'This invitation could not be found.' : err.message))
@@ -514,7 +516,12 @@ export default function ImportGuests() {
                 <legend className="text-label-md text-espresso uppercase">Who is in this file?</legend>
                 <div className="mt-2 grid gap-2 sm:grid-cols-2">
                   {[
-                    { value: 'online', label: 'Online-card guests', note: 'Each gets a personal link', Icon: Link2 },
+                    {
+                      value: 'online',
+                      label: 'Online-card guests',
+                      note: invitation?.limits?.onlineGuests ? `Free online card, up to ${invitation.limits.onlineGuests} guests` : 'Each gets a personal link',
+                      Icon: Link2,
+                    },
                     { value: 'physical', label: 'Physical-card guests', note: 'They reply by the QR code', Icon: Printer },
                   ].map((o) => (
                     <label

@@ -208,7 +208,9 @@ export default function InvitationExperience({ invitation, guestName, rsvp, star
     return () => document.removeEventListener('pointerdown', start)
   }, [freeMusic, musicReady, playMusic])
 
-  const Experience = EXPERIENCES[invitation.templateKey] || ClassicCard
+  // Any free design without its own entry is a static card (birthday cards have their own); without
+  // this a new free design fell back to the classic preview card, which shows no reply buttons
+  const Experience = EXPERIENCES[invitation.templateKey] || (theme.free ? (theme.birthday ? BirthdayCard : StaticCard) : ClassicCard)
 
   // In previews there is no real guest, so show what the reply buttons will look like
   const sampleRsvp = (

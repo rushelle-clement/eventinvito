@@ -11,6 +11,11 @@ const PORT = process.env.PORT || 5000;
 
 async function startServer() {
     await connectDB();
+    // One-off tidy-up for accounts from before the Printed Cards badge was kept (never stops the server)
+    require("./utils/printedMembers")
+        .markPrintedMembers()
+        .then((n) => n && console.log(`Marked ${n} Printed Cards account(s)`))
+        .catch((err) => console.error("Printed Cards tidy-up failed:", err.message));
 
     const server = app.listen(PORT, () => {
         console.log(`EventInvito API running on port ${PORT}`);

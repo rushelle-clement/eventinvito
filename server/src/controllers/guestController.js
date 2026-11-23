@@ -188,11 +188,25 @@ const clashError = (name) =>
 // Printed-card guests: QR replies are a Premium Plus feature, and they get no phone number
 // (their invitation isn't sent by WhatsApp).
 function applyCardType(values, limits) {
-    // Printed Cards: every guest has a physical card
-    if (limits.onlineCards === false) values.cardType = "physical";
+    // Printed Cards: every guest has a physical card (unless the free online card is on and this one is online)
+    if (limits.onlineCards === false || (limits.plan === "printed" && !values.cardType)) values.cardType = "physical";
     if (values.cardType === "physical") {
         requireFeature(limits, "qrRsvp", "Physical cards with a QR code are part of Premium Plus and Signature.");
         values.phone = "";
+    }
+}
+
+// Printed Cards with the free online card: only so many guests can be online
+async function checkOnlineRoom(invitation, limits, adding) {
+    if (!limits.onlineGuests) return;
+    const online = await Guest.countDocuments({ invitation: invitation._id, cardType: { $ne: "physical" } });
+    if (online + adding > limits.onlineGuests) {
+        throw new AppError(
+            403,
+            `The free online card is for up to ${limits.onlineGuests} guests. Give the others a physical card, or upgrade to Premium Plus for more online guests.`,
+            undefined,
+            "online_limit"
+        );
     }
 }
 
@@ -205,6 +219,7 @@ async function addGuest(req, res) {
     if (values.group) requireFeature(limits, "groups", "Guest groups are part of Premium and above.");
     applyCardType(values, limits);
     if (values.cardType === "physical" && (await physicalNameClash(invitation._id, values.name))) throw clashError(values.name);
+    if ((values.cardType || "online") === "online") await checkOnlineRoom(invitation, limits, 1);
 
     const count = await Guest.countDocuments({ invitation: invitation._id });
     const { guests: limit, planName } = limitsFor(invitation, req.user);
@@ -237,6 +252,7 @@ async function updateGuest(req, res) {
     if (limits.onlineCards === false || (values.cardType && values.cardType !== guest.cardType)) applyCardType(values, limits);
     else if ((values.cardType || guest.cardType) === "physical") values.phone = "";
     const physical = (values.cardType || guest.cardType) === "physical";
+    if (values.cardType === "online" && guest.cardType === "physical") await checkOnlineRoom(invitation, limits, 1);
     const name = values.name || guest.name;
     if (physical && (values.name || values.cardType) && (await physicalNameClash(invitation._id, name, guest._id))) throw clashError(name);
     Object.assign(guest, values);
@@ -283,6 +299,26 @@ async function removeGuests(req, res) {
     res.json({ success: true, removed: result.deletedCount ?? 0 });
 }
 
+// POST /api/invitations/:id/guests/:guestId/reply  { response: "attending" | "not_attending" | "pending" }
+// The couple enters a guest's reply themselves, e.g. when the guest phoned instead of scanning the
+// QR code or opening their link. Works any time (also after the reply-by date): it's their list.
+async function setGuestReply(req, res) {
+    const invitation = await findOwned(req);
+    const guest = await findOwnedGuest(req, invitation);
+    const response = req.body?.response;
+    if (!["attending", "not_attending", "pending"].includes(response)) throw new AppError(400, "Choose attending, not attending or awaiting reply.");
+    guest.rsvpStatus = response;
+    if (response === "pending") {
+        guest.respondedAt = undefined;
+        guest.rsvpVia = "";
+    } else {
+        guest.respondedAt = new Date();
+        guest.rsvpVia = "host";
+    }
+    await guest.save();
+    res.json({ success: true, guest: toOwnerJSON(guest, limitsFor(invitation, req.user)) });
+}
+
 // POST /api/invitations/:id/guests/:guestId/reset-link — old link stops working, a new one is issued
 async function resetGuestLink(req, res) {
     const invitation = await findOwned(req);
@@ -308,6 +344,8 @@ async function markGuestShared(req, res) {
 }
 
 module.exports = {
+    checkOnlineRoom,
+    setGuestReply,
     guestLimitMessage,
     listGuests,
     addGuest,

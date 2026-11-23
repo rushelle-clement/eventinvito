@@ -176,6 +176,9 @@ const invitationSchema = new mongoose.Schema(
         // only the QR reply page; every guest has a physical card. `template` is only kept
         // so the invitation has a design if they upgrade to online cards.
         printed: { type: Boolean, default: false },
+        // Printed Cards only: some guests get the free online card (a Simple Card design) instead of
+        // a paper one, in the same guest list (up to FREE_ONLINE_GUESTS of them)
+        onlineCard: { type: Boolean, default: false },
         qrCode: { type: String, unique: true, sparse: true },
 
         publishedAt: { type: Date },
@@ -260,6 +263,12 @@ invitationSchema.methods.missingForPublish = function () {
 };
 
 // `owner` (the signed-in couple) adds the package and its limits for this invitation
+// What the owner sees of the QR code: no code until it's paid for (see qrUnlocked)
+invitationSchema.methods.qrJSON = function (owner) {
+    const unlocked = this.qrUnlocked(owner);
+    return { enabled: Boolean(this.qrEnabled), code: unlocked ? this.qrCode || "" : "", locked: !unlocked };
+};
+
 invitationSchema.methods.toOwnerJSON = function (owner) {
     return {
         ...(owner && { limits: require("../utils/packages").limitsFor(this, owner) }),
@@ -309,8 +318,9 @@ invitationSchema.methods.toOwnerJSON = function (owner) {
         paidKind: this.paidKind(),
         onlineUntil: this.onlineUntil(), // guests can open it until the end of this day
         ended: this.hasEnded(),
-        qr: { enabled: Boolean(this.qrEnabled), code: this.qrCode || "" },
+        qr: this.qrJSON(owner),
         printed: Boolean(this.printed),
+        onlineCard: Boolean(this.printed && this.onlineCard),
         publishedAt: this.publishedAt,
         createdAt: this.createdAt,
         updatedAt: this.updatedAt,
@@ -348,6 +358,14 @@ invitationSchema.methods.hasEnded = function () {
 };
 
 // Paid for: a credit was used, or it was published before credits existed
+// Printed Cards: the QR code is only handed over (to print or download) once the package is
+// paid for — the invitation was published with it, or the account has a Printed Cards credit.
+// Other invitations only reach the QR code on Premium Plus or Signature, which are paid plans.
+invitationSchema.methods.qrUnlocked = function (owner) {
+    if (!this.printed) return true;
+    return this.isPaid() || (owner?.printedCredits || 0) > 0 || owner?.role === "admin";
+};
+
 invitationSchema.methods.isPaid = function () {
     return Boolean(this.creditUsed || this.publishedAt);
 };

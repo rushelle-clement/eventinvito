@@ -58,9 +58,14 @@ function invitationPlan(invitation, user) {
     return atLeast(account, "premium");
 }
 
+// Printed Cards with the free online card: up to this many guests get a link instead of a paper card
+const FREE_ONLINE_GUESTS = 50;
+
 function limitsFor(invitation, user) {
     const plan = invitationPlan(invitation, user);
-    return { plan, planName: NAMES[plan], ...LIMITS[plan] };
+    const limits = { plan, planName: NAMES[plan], ...LIMITS[plan] };
+    if (plan === "printed" && invitation.onlineCard) Object.assign(limits, { onlineCards: true, onlineGuests: FREE_ONLINE_GUESTS });
+    return limits;
 }
 
-module.exports = { PLANS, LIMITS, NAMES, accountPlan, invitationPlan, limitsFor };
+module.exports = { PLANS, LIMITS, NAMES, FREE_ONLINE_GUESTS, accountPlan, invitationPlan, limitsFor };

@@ -163,4 +163,22 @@ describe("Guests and personal links", () => {
         assert.equal(await models.Guest.countDocuments({ _id: { $in: [a.id, b.id] } }), 0);
         assert.ok(await models.Guest.findById(keep.id));
     });
+
+    it("lets the couple enter a guest's reply themselves, and take it back", async () => {
+        const g = await addGuest(owner.token, invitationId, { name: "Phoned In" });
+        const url = `/api/invitations/${invitationId}/guests/${g.id}/reply`;
+        const yes = await api().post(url).set(auth(owner.token)).send({ response: "attending" });
+        assert.equal(yes.status, 200);
+        assert.equal(yes.body.guest.rsvpStatus, "attending");
+        assert.equal(yes.body.guest.rsvpVia, "host");
+        assert.ok(yes.body.guest.respondedAt);
+
+        const back = await api().post(url).set(auth(owner.token)).send({ response: "pending" });
+        assert.equal(back.body.guest.rsvpStatus, "pending");
+        assert.equal(back.body.guest.rsvpVia, "");
+        assert.equal(back.body.guest.respondedAt, undefined);
+
+        assert.equal((await api().post(url).set(auth(owner.token)).send({ response: "maybe" })).status, 400);
+        assert.equal((await api().post(url).set(auth(other.token)).send({ response: "attending" })).status, 404);
+    });
 });

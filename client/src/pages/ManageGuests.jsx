@@ -33,7 +33,6 @@ import {
   Undo2,
   CheckCheck,
   Printer,
-  ExternalLink,
   Eye,
   EyeOff,
   Tag,
@@ -47,10 +46,9 @@ import { downloadGuestList } from '../lib/guestExport'
 import { FAMILY, TITLES, formatAddress, parseAddress } from '../lib/addressing'
 import { MAX_GROUP_LENGTH, groupChoices, groupCounts, groupKey } from '../lib/guestGroups'
 import { STRINGS, formatDate, invitationTitle, stringsFor } from '../templates/strings'
-import { siteUrl } from '../lib/siteUrl'
-import { qrInitials } from '../lib/qrStrings'
-import { downloadQr, drawQr } from '../lib/qrImage'
 import Loader from '../components/Loader'
+import { useAuth } from '../context/AuthContext'
+import { qrLockNote } from '../lib/accountPlan'
 
 const RSVP = {
   attending: { label: 'Attending', Icon: CircleCheck, className: 'bg-[#e3f4e8] text-[#1e6b3a]' },
@@ -203,7 +201,7 @@ function GroupPicker({ id, value, onChange, guests, eventType, error }) {
   )
 }
 
-function GuestFormModal({ invitationId, guest, language = 'en', guests = [], eventType, allowGroups = true, allowPhysical = false, physicalOnly = false, defaultCardType = 'online', onClose, onSaved }) {
+function GuestFormModal({ invitationId, guest, language = 'en', guests = [], eventType, allowGroups = true, allowPhysical = false, physicalOnly = false, defaultCardType = 'online', onlineNote = '', onClose, onSaved }) {
   const [form, setForm] = useState({
     cardType: physicalOnly ? 'physical' : guest?.cardType || (allowPhysical ? defaultCardType : 'online'),
     name: guest?.name || '',
@@ -287,7 +285,7 @@ function GuestFormModal({ invitationId, guest, language = 'en', guests = [], eve
             <legend className="mb-1.5 block text-label-md text-espresso uppercase">Card type</legend>
             <div className="grid grid-cols-2 gap-2">
               {[
-                { value: 'online', label: 'Online card', note: 'Personal link by WhatsApp', Icon: Link2 },
+                { value: 'online', label: 'Online card', note: onlineNote || 'Personal link by WhatsApp', Icon: Link2 },
                 { value: 'physical', label: 'Physical card', note: 'Replies by the QR code', Icon: Printer },
               ].map((o) => (
                 <label
@@ -812,9 +810,9 @@ function pageNumbers(page, count) {
 
 // The menu is placed on the screen itself (position: fixed), so the guest list's rounded,
 // clipped card can't cut it off on the last rows; it opens upwards when there's no room below.
-const MENU_HEIGHT = 140
+const MENU_HEIGHT = 300
 
-function RowMenu({ onEdit, onReset, onRemove, onShared, shared, name }) {
+function RowMenu({ onEdit, onReset, onRemove, onShared, onReply, reply, shared, name }) {
   const [open, setOpen] = useState(false)
   const [place, setPlace] = useState(null) // where the menu sits on the screen
   const ref = useRef(null)
@@ -859,7 +857,30 @@ function RowMenu({ onEdit, onReset, onRemove, onShared, shared, name }) {
         <MoreHorizontal size={18} />
       </button>
       {open && (
-        <div role="menu" style={place} className="fixed z-40 w-52 rounded-lg border border-gold/20 bg-white p-1.5 shadow-float">
+        <div role="menu" style={place} className="fixed z-40 w-60 rounded-lg border border-gold/20 bg-white p-1.5 shadow-float">
+          {/* Their reply, entered by the couple (e.g. the guest phoned instead of scanning or tapping) */}
+          {onReply && (
+            <>
+              <p className="px-3 pt-1.5 pb-1 text-label-sm text-on-surface-variant uppercase">Their reply</p>
+              {['attending', 'not_attending', 'pending'].map((v) => {
+                const o = RSVP[v]
+                return (
+                  <button
+                    key={v}
+                    role="menuitemradio"
+                    aria-checked={reply === v}
+                    type="button"
+                    className={`${item} ${reply === v ? 'font-semibold text-espresso' : ''}`}
+                    onClick={() => (setOpen(false), reply !== v && onReply(v))}
+                  >
+                    <o.Icon size={15} aria-hidden="true" /> {v === 'pending' ? 'No reply yet' : o.label}
+                    {reply === v && <Check size={15} className="ml-auto text-gold-text" aria-hidden="true" />}
+                  </button>
+                )
+              })}
+              <div className="my-1 border-t border-bone" />
+            </>
+          )}
           <button role="menuitem" type="button" className={item} onClick={() => (setOpen(false), onEdit())}>
             <PencilLine size={15} aria-hidden="true" /> Edit details
           </button>
@@ -882,128 +903,9 @@ function RowMenu({ onEdit, onReset, onRemove, onShared, shared, name }) {
 
 // ---------------- page ----------------
 
-// Physical cards: one QR code for the whole invitation (Premium Plus and Signature).
-// Guests marked "Physical card" scan it, find their name and reply.
-function QrPanel({ invitation, physical, viaQr, live, physicalOnly, onSaved, onError }) {
-  const qr = invitation.qr || { enabled: false, code: '' }
-  const [saving, setSaving] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const canvasRef = useRef(null)
-  const url = qr.code ? `${siteUrl()}/r/${qr.code}` : ''
-  const initials = qrInitials(invitation)
-
-  useEffect(() => {
-    if (qr.enabled && url && canvasRef.current) drawQr(canvasRef.current, url, initials, 480)
-  }, [qr.enabled, url, initials])
-
-  async function toggle() {
-    setSaving(true)
-    try {
-      const d = await api(`/invitations/${invitation.id}/qr`, { method: 'PATCH', body: { enabled: !qr.enabled } })
-      onSaved(d.qr)
-    } catch (err) {
-      onError(err.message)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  async function copy() {
-    if (await copyText(url)) {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    }
-  }
-
-  const fileName = `${invitationTitle(invitation).replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '') || 'invitation'}-QR.png`
-
-  return (
-    <section className="card mt-6 p-5" aria-labelledby="qr-panel-h">
-      <div className="flex flex-col gap-5 md:flex-row md:items-start">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-blush-tint text-gold-text" aria-hidden="true">
-                <QrCode size={19} />
-              </span>
-              <div>
-                <h2 id="qr-panel-h" className="text-title-md text-espresso">
-                  QR code for physical cards
-                </h2>
-                <p className="mt-0.5 text-body-sm text-on-surface-variant">
-                  {physicalOnly ? (
-                    'Print this one code on all your cards. Guests scan it, find their name and reply.'
-                  ) : (
-                    <>
-                      Print one code on all your paper cards. Guests marked <strong className="text-espresso">Physical card</strong> scan it, find their name and reply.
-                    </>
-                  )}
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={qr.enabled}
-              aria-labelledby="qr-panel-h"
-              onClick={toggle}
-              disabled={saving}
-              className={`relative mt-1 h-7 w-12 shrink-0 rounded-full transition-colors disabled:opacity-60 ${qr.enabled ? 'bg-gold' : 'bg-outline-variant'}`}
-            >
-              <span className={`absolute top-1 left-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${qr.enabled ? 'translate-x-5' : ''}`} aria-hidden="true" />
-            </button>
-          </div>
-
-          {qr.enabled && (
-            <>
-              <p className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-body-sm text-espresso">
-                <span>
-                  <strong>{physical.total}</strong> guest{physical.total === 1 ? '' : 's'} with physical cards
-                </span>
-                <span>
-                  <strong>{viaQr}</strong> replied by QR
-                </span>
-              </p>
-              {physical.total === 0 && (
-                <p className="mt-3 flex items-start gap-2 rounded-lg bg-blush-tint px-4 py-3 text-body-sm text-espresso">
-                  <Info size={16} className="mt-0.5 shrink-0 text-gold-text" aria-hidden="true" />
-                  {physicalOnly
-                    ? 'Add your guests, or import them from Excel, using the names written on their cards. Only guests on your list can reply.'
-                    : 'Choose “Physical card” when you add a guest, or import a separate Excel file for your physical-card guests. Only they can reply with this code.'}
-                </p>
-              )}
-              {!live && (
-                <p className="mt-3 flex items-start gap-2 rounded-lg bg-blush-tint px-4 py-3 text-body-sm text-espresso">
-                  <AlertTriangle size={16} className="mt-0.5 shrink-0 text-gold-text" aria-hidden="true" />
-                  The QR page opens once your invitation is published. You can print the code now: it won’t change.
-                </p>
-              )}
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button type="button" className="btn-primary px-4 py-2 text-body-sm" onClick={() => downloadQr(url, initials, fileName)}>
-                  <Download size={15} aria-hidden="true" /> Download QR (PNG)
-                </button>
-                <button type="button" className="btn-secondary px-3.5 py-2 text-body-sm" onClick={copy}>
-                  {copied ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />} {copied ? 'Copied' : 'Copy link'}
-                </button>
-                <a href={url} target="_blank" rel="noreferrer" className="btn-secondary px-3.5 py-2 text-body-sm">
-                  <ExternalLink size={15} aria-hidden="true" /> Open reply page
-                </a>
-              </div>
-            </>
-          )}
-          {!qr.enabled && qr.code && (
-            <p className="mt-3 text-body-sm text-on-surface-variant">Off: guests who scan the code are asked to contact you. Switch it on again and the same code works.</p>
-          )}
-        </div>
-        {qr.enabled && (
-          <canvas ref={canvasRef} className="h-36 w-36 shrink-0 self-center rounded-md border border-bone md:self-start" role="img" aria-label={`QR code with ${initials || 'your initials'} in the middle`} />
-        )}
-      </div>
-    </section>
-  )
-}
 
 export default function ManageGuests() {
+  const { user } = useAuth()
   const { id } = useParams()
   const [invitation, setInvitation] = useState(null)
   const [guests, setGuests] = useState([])
@@ -1132,6 +1034,20 @@ export default function ManageGuests() {
       setModal(null)
     } finally {
       setBusy(false)
+    }
+  }
+
+  // The couple enters a guest's reply (e.g. they phoned)
+  async function setReply(guest, response) {
+    try {
+      const d = await api(`/invitations/${id}/guests/${guest.id}/reply`, { method: 'POST', body: { response } })
+      upsertGuest(d.guest)
+      showToast(response === 'pending' ? `${guest.name}'s reply cleared` : `${guest.name}: ${RSVP[response].label.toLowerCase()}`, {
+        label: 'Undo',
+        onClick: () => api(`/invitations/${id}/guests/${guest.id}/reply`, { method: 'POST', body: { response: guest.rsvpStatus } }).then((x) => upsertGuest(x.guest)),
+      })
+    } catch (err) {
+      setError(err.message)
     }
   }
 
@@ -1447,19 +1363,29 @@ export default function ManageGuests() {
         <FormAlert>{error}</FormAlert>
       </div>
 
+      {/* The QR code has its own page; here, just where things stand and the way there */}
       {can.qr && (
-        <QrPanel
-          invitation={invitation}
-          physical={summary.physical}
-          viaQr={summary.viaQr}
-          live={live}
-          physicalOnly={physicalOnly}
-          onSaved={(qr) => {
-            setInvitation((inv) => ({ ...inv, qr }))
-            showToast(qr.enabled ? 'QR code switched on' : 'QR code switched off')
-          }}
-          onError={setError}
-        />
+        <Link
+          to={`/invitations/${id}/qr`}
+          className="card mt-6 flex items-center gap-4 p-4 hover:border-gold"
+        >
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-blush-tint text-gold-text" aria-hidden="true">
+            <QrCode size={19} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-title-md text-espresso">QR code for physical cards</span>
+            <span className="block text-body-sm text-on-surface-variant">
+              {invitation.qr?.locked
+                ? qrLockNote(user).short
+                : invitation.qr?.enabled
+                  ? `On · ${summary.physical.total} with physical cards · ${summary.viaQr} replied by QR`
+                  : 'Off'}
+            </span>
+          </span>
+          <span className="inline-flex shrink-0 items-center gap-1 text-body-sm font-semibold text-gold-text">
+            Open <ChevronRight size={16} aria-hidden="true" />
+          </span>
+        </Link>
       )}
 
       {hasGroups && can.groupStats ? (
@@ -1735,7 +1661,7 @@ export default function ManageGuests() {
                       <span className="mt-1 block text-body-sm text-on-surface-variant" title={new Date(g.respondedAt).toLocaleString('en-GB')}>
                         Replied {shortDate(g.respondedAt)}
                         {g.rsvpStatus !== 'pending' && g.rsvpVia && (
-                          <span className={g.rsvpVia === 'qr' ? 'font-semibold text-[#5b3d86]' : ''}> · {g.rsvpVia === 'qr' ? 'by QR' : 'by link'}</span>
+                          <span className={g.rsvpVia === 'qr' ? 'font-semibold text-[#5b3d86]' : ''}> · {g.rsvpVia === 'qr' ? 'by QR' : g.rsvpVia === 'host' ? 'entered by you' : 'by link'}</span>
                         )}
                       </span>
                     )}
@@ -1776,6 +1702,8 @@ export default function ManageGuests() {
                       onShared={physical || g.openedAt ? null : (on) => markShared(g, on)}
                       shared={Boolean(g.sharedAt)}
                       onRemove={() => setModal({ type: 'remove', guest: g })}
+                      onReply={(v) => setReply(g, v)}
+                      reply={g.rsvpStatus}
                     />
                   </div>
                 </li>
@@ -1845,7 +1773,8 @@ export default function ManageGuests() {
           allowGroups={can.groups}
           allowPhysical={can.qr && !physicalOnly}
           physicalOnly={physicalOnly}
-          defaultCardType={cardFilter === 'physical' ? 'physical' : 'online'}
+          onlineNote={limits.onlineGuests ? `Free online card · ${summary.online.total} of ${limits.onlineGuests} used` : ''}
+          defaultCardType={cardFilter === 'physical' || (limits.plan === 'printed' && cardFilter !== 'online') ? 'physical' : 'online'}
           onClose={() => setModal(null)}
           onSaved={(g, isNew) => {
             upsertGuest(g)

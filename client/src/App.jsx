@@ -17,6 +17,7 @@ import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import NotFound from './pages/NotFound'
 import TemplateDemo from './pages/TemplateDemo'
+import InvitationQr from './pages/InvitationQr'
 import Home from './pages/Home'
 import ComingSoon from './pages/ComingSoon'
 import ScrollToTop from './components/ScrollToTop'
@@ -65,6 +66,7 @@ export default function App() {
           <Route path="/invitations/new" element={<Navigate to="/templates" replace />} />
           <Route path="/invitations/:id/edit" element={<InvitationEditor />} />
           <Route path="/invitations/:id/guests" element={<ManageGuests />} />
+          <Route path="/invitations/:id/qr" element={<InvitationQr />} />
           <Route
             path="/invitations/:id/guests/import"
             element={

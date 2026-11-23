@@ -35,7 +35,7 @@ async function setQr(req, res) {
     }
     invitation.qrEnabled = enabled;
     await invitation.save();
-    res.json({ success: true, qr: { enabled: invitation.qrEnabled, code: invitation.qrCode || "" } });
+    res.json({ success: true, qr: invitation.qrJSON(req.user) });
 }
 
 // ---------- public ----------

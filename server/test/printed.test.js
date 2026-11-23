@@ -35,6 +35,20 @@ describe("Printed Cards package", () => {
         assert.equal((await create(couple.token, { printed: true, eventType: "party" })).status, 400);
     });
 
+    it("is only for accounts with the Printed Cards package, and not Premium Plus or Signature", async () => {
+        const free = await registerUser("No package", { plan: "free" });
+        const refused = await create(free.token, { printed: true, eventType: "wedding" });
+        assert.equal(refused.status, 403);
+        assert.equal(refused.body.code, "needs_printed");
+        for (const plan of ["plus", "signature"]) {
+            const u = await registerUser(`${plan} couple`, { plan });
+            await models.User.updateOne({ email: u.email }, { $set: { printedCredits: 1 } });
+            const res = await create(u.token, { printed: true, eventType: "wedding" });
+            assert.equal(res.status, 403);
+            assert.equal(res.body.code, "has_qr");
+        }
+    });
+
     it("needs a reply-by date and publishes with a printed-cards credit, not a Premium one", async () => {
         await api().patch(`/api/invitations/${id}`).set(auth(couple.token)).send({ ...details, rsvpDeadline: "" });
         const missing = await api().post(`/api/invitations/${id}/publish`).set(auth(couple.token));
@@ -45,6 +59,7 @@ describe("Printed Cards package", () => {
         const pub = await api().post(`/api/invitations/${id}/publish`).set(auth(couple.token));
         assert.equal(pub.status, 200);
         assert.equal(pub.body.user.printedCredits, 0);
+        assert.equal(pub.body.user.printedMember, true, "still a Printed Cards member after the credit is used");
         assert.equal(pub.body.invitation.paidKind, "printed");
 
         // A second one has no credit left
@@ -90,6 +105,46 @@ describe("Printed Cards package", () => {
         assert.equal(over.status, 403);
         assert.equal(over.body.code, "guest_limit");
         assert.equal((await api().post(`/api/invitations/${id}/guests/import`).set(auth(couple.token)).send({ rows: rows.slice(0, 148), dryRun: true })).status, 200);
+    });
+
+    it("can give some guests the free online card in the same guest list (up to 50)", async () => {
+        const patch = (body) => api().patch(`/api/invitations/${id}`).set(auth(couple.token)).send(body);
+        const on = await patch({ onlineCard: true });
+        assert.equal(on.status, 200);
+        assert.equal(on.body.invitation.onlineCard, true);
+        assert.equal(on.body.invitation.printed, true);
+        assert.equal(on.body.invitation.limits.onlineCards, true);
+        assert.equal(on.body.invitation.limits.onlineGuests, 50);
+
+        const add = (body) => api().post(`/api/invitations/${id}/guests`).set(auth(couple.token)).send(body);
+        const online = (await add({ name: "Online Cousin", phone: "0771112233", cardType: "online" })).body.guest;
+        assert.equal(online.cardType, "online");
+        assert.equal(online.phone, "0771112233");
+        assert.equal((await add({ name: "No Type Given" })).body.guest.cardType, "physical", "printed cards default to paper");
+
+        // The online guest's link opens; paper guests' links still don't
+        assert.equal((await api().get(`/api/invite/${online.link.split("/i/")[1]}`)).status, 200);
+        const paper = await models.Guest.findOne({ invitation: id, cardType: "physical" });
+        assert.ok(paper);
+
+        // Another free design only changes the online card's look: still printed
+        const free = await patch({ templateKey: "modern-monochrome" });
+        assert.equal(free.status, 200);
+        assert.equal(free.body.invitation.printed, true);
+        assert.equal(free.body.invitation.templateKey, "modern-monochrome");
+
+        // Up to 50 online guests
+        const rows = (n, from) => Array.from({ length: n }, (_, i) => ({ row: i + 2, name: `Online ${from + i}` }));
+        const fits = await api().post(`/api/invitations/${id}/guests/import`).set(auth(couple.token)).send({ rows: rows(49, 1), dryRun: true, cardType: "online" });
+        assert.equal(fits.status, 200);
+        const over = await api().post(`/api/invitations/${id}/guests/import`).set(auth(couple.token)).send({ rows: rows(50, 1), dryRun: true, cardType: "online" });
+        assert.equal(over.status, 403);
+        assert.equal(over.body.code, "online_limit");
+
+        // Can't switch it off while someone has the online card
+        const off = await patch({ onlineCard: false });
+        assert.equal(off.status, 400);
+        assert.equal(off.body.code, "online_guests");
     });
 
     it("moves to online invitations with a Premium credit after upgrading, keeping the QR code", async () => {

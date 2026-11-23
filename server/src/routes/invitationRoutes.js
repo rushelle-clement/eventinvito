@@ -14,7 +14,7 @@ const { setQr } = require("../controllers/qrController");
 const { photoSignature, addPhoto, removePhoto, reorderPhotos } = require("../controllers/photoController");
 const { musicSignature, setMusic, removeMusic } = require("../controllers/musicController");
 const { logoSignature, setLogo, removeLogo } = require("../controllers/logoController");
-const { listGuests, addGuest, updateGuest, removeGuest, removeGuests, resetGuestLink, markGuestShared, setGuestsGroup } = require("../controllers/guestController");
+const { listGuests, addGuest, updateGuest, removeGuest, removeGuests, setGuestReply, resetGuestLink, markGuestShared, setGuestsGroup } = require("../controllers/guestController");
 
 const router = express.Router();
 
@@ -55,6 +55,7 @@ router.post("/:id/guests/remove", removeGuests); // remove many guests at once
 router.patch("/:id/guests/:guestId", updateGuest);
 router.delete("/:id/guests/:guestId", removeGuest);
 router.post("/:id/guests/:guestId/reset-link", resetGuestLink);
+router.post("/:id/guests/:guestId/reply", setGuestReply); // the couple enters a guest's reply (e.g. by phone)
 router.post("/:id/guests/:guestId/mark-shared", markGuestShared);
 
 module.exports = router;

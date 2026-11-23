@@ -42,7 +42,7 @@ const guestSchema = new mongoose.Schema(
         rsvpStatus: { type: String, enum: RSVP_STATUSES, default: "pending" },
         respondedAt: { type: Date },
         // Where the current reply came from: their personal link or the printed card's QR code
-        rsvpVia: { type: String, enum: ["", "link", "qr"], default: "" },
+        rsvpVia: { type: String, enum: ["", "link", "qr", "host"], default: "" }, // "host": the couple entered it (e.g. the guest phoned)
     },
     { timestamps: true }
 );

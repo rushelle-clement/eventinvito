@@ -13,8 +13,8 @@ const { accountStatus } = require("../utils/accountAccess");
 const { checkNewAccount, createAccount, str } = require("./authController");
 const { PLANS } = require("../utils/packages");
 
-// Premium credits that come with each package (Premium Plus and Signature include two invitations)
-const PLAN_CREDITS = { free: 0, premium: 1, plus: 2, signature: 2 };
+// Premium credits that come with each package: one invitation each (Signature's is its custom design)
+const PLAN_CREDITS = { free: 0, premium: 1, plus: 1, signature: 1 };
 
 function planFrom(value) {
     if (!PLANS.includes(value)) throw new AppError(400, "Choose a package: free, premium, plus or signature.", { plan: "Choose a package." });
@@ -120,7 +120,10 @@ async function updateUserAccount(req, res) {
     if ("plan" in body) user.plan = planFrom(body.plan);
     if ("credits" in body) user.publishCredits = creditsFrom(body.credits);
     if ("freeCredits" in body) user.freeCredits = creditsFrom(body.freeCredits);
-    if ("printedCredits" in body) user.printedCredits = creditsFrom(body.printedCredits);
+    if ("printedCredits" in body) {
+        user.printedCredits = creditsFrom(body.printedCredits);
+        if (user.printedCredits > 0) user.printedMember = true;
+    }
     if ("disabled" in body) {
         if (typeof body.disabled !== "boolean") throw new AppError(400, "disabled must be true or false.");
         if (self && body.disabled) throw new AppError(400, "You can't turn off your own account.");
