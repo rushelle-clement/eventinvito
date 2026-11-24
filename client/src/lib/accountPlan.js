@@ -20,7 +20,7 @@ export function planOf(user) {
 }
 
 // Why a Printed Cards invitation's QR code is still locked, in words that fit the account.
-// Printed Cards is its own package (Rs. 500): Premium doesn't include a QR code at all, and
+// Printed Cards is its own package (Rs. 1,000): Premium doesn't include a QR code at all, and
 // Premium Plus / Signature include one on their online invitations, not on a separate printed one.
 export function qrLockNote(user) {
   const plan = user?.plan || 'free'
@@ -28,11 +28,26 @@ export function qrLockNote(user) {
     const name = plan === 'plus' ? 'Premium Plus' : 'Signature'
     return {
       short: `Printed Cards is a separate package. Your ${name} invitations already have a QR code`,
-      long: `This is a Printed Cards invitation, a separate package (Rs. 500). Your ${name} package already includes a QR code on your online invitations: open one, mark paper-card guests as “Physical card”, and use its QR code page.`,
+      long: `This is a Printed Cards invitation, a separate package (Rs. 1,000). Your ${name} package already includes a QR code on your online invitations: open one, mark paper-card guests as “Physical card”, and use its QR code page.`,
+    }
+  }
+  if (plan === 'premium') {
+    return {
+      short: 'A QR code is part of Premium Plus — upgrade to use it',
+      long: 'A QR code for paper cards is part of Premium Plus. Upgrade to Premium Plus (you only pay the difference) to use it. You can add or import your guests now.',
     }
   }
   return {
-    short: plan === 'premium' ? 'Needs the Printed Cards package (Premium doesn’t include a QR code)' : 'Ready once the Printed Cards package is paid for',
-    long: `Your QR code is ready. You can download and print it once the Printed Cards package (Rs. 500) is paid for${plan === 'premium' ? ' — it isn’t part of Premium' : ''}. You can add or import your guests now.`,
+    short: 'Ready once the Printed Cards package is paid for',
+    long: 'Your QR code is ready. You can download and print it once the Printed Cards package (Rs. 1,000) is paid for. You can add or import your guests now.',
   }
+}
+
+// A Printed Cards account (chosen at sign-up, or given by the admin): paper cards only, with no free
+// online card, so "Create Invitation" (online designs) isn't offered to it
+export function isPrintedOnly(user) {
+  if (!user || user.role === 'admin') return false
+  if (user.requestedPlan === 'printed') return true
+  if (user.requestedPlan) return false
+  return planOf(user) === 'printed' && !(user.freeCredits > 0) && !(user.publishCredits > 0)
 }

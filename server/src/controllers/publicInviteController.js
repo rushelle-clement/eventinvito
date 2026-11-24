@@ -22,10 +22,8 @@ async function loadByToken(token) {
     if (!guest) throw new AppError(404, INVALID, undefined, "invalid_link");
 
     const invitation = await Invitation.findById(guest.invitation).populate("template", "tier");
-    // Printed Cards guests reply with the QR code on their card; only those given the free online
-    // card (when the couple turned it on) have a link that opens
-    const printedOnly = invitation?.printed && !(invitation.onlineCard && guest.cardType !== "physical");
-    if (!invitation || invitation.status === "archived" || printedOnly) throw new AppError(404, INVALID, undefined, "invalid_link");
+    // Printed Cards guests reply with the QR code on their card: they have no link that opens
+    if (!invitation || invitation.status === "archived" || invitation.printed) throw new AppError(404, INVALID, undefined, "invalid_link");
     if (invitation.status !== "published") throw new AppError(403, UNAVAILABLE, undefined, "not_published");
     // The day after the last event has passed: only the couple's names, for a polite note
     if (invitation.hasEnded()) {

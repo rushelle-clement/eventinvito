@@ -24,7 +24,7 @@ const PLANS = ["free", "premium", "plus", "signature"];
 // printed-cards credit — QR replies only, every guest has a physical card.
 const LIMITS = {
     free: { guests: 50, photos: 0, ownMusic: false, export: false, agenda: false, rsvpDeadline: false, openDetails: false, visitDetails: false, import: false, groups: false, groupStats: false, bulkGroups: false, qrRsvp: false, onlineCards: true },
-    premium: { guests: 150, photos: 3, ownMusic: false, export: false, agenda: false, rsvpDeadline: true, openDetails: true, visitDetails: false, import: true, groups: true, groupStats: true, bulkGroups: true, qrRsvp: false, onlineCards: true },
+    premium: { guests: 150, photos: 3, ownMusic: false, export: true, agenda: false, rsvpDeadline: true, openDetails: true, visitDetails: false, import: true, groups: true, groupStats: true, bulkGroups: true, qrRsvp: false, onlineCards: true },
     plus: { guests: 300, photos: 6, ownMusic: true, export: true, agenda: true, rsvpDeadline: true, openDetails: true, visitDetails: true, import: true, groups: true, groupStats: true, bulkGroups: true, qrRsvp: true, onlineCards: true },
     printed: { guests: 150, photos: 0, ownMusic: false, export: true, agenda: false, rsvpDeadline: true, openDetails: false, visitDetails: false, import: true, groups: true, groupStats: true, bulkGroups: true, qrRsvp: true, onlineCards: false },
     signature: { guests: 500, photos: 6, ownMusic: true, export: true, agenda: true, rsvpDeadline: true, openDetails: true, visitDetails: true, import: true, groups: true, groupStats: true, bulkGroups: true, qrRsvp: true, onlineCards: true },
@@ -54,18 +54,25 @@ function invitationPlan(invitation, user) {
     const kind = invitation.paidKind();
     if (kind === "free") return "free";
     if (kind === "premium") return atLeast(account, "premium");
-    if (invitation.isFreeDesign() && ((user?.freeCredits || 0) > 0 || account === "free")) return "free";
-    return atLeast(account, "premium");
+    // A draft of a couple still waiting for their package to be activated works with that
+    // package's limits, so they can set everything up (publishing still needs the payment)
+    const waiting = PLANS.includes(user?.requestedPlan) && !isActivated(user) ? user.requestedPlan : null;
+    if (invitation.isFreeDesign() && !waiting && ((user?.freeCredits || 0) > 0 || account === "free")) return "free";
+    return atLeast(waiting || account, "premium");
 }
-
-// Printed Cards with the free online card: up to this many guests get a link instead of a paper card
-const FREE_ONLINE_GUESTS = 50;
 
 function limitsFor(invitation, user) {
     const plan = invitationPlan(invitation, user);
-    const limits = { plan, planName: NAMES[plan], ...LIMITS[plan] };
-    if (plan === "printed" && invitation.onlineCard) Object.assign(limits, { onlineCards: true, onlineGuests: FREE_ONLINE_GUESTS });
-    return limits;
+    return { plan, planName: NAMES[plan], ...LIMITS[plan] };
 }
 
-module.exports = { PLANS, LIMITS, NAMES, FREE_ONLINE_GUESTS, accountPlan, invitationPlan, limitsFor };
+// The packages a couple can choose when they sign up. Free works straight away; the others wait
+// for payment, then the admin activates them (adminController.activateAccount).
+const SIGNUP_PACKAGES = ["free", "premium", "plus", "signature", "printed"];
+
+// Has the account been given a paid package yet? (a package, a Premium credit or Printed Cards)
+function isActivated(user) {
+    return PLANS.includes(user?.plan) && user.plan !== "free" ? true : Boolean((user?.publishCredits || 0) > 0 || (user?.printedCredits || 0) > 0 || user?.printedMember);
+}
+
+module.exports = { PLANS, LIMITS, NAMES, SIGNUP_PACKAGES, accountPlan, invitationPlan, limitsFor, isActivated };

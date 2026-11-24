@@ -116,10 +116,12 @@ async function accountJSON(user, invitations, customs = []) {
 
 const PAGE_SIZES = [10, 20, 50];
 
-// GET /api/admin/users?q=amaya&page=2&limit=20 — newest first, one page at a time
+// GET /api/admin/users?q=amaya&page=2&limit=20&waiting=1 — newest first, one page at a time.
+// waiting=1: only accounts whose chosen package is waiting for payment
 async function listAccounts(req, res) {
     const q = str(req.query?.q).slice(0, 100);
     const filter = q ? { $or: [{ name: { $regex: escapeRegex(q), $options: "i" } }, { email: { $regex: escapeRegex(q), $options: "i" } }] } : {};
+    if (req.query?.waiting === "1") filter.requestedPlan = { $in: ["premium", "plus", "signature", "printed"] };
     const limit = PAGE_SIZES.includes(Number(req.query?.limit)) ? Number(req.query.limit) : 20;
     const total = await User.countDocuments(filter);
     const pages = Math.max(1, Math.ceil(total / limit));
@@ -139,6 +141,7 @@ async function listAccounts(req, res) {
         pages,
         total,
         limit,
+        waiting: await User.countDocuments({ requestedPlan: { $in: ["premium", "plus", "signature", "printed"] } }),
         lockAfterEvent: process.env.LOCK_AFTER_EVENT === "true", // accounts close after their event
     });
 }
@@ -170,7 +173,13 @@ async function updateUserAccount(req, res) {
     const self = String(user._id) === String(req.user._id);
     const body = req.body || {};
 
+    const wasPaid = PLANS.includes(user.plan) && user.plan !== "free";
     if ("plan" in body) user.plan = planFrom(body.plan);
+    // From free to a paid package: the package's invitation replaces the free card (unless the
+    // free card is set in the same request)
+    if (!wasPaid && user.plan && user.plan !== "free" && !("freeCredits" in body)) user.freeCredits = 0;
+    // Giving a paid package or Printed Cards by hand also settles the package they asked for
+    if ((user.plan && user.plan !== "free") || ("printedCredits" in body && Number(body.printedCredits) > 0)) user.requestedPlan = undefined;
     if ("credits" in body) user.publishCredits = creditsFrom(body.credits);
     if ("freeCredits" in body) user.freeCredits = creditsFrom(body.freeCredits);
     if ("printedCredits" in body) {
@@ -199,6 +208,33 @@ async function updateUserAccount(req, res) {
     }
     await user.save();
 
+    const invitations = await Invitation.find({ owner: user._id, status: { $ne: "archived" } }).select(
+        "owner partnerOne partnerTwo celebrant age companyName eventTitle eventType status eventDate ceremonies timeZone creditUsed creditKind publishedAt printed changeLog namesUnlocked datesUnlocked"
+    );
+    const customs = await Template.find({ reservedFor: String(user.email).toLowerCase() });
+    res.json({ success: true, user: await accountJSON(user, invitations, customs) });
+}
+
+// POST /api/admin/users/:id/activate — the couple paid for the package they chose at sign-up:
+// set it and add its credit (Premium / Premium Plus / Signature: 1 Premium invitation; Printed
+// Cards: 1 printed-cards invitation, and no free online card)
+async function activateAccount(req, res) {
+    if (!mongoose.isValidObjectId(req.params.id)) throw new AppError(404, "Account not found.");
+    const user = await User.findById(req.params.id);
+    if (!user) throw new AppError(404, "Account not found.");
+    const wanted = user.requestedPlan;
+    if (!wanted) throw new AppError(400, "This account isn't waiting for a package.", undefined, "not_waiting");
+    if (wanted === "printed") {
+        user.printedCredits = (user.printedCredits || 0) + 1;
+        user.printedMember = true;
+        user.freeCredits = 0;
+    } else {
+        user.plan = wanted;
+        user.publishCredits = (user.publishCredits || 0) + PLAN_CREDITS[wanted];
+        user.freeCredits = 0; // one invitation with the package: free designs use it too
+    }
+    user.requestedPlan = undefined;
+    await user.save();
     const invitations = await Invitation.find({ owner: user._id, status: { $ne: "archived" } }).select(
         "owner partnerOne partnerTwo celebrant age companyName eventTitle eventType status eventDate ceremonies timeZone creditUsed creditKind publishedAt printed changeLog namesUnlocked datesUnlocked"
     );
@@ -272,4 +308,4 @@ function passwordSuggestion(req, res) {
     res.json({ success: true, password: suggestPassword() });
 }
 
-module.exports = { listInvitations, updateInvitationLocks, PLAN_CREDITS, listCustomDesigns, updateCustomDesign, listAccounts, createUserAccount, updateUserAccount, passwordSuggestion };
+module.exports = { activateAccount, listInvitations, updateInvitationLocks, PLAN_CREDITS, listCustomDesigns, updateCustomDesign, listAccounts, createUserAccount, updateUserAccount, passwordSuggestion };

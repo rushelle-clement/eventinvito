@@ -28,7 +28,7 @@ const mongoose = require("mongoose");
 const Guest = require("../models/Guest");
 const AppError = require("../utils/AppError");
 const { findOwned } = require("./invitationController");
-const { readGuest, canonicalGroup, requireFeature, MAX_GUESTS_PER_INVITATION, guestLimitMessage, checkOnlineRoom } = require("./guestController");
+const { readGuest, canonicalGroup, requireFeature, MAX_GUESTS_PER_INVITATION, guestLimitMessage } = require("./guestController");
 const { limitsFor } = require("../utils/packages");
 const { newGuestToken } = require("../utils/guestToken");
 const qrNames = require("../utils/qrNames");
@@ -253,10 +253,6 @@ async function importGuests(req, res) {
             "guest_limit"
         );
     }
-
-    // Printed Cards with the free online card: the online guests have their own, smaller limit
-    const toOnline = analysed.filter((r) => r.action === "update" && r.values.cardType === "online" && r.duplicate?.changes?.some((c) => c.field === "cardType")).length;
-    if (summary.addOnline + toOnline) await checkOnlineRoom(invitation, limits, summary.addOnline + toOnline);
 
     if (dryRun !== false) {
         return res.json({ success: true, dryRun: true, cardType, summary, fit, rows: analysed });

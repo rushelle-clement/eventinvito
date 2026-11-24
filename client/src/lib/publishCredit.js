@@ -12,20 +12,29 @@ export function publishCredit({ printed = false, paid = false, paidKind = null, 
   const free = user?.freeCredits || 0
   const premium = user?.publishCredits || 0
   const printedLeft = user?.printedCredits || 0
+  // Chose a package at sign-up that's waiting for payment: publishing opens once it's activated
+  const waitingFor = { premium: 'Premium', plus: 'Premium Plus', signature: 'Signature', printed: 'Printed Cards' }[user?.requestedPlan]
+  const waiting = waitingFor && {
+    note: `Your ${waitingFor} package is waiting for payment. You can publish as soon as we’ve received it — see the top of your dashboard for how to pay.`,
+    blocked: true,
+    waiting: true,
+    short: `Waiting for your ${waitingFor} payment to publish`,
+  }
 
   if (printed) {
     if (paid) return { note: null, blocked: false }
+    if (printedLeft === 0 && user?.requestedPlan === 'printed') return waiting
     if (printedLeft > 0) return { note: `Publishing these printed cards uses 1 of your ${plural(printedLeft, 'Printed Cards invitation')}. After that you can still edit it, unpublish it and publish it again.`, blocked: false }
     // Already used on another event: say so, instead of offering the package as if they'd never had it
     if (user?.printedMember) {
       return {
-        note: 'You’ve already used your Printed Cards package on another event. To publish this one too, contact us for another Printed Cards package (Rs. 500).',
+        note: 'You’ve already used your Printed Cards package on another event. To publish this one too, contact us for another Printed Cards package (Rs. 1,000).',
         blocked: true,
         used: true,
         short: 'Printed Cards package already used — contact us for another',
       }
     }
-    return { note: 'Publishing printed cards with a QR code needs the Printed Cards package (Rs. 500).', blocked: true, short: 'Needs the Printed Cards package to publish' }
+    return { note: 'Publishing printed cards with a QR code needs the Printed Cards package (Rs. 1,000).', blocked: true, short: 'Needs the Printed Cards package to publish' }
   }
   if (paid) {
     // Published as a free card, now switched to an animated design
@@ -38,12 +47,14 @@ export function publishCredit({ printed = false, paid = false, paidKind = null, 
   }
   if (freeDesign) {
     if (free > 0) return { note: 'This is a free design: publishing it uses your free card. After that you can still edit it, unpublish it and publish it again.', blocked: false }
-    if (premium > 0) return { note: `You’ve used your free card, so publishing this uses 1 of your ${plural(premium, 'Premium invitation')}.`, blocked: false }
+    // Paid packages have no free card: a free design uses the package's invitation
+    if (premium > 0) return { note: `Publishing this free design uses 1 of your ${plural(premium, 'Premium invitation')}. After that you can still edit it, unpublish it and publish it again.`, blocked: false }
     return { note: 'You’ve already used your free card. Choose a Premium package to publish another invitation.', blocked: true, short: 'Free card used — needs a Premium package to publish' }
   }
   if (premium > 0) {
     return { note: `Your account can publish ${plural(premium, 'Premium invitation')}. Publishing this uses ${premium === 1 ? 'it' : 'one'}; after that you can still edit it, unpublish it and publish it again.`, blocked: false }
   }
+  if (waiting && user.requestedPlan !== 'printed') return waiting
   return {
     note:
       free > 0

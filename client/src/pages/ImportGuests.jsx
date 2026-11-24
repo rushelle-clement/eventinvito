@@ -168,7 +168,7 @@ export default function ImportGuests() {
 
   const [step, setStep] = useState(1)
   // Card types. "mixed": each guest is Online or Physical (a Card type column) — Premium Plus,
-  // Signature, and Printed Cards with the free online card. "printed": everyone has a printed card.
+  // Signature. "printed": everyone has a printed card (Printed Cards).
   // "online": everyone gets a link (no QR code in the package).
   const limits = invitation?.limits || {}
   const physicalOnly = limits.onlineCards === false
@@ -529,7 +529,7 @@ export default function ImportGuests() {
                 <p className="font-semibold">Card type: Online or Physical</p>
                 <p className="mt-1 text-on-surface-variant">
                   Write <strong className="text-espresso">Online</strong> for guests who get a personal link on WhatsApp
-                  {limits.onlineGuests ? ` (up to ${limits.onlineGuests} on the free online card)` : ''}, and <strong className="text-espresso">Physical</strong> for guests who get a printed card and reply with the QR code. Leave it empty for{' '}
+, and <strong className="text-espresso">Physical</strong> for guests who get a printed card and reply with the QR code. Leave it empty for{' '}
                   {usualCard === 'physical' ? 'a printed card' : 'an online card'}. Physical-card guests don’t need a phone number.
                 </p>
               </div>
@@ -725,7 +725,7 @@ export default function ImportGuests() {
               <p className="text-title-md text-espresso">Your file has no Card type column. Everyone in this file is:</p>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 {[
-                  { value: 'online', label: 'Online card', note: limits.onlineGuests ? `Free online card, up to ${limits.onlineGuests} guests` : 'Each gets a personal link', Icon: Link2 },
+                  { value: 'online', label: 'Online card', note: 'Each gets a personal link', Icon: Link2 },
                   { value: 'physical', label: 'Physical card', note: 'They reply by the QR code', Icon: Printer },
                 ].map((o) => (
                   <label

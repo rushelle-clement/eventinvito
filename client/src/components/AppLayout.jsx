@@ -10,6 +10,7 @@ import UserMenu from './UserMenu'
 import PlanBadge from './PlanBadge'
 import { useSiteConfig } from '../lib/siteConfig'
 import { useAuth } from '../context/AuthContext'
+import { isPrintedOnly } from '../lib/accountPlan'
 import SiteFooter from './SiteFooter'
 
 const MEMBER_NAV = [
@@ -58,9 +59,12 @@ export default function AppLayout() {
               <>
                 {/* The account's package (on phones it's inside the account menu) */}
                 <PlanBadge user={user} className="hidden sm:inline-flex" />
-                <Link to="/templates" className="btn-primary hidden px-5 py-2 text-body-sm sm:inline-flex">
-                  <Plus size={16} aria-hidden="true" /> Create Invitation
-                </Link>
+                {/* Printed Cards accounts start their cards from the dashboard */}
+                {!isPrintedOnly(user) && (
+                  <Link to="/templates" className="btn-primary hidden px-5 py-2 text-body-sm sm:inline-flex">
+                    <Plus size={16} aria-hidden="true" /> Create Invitation
+                  </Link>
+                )}
                 <UserMenu />
               </>
             ) : (
@@ -97,7 +101,7 @@ export default function AppLayout() {
 
         {mobileOpen && (
           <nav aria-label="Main" className="border-t border-bone bg-ivory px-margin-mobile py-3 md:hidden">
-            {(user ? [...NAV, { to: '/templates', label: 'Create Invitation' }] : [...NAV, { to: '/signin', label: 'Sign In' }]).map((item) => (
+            {(user ? [...NAV, ...(isPrintedOnly(user) ? [] : [{ to: '/templates', label: 'Create Invitation' }])] : [...NAV, { to: '/signin', label: 'Sign In' }]).map((item) => (
               <NavLink
                 key={item.to + item.label}
                 to={item.to}

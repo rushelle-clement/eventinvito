@@ -201,7 +201,7 @@ function GroupPicker({ id, value, onChange, guests, eventType, error }) {
   )
 }
 
-function GuestFormModal({ invitationId, guest, language = 'en', guests = [], eventType, allowGroups = true, allowPhysical = false, physicalOnly = false, defaultCardType = 'online', onlineNote = '', onClose, onSaved }) {
+function GuestFormModal({ invitationId, guest, language = 'en', guests = [], eventType, allowGroups = true, allowPhysical = false, physicalOnly = false, defaultCardType = 'online', onClose, onSaved }) {
   const [form, setForm] = useState({
     cardType: physicalOnly ? 'physical' : guest?.cardType || (allowPhysical ? defaultCardType : 'online'),
     name: guest?.name || '',
@@ -285,7 +285,7 @@ function GuestFormModal({ invitationId, guest, language = 'en', guests = [], eve
             <legend className="mb-1.5 block text-label-md text-espresso uppercase">Card type</legend>
             <div className="grid grid-cols-2 gap-2">
               {[
-                { value: 'online', label: 'Online card', note: onlineNote || 'Personal link by WhatsApp', Icon: Link2 },
+                { value: 'online', label: 'Online card', note: 'Personal link by WhatsApp', Icon: Link2 },
                 { value: 'physical', label: 'Physical card', note: 'Replies by the QR code', Icon: Printer },
               ].map((o) => (
                 <label
@@ -1723,7 +1723,6 @@ export default function ManageGuests() {
           allowGroups={can.groups}
           allowPhysical={can.qr && !physicalOnly}
           physicalOnly={physicalOnly}
-          onlineNote={limits.onlineGuests ? `Free online card · ${summary.online.total} of ${limits.onlineGuests} used` : ''}
           defaultCardType={cardFilter === 'physical' || (limits.plan === 'printed' && cardFilter !== 'online') ? 'physical' : 'online'}
           onClose={() => setModal(null)}
           onSaved={(g, isNew) => {

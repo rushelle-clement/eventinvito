@@ -9,6 +9,7 @@ import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import FormAlert from '../components/FormAlert'
 import { formatDate } from '../templates/strings'
+import { packageOf } from '../lib/packages'
 import Loader from '../components/Loader'
 
 const input = 'w-full rounded-lg border border-bone bg-white px-4 py-3 text-body-md text-espresso outline-none focus:border-gold'
@@ -20,10 +21,10 @@ const STATUS = {
 
 // The packages (see Packages.jsx on the home page and the server's utils/packages.js)
 const PLANS = [
-  { value: 'free', label: 'Simple Card', credits: 0, limits: '50 guests · replies, no deadline' },
-  { value: 'premium', label: 'Premium', credits: 1, limits: '150 guests · 3 photos · opened tracking · groups + group stats · import' },
-  { value: 'plus', label: 'Premium Plus', credits: 1, limits: '300 guests · 6 photos · own song · Excel · day plan · QR for printed cards' },
-  { value: 'signature', label: 'Signature', credits: 1, limits: '500 guests · custom design · everything in Plus' },
+  { value: 'free', label: 'Simple Card', credits: 0, limits: '50 invitations · replies, no deadline' },
+  { value: 'premium', label: 'Premium', credits: 1, limits: '150 invitations · 3 photos · opened tracking · groups + group stats · import · Excel' },
+  { value: 'plus', label: 'Premium Plus', credits: 1, limits: '300 invitations · 6 photos · own song · day plan · QR for printed cards' },
+  { value: 'signature', label: 'Signature', credits: 1, limits: '500 invitations · custom design · everything in Plus' },
 ]
 const planOf = (value) => PLANS.find((p) => p.value === value) || PLANS[0]
 
@@ -180,6 +181,20 @@ function AccountRow({ account, me, onChange, lockAfterEvent, onShowInvitations }
     }
   }
 
+  // The couple paid for the package they chose at sign-up: set it and add its credit
+  async function activate() {
+    setBusy(true)
+    setError('')
+    try {
+      const d = await api(`/admin/users/${account.id}/activate`, { method: 'POST' })
+      onChange(d.user)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   // Credit counters change on the screen straight away; the new number is saved a moment after
   // the last click (several quick clicks send one save). On an error the saved number comes back.
   const [counts, setCounts] = useState({}) // numbers clicked but not saved yet
@@ -240,6 +255,18 @@ function AccountRow({ account, me, onChange, lockAfterEvent, onShowInvitations }
             <span className="text-body-sm text-on-surface-variant">—</span>
           ) : (
             <>
+              {/* Chose a paid package at sign-up and waiting for payment */}
+              {packageOf(account.requestedPlan) && (
+                <div className="mb-2 max-w-[11rem] rounded-lg border border-gold/50 bg-blush-tint px-2.5 py-2">
+                  <p className="text-[12px] leading-snug text-on-surface-variant">Chose at sign-up:</p>
+                  <p className="text-body-sm font-semibold text-espresso">
+                    {packageOf(account.requestedPlan).name} · {packageOf(account.requestedPlan).price}
+                  </p>
+                  <button type="button" className="btn-primary mt-1.5 w-full px-3 py-1.5 text-body-sm" onClick={activate} disabled={busy}>
+                    <Check size={14} aria-hidden="true" /> Paid · activate
+                  </button>
+                </div>
+              )}
               <select
                 className="w-[10.5rem] rounded-lg border border-bone bg-white px-2.5 py-1.5 text-body-sm text-espresso outline-none focus:border-gold"
                 value={account.plan || 'free'}
@@ -275,7 +302,7 @@ function AccountRow({ account, me, onChange, lockAfterEvent, onShowInvitations }
               {[
                 ['credits', 'publishCredits', 'Premium'],
                 ['freeCredits', 'freeCredits', 'Free card'],
-                // Printed Cards package (Rs. 500): paper cards with a QR code, no online design
+                // Printed Cards package (Rs. 1,000): paper cards with a QR code, no online design
                 ['printedCredits', 'printedCredits', 'Printed Cards package'],
               ].map(([field, key, label]) => (
                 <div key={field} className="flex items-center gap-1.5" aria-label={`${label}: ${shown(key)} left for ${account.name}`}>
@@ -781,12 +808,14 @@ export default function Admin() {
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(20)
+  const [waiting, setWaiting] = useState(false) // only accounts waiting for payment
   const [error, setError] = useState('')
 
-  const load = useCallback(async ({ q, page: p, limit: l }) => {
+  const load = useCallback(async ({ q, page: p, limit: l, waiting: w }) => {
     try {
       const params = new URLSearchParams({ page: String(p), limit: String(l) })
       if (q) params.set('q', q)
+      if (w) params.set('waiting', '1')
       const d = await api(`/admin/users?${params}`)
       setData(d)
       setError('')
@@ -797,11 +826,18 @@ export default function Admin() {
 
   // Typing waits a moment before searching; changing page or size loads straight away
   useEffect(() => {
-    const t = setTimeout(() => load({ q: query.trim(), page, limit }), query ? 300 : 0)
+    const t = setTimeout(() => load({ q: query.trim(), page, limit, waiting }), query ? 300 : 0)
     return () => clearTimeout(t)
-  }, [query, page, limit, load])
+  }, [query, page, limit, waiting, load])
 
-  const replace = (next) => setData((d) => d && { ...d, users: d.users.map((a) => (a.id === next.id ? next : a)) })
+  const replace = (next) =>
+    setData((d) => {
+      if (!d) return d
+      const before = d.users.find((a) => a.id === next.id)
+      // Activated: one fewer waiting for payment
+      const settled = before?.requestedPlan && !next.requestedPlan ? 1 : 0
+      return { ...d, waiting: Math.max(0, (d.waiting || 0) - settled), users: d.users.map((a) => (a.id === next.id ? next : a)) }
+    })
   const accounts = data?.users
   // Tabs: accounts (packages and credits), creating an account, published invitations
   // (changes, permissions) and custom designs. The address keeps the tab (#create etc.)
@@ -821,7 +857,7 @@ export default function Admin() {
     setTab(t)
     window.history.replaceState(null, '', t === 'accounts' ? '#' : `#${t}`)
   }
-  const refresh = () => load({ q: query.trim(), page, limit })
+  const refresh = () => load({ q: query.trim(), page, limit, waiting })
 
   return (
     <div className="mx-auto max-w-[1200px] px-margin-mobile py-10 md:px-margin">
@@ -856,7 +892,7 @@ export default function Admin() {
               onCreated={() => {
                 // Newest accounts are listed first: show page 1 again
                 setQuery('')
-                if (page === 1) load({ q: '', page: 1, limit })
+                if (page === 1) load({ q: '', page: 1, limit, waiting })
                 else setPage(1)
               }}
             />
@@ -867,8 +903,9 @@ export default function Admin() {
       {tab === 'accounts' && (
       <>
       <p className="mt-6 max-w-2xl text-body-md text-on-surface-variant">
-        Couples sign up themselves and get one free card. When a couple pays, search for their email and choose their package: it sets their limits and
-        adds its Premium invitation (1 with each package). Drafts are always free.
+        Couples choose their package when they sign up. Free works straight away; for the others, press{' '}
+        <strong className="text-espresso">Waiting for payment</strong>, and when a couple has paid, press <strong className="text-espresso">Paid · activate</strong>: it sets their
+        package and adds its invitation (1 Premium, or 1 Printed Cards). You can still change a package or the counts by hand.
       </p>
 
       <section className="mt-8" aria-labelledby="list-h">
@@ -877,8 +914,22 @@ export default function Admin() {
             <h2 id="list-h" className="font-serif text-headline-sm text-espresso">
               All accounts
             </h2>
-            {data && <p className="mt-1 text-body-sm text-on-surface-variant">{data.total} {query.trim() ? 'found' : 'in total'}</p>}
+            {data && <p className="mt-1 text-body-sm text-on-surface-variant">{data.total} {query.trim() || waiting ? 'found' : 'in total'}</p>}
           </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          {/* Couples who chose a paid package and haven't been activated yet */}
+          <button
+            type="button"
+            aria-pressed={waiting}
+            onClick={() => {
+              setWaiting((w) => !w)
+              setPage(1)
+            }}
+            className={`inline-flex items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-body-sm whitespace-nowrap ${waiting ? 'border-espresso bg-espresso text-white' : 'border-bone bg-white text-espresso hover:border-gold'}`}
+          >
+            Waiting for payment
+            <span className={`rounded-full px-2 py-px text-label-sm ${data?.waiting ? 'bg-gold text-espresso' : waiting ? 'bg-white/20' : 'bg-surface-container-high text-on-surface-variant'}`}>{data?.waiting ?? 0}</span>
+          </button>
           <label className="relative block sm:w-72">
             <span className="sr-only">Search accounts</span>
             <Search size={16} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-on-surface-variant" aria-hidden="true" />
@@ -892,6 +943,7 @@ export default function Admin() {
               placeholder="Search name or email"
             />
           </label>
+          </div>
         </div>
 
         <div className="mt-4">

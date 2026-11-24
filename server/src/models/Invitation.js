@@ -176,9 +176,6 @@ const invitationSchema = new mongoose.Schema(
         // only the QR reply page; every guest has a physical card. `template` is only kept
         // so the invitation has a design if they upgrade to online cards.
         printed: { type: Boolean, default: false },
-        // Printed Cards only: some guests get the free online card (a Simple Card design) instead of
-        // a paper one, in the same guest list (up to FREE_ONLINE_GUESTS of them)
-        onlineCard: { type: Boolean, default: false },
 
         // After the first publish (utils/publishedLocks.js): the names it was published with (only
         // small spelling fixes after that), one-off unlocks an admin can give, and what changed since
@@ -330,7 +327,6 @@ invitationSchema.methods.toOwnerJSON = function (owner) {
         ended: this.hasEnded(),
         qr: this.qrJSON(owner),
         printed: Boolean(this.printed),
-        onlineCard: Boolean(this.printed && this.onlineCard),
         // Published already: names only take small fixes; an ended event's date is fixed
         namesLocked: this.isPaid() && !this.namesUnlocked,
         datesLocked: this.isPaid() && this.hasEnded() && !this.datesUnlocked,

@@ -112,8 +112,7 @@ export function buildRows(rows, mapping) {
 
 // Templates, one for each kind of guest list:
 //   online  – everyone gets a personal link (Free, Premium)
-//   mixed   – a Card type column: Online or Physical for each guest (Premium Plus, Signature, and
-//             Printed Cards with the free online card)
+//   mixed   – a Card type column: Online or Physical for each guest (Premium Plus, Signature)
 //   printed – everyone gets a printed card: no phone or Card type columns (Printed Cards)
 const TEMPLATES = {
   online: {

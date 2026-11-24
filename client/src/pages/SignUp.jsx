@@ -1,7 +1,7 @@
 // Create Account page — based on the Stitch "Create Account" screen.
 
 import { useState } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowRight, Check, Circle, IdCard, LockKeyhole, Mail } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import AuthLayout from '../components/AuthLayout'
@@ -10,6 +10,7 @@ import FormAlert from '../components/FormAlert'
 import InvitationShowcase from '../components/InvitationShowcase'
 import ContactLine from '../components/ContactLine'
 import { useSiteConfig } from '../lib/siteConfig'
+import { INVITATION_NOTE, SIGNUP_PACKAGES, packageOf } from '../lib/packages'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const MIN_PASSWORD = 8 // must match the server rule
@@ -40,7 +41,9 @@ export default function SignUp() {
   const { user, signUp } = useAuth()
   const navigate = useNavigate()
 
-  const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '' })
+  // The package can come from the home page's pricing (?package=plus)
+  const [params] = useSearchParams()
+  const [form, setForm] = useState(() => ({ name: '', email: '', password: '', confirm: '', package: packageOf(params.get('package'))?.key || 'free' }))
   const [errors, setErrors] = useState({})
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -92,7 +95,7 @@ export default function SignUp() {
 
     setSubmitting(true)
     try {
-      await signUp({ name: form.name.trim(), email: form.email.trim(), password: form.password })
+      await signUp({ name: form.name.trim(), email: form.email.trim(), password: form.password, package: form.package })
       navigate('/dashboard', { replace: true })
     } catch (err) {
       setFormError(err.message)
@@ -197,6 +200,37 @@ export default function SignUp() {
             error={errors.confirm}
             required
           />
+
+          {/* The package: Free works straight away, the others once we've received the payment */}
+          <fieldset>
+            <legend className="text-label-md text-espresso uppercase">Choose your package</legend>
+            <div className="mt-3 space-y-2">
+              {SIGNUP_PACKAGES.map((p) => (
+                <label
+                  key={p.key}
+                  className={`flex cursor-pointer items-start gap-3 rounded-lg border px-4 py-3 transition-colors ${form.package === p.key ? 'border-gold bg-blush-tint/60' : 'border-bone bg-white hover:border-gold/50'}`}
+                >
+                  <input type="radio" name="package" value={p.key} checked={form.package === p.key} onChange={update('package')} className="mt-1 h-4 w-4 shrink-0 accent-espresso" />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex flex-wrap items-baseline justify-between gap-x-3">
+                      <span className="text-body-md font-semibold text-espresso">{p.name}</span>
+                      <span className="text-body-sm font-semibold text-gold-text">{p.price}</span>
+                    </span>
+                    <span className="block text-body-sm text-on-surface-variant">{p.line}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            <p className="mt-2 text-body-sm text-on-surface-variant">{INVITATION_NOTE}</p>
+            <p className="mt-1 text-body-sm text-on-surface-variant">
+              {form.package === 'free'
+                ? 'Free to publish. You can upgrade any time.'
+                : 'You can set everything up straight away. We’ll show you how to pay, and you can publish once your payment is confirmed.'}{' '}
+              <a href="/#pricing" target="_blank" rel="noreferrer" className="font-semibold text-gold-text underline underline-offset-4">
+                Compare packages
+              </a>
+            </p>
+          </fieldset>
 
           <button type="submit" className="btn-primary w-full py-4 text-title-md" disabled={submitting}>
             {submitting ? 'Creating your account…' : 'Create Account & Begin'}

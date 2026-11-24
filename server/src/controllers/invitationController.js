@@ -274,6 +274,15 @@ async function createPrintedInvitation(req, res) {
     // Printed Cards is a package the admin turns on (a Printed Cards credit). Premium Plus and
     // Signature already have a QR code on their own invitations, so they never need it.
     if (req.user.role !== "admin") {
+        // Premium (or a Premium package waiting for payment): a QR code is part of Premium Plus
+        if (req.user.plan === "premium" || ["premium", "plus", "signature"].includes(req.user.requestedPlan)) {
+            throw new AppError(
+                403,
+                "Printed cards with a QR code are part of Premium Plus. Upgrade to Premium Plus (you only pay the difference) to add a QR code for your paper-card guests.",
+                undefined,
+                "needs_plus"
+            );
+        }
         if (["plus", "signature"].includes(req.user.plan)) {
             throw new AppError(
                 403,
@@ -282,8 +291,23 @@ async function createPrintedInvitation(req, res) {
                 "has_qr"
             );
         }
-        const customer = (req.user.printedCredits || 0) > 0 || req.user.printedMember || (await Invitation.exists({ owner: req.user._id, printed: true, creditKind: "printed" }));
+        // (or chose it when signing up: they can set it up while it waits for payment)
+        const customer =
+            (req.user.printedCredits || 0) > 0 ||
+            req.user.printedMember ||
+            req.user.requestedPlan === "printed" ||
+            (await Invitation.exists({ owner: req.user._id, printed: true, creditKind: "printed" }));
         if (!customer) throw NEEDS_PRINTED();
+        // One event, one guest list: after the free online card has been used, printed cards for the
+        // same couple would be a second list. Paper and online cards together are Premium Plus.
+        if (await Invitation.exists({ owner: req.user._id, creditKind: "free" })) {
+            throw new AppError(
+                403,
+                "You’ve already used your free online card. To send printed cards with a QR code as well, choose Premium Plus: online invitations and paper cards in one guest list.",
+                undefined,
+                "used_free_card"
+            );
+        }
     }
     const eventType = req.body?.eventType;
     if (!Template.EVENT_TYPES.includes(eventType)) throw new AppError(400, "Choose the type of event.", { eventType: "Choose the type of event." });
@@ -342,27 +366,12 @@ async function updateInvitation(req, res) {
         }
     }
 
-    // Printed Cards: the free online card for some guests, on or off
-    let onlineCard;
-    if ("onlineCard" in (req.body || {})) {
-        if (typeof req.body.onlineCard !== "boolean") errors.onlineCard = "Must be true or false.";
-        else if (!invitation.printed) errors.onlineCard = "Only for printed cards.";
-        else onlineCard = req.body.onlineCard;
+    // Printed Cards are paper cards only: there's no free online card with them (Premium Plus has both)
+    if (req.body?.onlineCard === true) {
+        throw new AppError(400, "Printed Cards are paper cards with a QR code only. For online invitations too, choose Premium Plus.", undefined, "no_online_card");
     }
 
     if (Object.keys(errors).length) throw new AppError(400, "Please fix the highlighted fields.", errors);
-
-    if (onlineCard === false && invitation.onlineCard) {
-        const online = await Guest.countDocuments({ invitation: invitation._id, cardType: { $ne: "physical" } });
-        if (online) {
-            throw new AppError(
-                400,
-                `${online} guest${online === 1 ? " has" : "s have"} the online card. Change them to a physical card first, then switch it off.`,
-                { onlineCard: "Some guests still have the online card." },
-                "online_guests"
-            );
-        }
-    }
 
     // The day plan is part of Premium Plus and Signature. Clearing it or switching it off is always allowed.
     const addsAgenda = (changes.agenda && changes.agenda.length > 0) || changes.agendaVisible === true;
@@ -381,7 +390,6 @@ async function updateInvitation(req, res) {
 
     // Printed cards moving to online invitations (e.g. after upgrading to Premium Plus) by choosing
     // a design. Once paid for, that needs a Premium credit, like publishing a new online invitation.
-    // (choosing one of the free designs only changes the free online card's design: it stays printed)
     const toOnline = Boolean(newTemplate && invitation.printed && newTemplate.tier !== "free");
     const paidPrinted = toOnline && invitation.paidKind() === "printed";
     // A live invitation published as a free card can only switch to an animated design with a premium credit
@@ -395,7 +403,6 @@ async function updateInvitation(req, res) {
 
     Object.assign(invitation, changes);
     recordPublishedChanges(invitation, before);
-    if (onlineCard !== undefined) invitation.onlineCard = onlineCard;
     if (toOnline) invitation.printed = false; // guests keep their physical cards and the QR code keeps working
     if (newTemplate) {
         invitation.template = newTemplate;

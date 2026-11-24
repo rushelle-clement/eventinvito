@@ -48,6 +48,9 @@ const userSchema = new mongoose.Schema(
         // The package the couple paid for (free, premium, plus, signature): sets each
         // invitation's guest limit, photos, own song and Excel download. See utils/packages.js
         plan: { type: String, enum: ["free", "premium", "plus", "signature"] },
+        // The package chosen at sign-up, waiting for payment. The admin activates it (which sets
+        // the package and adds its credit) and this is cleared. Empty for free accounts.
+        requestedPlan: { type: String, enum: ["premium", "plus", "signature", "printed"] },
 
         // Forgot password: a hash of the one-time link's secret and when it stops working.
         // Only the hash is kept, so a database leak can't be used to reset passwords.
@@ -77,6 +80,7 @@ userSchema.methods.toPublicJSON = function () {
         printedCredits: this.printedCredits || 0,
         printedMember: Boolean(this.printedMember || this.printedCredits > 0),
         plan: require("../utils/packages").accountPlan(this),
+        requestedPlan: this.requestedPlan || null,
         createdAt: this.createdAt,
     };
 };

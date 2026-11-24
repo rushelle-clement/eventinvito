@@ -107,48 +107,29 @@ describe("Printed Cards package", () => {
         assert.equal((await api().post(`/api/invitations/${id}/guests/import`).set(auth(couple.token)).send({ rows: rows.slice(0, 148), dryRun: true })).status, 200);
     });
 
-    it("can give some guests the free online card in the same guest list (up to 50)", async () => {
+    it("has paper cards only: no free online card, every guest gets a physical card", async () => {
         const patch = (body) => api().patch(`/api/invitations/${id}`).set(auth(couple.token)).send(body);
         const on = await patch({ onlineCard: true });
-        assert.equal(on.status, 200);
-        assert.equal(on.body.invitation.onlineCard, true);
-        assert.equal(on.body.invitation.printed, true);
-        assert.equal(on.body.invitation.limits.onlineCards, true);
-        assert.equal(on.body.invitation.limits.onlineGuests, 50);
+        assert.equal(on.status, 400);
+        assert.equal(on.body.code, "no_online_card");
+        assert.match(on.body.message, /Premium Plus/);
 
         const add = (body) => api().post(`/api/invitations/${id}/guests`).set(auth(couple.token)).send(body);
-        const online = (await add({ name: "Online Cousin", phone: "0771112233", cardType: "online" })).body.guest;
-        assert.equal(online.cardType, "online");
-        assert.equal(online.phone, "0771112233");
-        assert.equal((await add({ name: "No Type Given" })).body.guest.cardType, "physical", "printed cards default to paper");
+        const asked = (await add({ name: "Wants A Link", phone: "0771112233", cardType: "online" })).body.guest;
+        assert.equal(asked.cardType, "physical");
+        assert.equal(asked.phone, "");
 
-        // The online guest's link opens; paper guests' links still don't
-        assert.equal((await api().get(`/api/invite/${online.link.split("/i/")[1]}`)).status, 200);
-        const paper = await models.Guest.findOne({ invitation: id, cardType: "physical" });
-        assert.ok(paper);
+        // Import: "Online" rows become physical too
+        const imp = await api().post(`/api/invitations/${id}/guests/import`).set(auth(couple.token)).send({ rows: [{ row: 2, name: "Row Paper" }, { row: 3, name: "Row Link", phone: "0779990001", cardType: "online" }], dryRun: true });
+        assert.equal(imp.status, 200);
+        assert.deepEqual(imp.body.rows.map((r) => r.values.cardType), ["physical", "physical"]);
 
-        // Another free design only changes the online card's look: still printed
-        const free = await patch({ templateKey: "modern-monochrome" });
-        assert.equal(free.status, 200);
-        assert.equal(free.body.invitation.printed, true);
-        assert.equal(free.body.invitation.templateKey, "modern-monochrome");
-
-        // Up to 50 online guests
-        const rows = (n, from) => Array.from({ length: n }, (_, i) => ({ row: i + 2, name: `Online ${from + i}` }));
-        const fits = await api().post(`/api/invitations/${id}/guests/import`).set(auth(couple.token)).send({ rows: rows(49, 1), dryRun: true, cardType: "online" });
-        assert.equal(fits.status, 200);
-        const over = await api().post(`/api/invitations/${id}/guests/import`).set(auth(couple.token)).send({ rows: rows(50, 1), dryRun: true, cardType: "online" });
-        assert.equal(over.status, 403);
-        assert.equal(over.body.code, "online_limit");
-
-        // An empty Card type means physical on Printed Cards; "Online" rows get the free online card
-        const mixed = await api().post(`/api/invitations/${id}/guests/import`).set(auth(couple.token)).send({ rows: [{ row: 2, name: "Mixed Paper" }, { row: 3, name: "Mixed Link", phone: "0779990001", cardType: "online" }], dryRun: true });
-        assert.deepEqual(mixed.body.rows.map((r) => r.values.cardType), ["physical", "online"]);
-
-        // Can't switch it off while someone has the online card
-        const off = await patch({ onlineCard: false });
-        assert.equal(off.status, 400);
-        assert.equal(off.body.code, "online_guests");
+        // Printed guests have no personal link that opens, even if one was made before
+        const { newGuestToken } = require("../src/utils/guestToken");
+        const fresh = newGuestToken();
+        await models.Guest.updateOne({ _id: asked.id }, { $set: { cardType: "online", tokenHash: fresh.tokenHash, tokenEncrypted: fresh.tokenEncrypted } });
+        assert.equal((await api().get(`/api/invite/${fresh.token}`)).status, 404);
+        await models.Guest.deleteOne({ _id: asked.id });
     });
 
     it("moves to online invitations with a Premium credit after upgrading, keeping the QR code", async () => {

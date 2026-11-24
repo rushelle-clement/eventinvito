@@ -40,8 +40,8 @@ export function AuthProvider({ children }) {
     return data.user
   }, [])
 
-  const signUp = useCallback(async ({ name, email, password }) => {
-    const data = await api('/auth/register', { method: 'POST', body: { name, email, password }, auth: false })
+  const signUp = useCallback(async ({ name, email, password, package: pkg = 'free' }) => {
+    const data = await api('/auth/register', { method: 'POST', body: { name, email, password, package: pkg }, auth: false })
     saveToken(data.token, true)
     setUser(data.user)
     return data.user

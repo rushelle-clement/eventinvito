@@ -133,6 +133,12 @@ export default function QrPanel({ invitation, physical, viaQr, live, physicalOnl
                   </a>
                 )}
               </div>
+              {/* Printed Cards have no online invitation: guests without a card can still reply with the link */}
+              {physicalOnly && (
+                <p className="mt-3 text-body-sm text-on-surface-variant">
+                  Someone without a paper card, for example a guest abroad? Copy the link and send it on WhatsApp: they type their name and reply, the same as scanning the code.
+                </p>
+              )}
             </>
           )}
           {!qr.enabled && qr.code && (

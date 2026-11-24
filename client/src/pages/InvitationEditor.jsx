@@ -271,21 +271,6 @@ export default function InvitationEditor() {
     return () => window.removeEventListener('keydown', onKey)
   }, [save])
 
-  // Printed Cards: switch the free online card on or off (saved straight away)
-  const [onlineBusy, setOnlineBusy] = useState(false)
-  async function toggleOnlineCard() {
-    setOnlineBusy(true)
-    setErrors((e) => ({ ...e, onlineCard: undefined }))
-    try {
-      const data = await api(`/invitations/${id}`, { method: 'PATCH', body: { onlineCard: !saved.onlineCard } })
-      setSaved((prev) => ({ ...prev, onlineCard: data.invitation.onlineCard, limits: data.invitation.limits }))
-    } catch (err) {
-      setErrors((e) => ({ ...e, onlineCard: err.message }))
-    } finally {
-      setOnlineBusy(false)
-    }
-  }
-
   async function openAgendaPreview() {
     if (dirty && !(await save())) return
     navigate(`/invitations/${id}/preview/agenda`)
@@ -478,14 +463,14 @@ export default function InvitationEditor() {
 
       {/* What publishing this uses: the free card (free designs) or a Premium credit (animated designs) */}
       {(() => {
-        const { note, blocked, used } = credit
+        const { note, blocked, used, waiting } = credit
         if (!note) return null
         return (
           <div className={`mt-4 rounded-lg px-4 py-3 text-body-sm ${blocked ? 'border border-gold/40 bg-blush-tint text-espresso' : 'bg-surface-container-low text-on-surface-variant'}`}>
             <p>{note}</p>
             {blocked && (
               <>
-                {used ? (
+                {used || waiting ? (
                   (contact?.email || contact?.phone) && <p className="mt-1.5">Contact us:</p>
                 ) : (
                   <p className="mt-1.5">
@@ -617,18 +602,6 @@ export default function InvitationEditor() {
                   <Field label="Start time" name="eventTime" type="time" value={form.eventTime} onChange={update} error={errors.eventTime} required />
                 </div>
                 <Field label="Venue name" name="venueName" value={form.venueName} onChange={update} error={errors.venueName} maxLength={120} required placeholder="e.g. Mount Lavinia Hotel" />
-                {saved.onlineCard && (
-                  <Field
-                    label="Venue address"
-                    name="address"
-                    value={form.address}
-                    onChange={update}
-                    error={errors.address}
-                    maxLength={250}
-                    placeholder="Street, city"
-                    hint="Optional. Shown on the free online card; paper-card guests have it on their card."
-                  />
-                )}
                 <Field
                   label="Reply by"
                   name="rsvpDeadline"
@@ -1045,57 +1018,11 @@ export default function InvitationEditor() {
 
           {/* The day plan is for weddings, engagements, homecomings and corporate events (not birthdays) */}
           {printed && (
-            <Section id="design" icon={Sparkles} title="Online guests (optional)" subtitle="A free online card for some guests" open={open === 'design'} onToggle={toggle}>
-              {/* The free online card: some guests get a WhatsApp link instead of a paper card */}
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-body-md text-espresso">Send some guests a free online card</p>
-                  <p className="mt-1 text-body-sm text-on-surface-variant">
-                    Up to 50 guests can get a personal link on WhatsApp to a simple card, instead of a paper card. Mark them as <strong className="text-espresso">Online</strong> in your guest list; everyone else keeps their paper card and the QR code. All replies come to the same list.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={Boolean(saved.onlineCard)}
-                  aria-label="Send some guests a free online card"
-                  onClick={toggleOnlineCard}
-                  disabled={onlineBusy}
-                  className={`relative mt-1 h-7 w-12 shrink-0 rounded-full transition-colors disabled:opacity-60 ${saved.onlineCard ? 'bg-gold' : 'bg-outline-variant'}`}
-                >
-                  <span className={`absolute top-1 left-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${saved.onlineCard ? 'translate-x-5' : ''}`} aria-hidden="true" />
-                </button>
-              </div>
-              {errors.onlineCard && <p className="mt-2 text-body-sm text-error">{errors.onlineCard}</p>}
-
-              {saved.onlineCard && (
-                <>
-                  <p className="mt-5 text-label-md text-espresso uppercase">Design of the online card</p>
-                  <div className="mt-2 grid grid-cols-2 gap-3" role="radiogroup" aria-label="Online card design">
-                    {templates
-                      .filter((t) => t.tier === 'free' && kindOf(t.eventType) === kindOf(form.eventType))
-                      .map((t) => (
-                        <button
-                          key={t.key}
-                          type="button"
-                          role="radio"
-                          aria-checked={form.templateKey === t.key}
-                          onClick={() => update('templateKey', t.key)}
-                          className={`overflow-hidden rounded-lg border-2 text-left transition-colors ${form.templateKey === t.key ? 'border-gold' : 'border-bone hover:border-gold/50'}`}
-                        >
-                          <TemplateThumbnail templateKey={t.key} invitation={previewInvitation} height={150} />
-                          <span className="block px-3 py-2 text-body-sm font-semibold text-espresso">{t.name}</span>
-                        </button>
-                      ))}
-                  </div>
-                  <p className="mt-2 text-body-sm text-on-surface-variant">Press Save after choosing. Guests see your names, date, venue and the reply form.</p>
-                </>
-              )}
-
-              {/* More than that is Premium Plus */}
-              <div className="mt-5 rounded-lg border border-bone bg-surface-container-low px-4 py-3 text-body-sm text-on-surface-variant">
+            <Section id="design" icon={Sparkles} title="Online invitations too?" subtitle="Upgrade to Premium Plus" open={open === 'design'} onToggle={toggle}>
+              {/* Printed Cards are paper only: online invitations are Premium Plus */}
+              <div className="rounded-lg border border-bone bg-surface-container-low px-4 py-3 text-body-sm text-on-surface-variant">
                 <p>
-                  <strong className="text-espresso">Want an animated design, photos and music, or more online guests?</strong> Upgrade to Premium Plus — you only pay the difference. Your guests, replies and QR code stay as they are.
+                  <strong className="text-espresso">Printed Cards are paper cards with a QR code.</strong> To also send online invitations on WhatsApp, with an animated design, photos and music, upgrade to Premium Plus — you only pay the difference. Your guests, replies and QR code stay as they are.
                 </p>
                 {saved.paid && (user?.publishCredits || 0) > 0 ? (
                   <div className="mt-3 grid grid-cols-2 gap-3" role="radiogroup" aria-label="Premium design">
@@ -1208,7 +1135,6 @@ export default function InvitationEditor() {
                 <div className="mt-4 rounded-lg border border-bone bg-white px-3 py-2 text-left text-body-sm text-on-surface-variant">Type your name as it appears on your card</div>
                 <p className="mt-2 text-body-sm text-on-surface-variant">→ they tap their name, then Attending or Not attending</p>
               </div>
-              {saved.onlineCard && <p className="mt-2 text-body-sm text-on-surface-variant">Guests marked Online get a personal link to your free online card instead.</p>}
               <div className="mt-5 flex flex-wrap gap-2">
                 <Link to={`/invitations/${id}/guests`} className="btn-secondary">
                   <Users size={16} aria-hidden="true" /> Guests

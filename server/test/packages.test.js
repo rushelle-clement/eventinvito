@@ -32,7 +32,7 @@ describe("Packages", () => {
         const premium = await registerUser("Premium couple", { plan: "premium" });
         const p = (await get(premium.token, await createInvitation(premium.token))).body.invitation.limits;
         assert.deepEqual(p, {
-            plan: "premium", planName: "Premium", guests: 150, photos: 3, ownMusic: false, export: false, agenda: false,
+            plan: "premium", planName: "Premium", guests: 150, photos: 3, ownMusic: false, export: true, agenda: false,
             rsvpDeadline: true, openDetails: true, visitDetails: false, import: true, groups: true, groupStats: true, bulkGroups: true, qrRsvp: false, onlineCards: true,
         });
     });

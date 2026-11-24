@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, Check, Clock, Minus, QrCode } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useSiteConfig } from '../lib/siteConfig'
+import { INVITATION_NOTE } from '../lib/packages'
 
 const PACKAGES = [
   {
@@ -15,7 +16,7 @@ const PACKAGES = [
     price: 'Rs. 0',
     priceNote: '',
     tagline: 'A beautiful digital invitation for your special day.',
-    guests: 'Up to 50 guests',
+    guests: 'Up to 50 invitations',
     features: [
       'Access to free invitation designs',
       'Personalised guest invitation links',
@@ -37,7 +38,7 @@ const PACKAGES = [
     price: 'Rs. 2,000',
     priceNote: 'One-time payment',
     tagline: 'Make your invitation more personal and interactive.',
-    guests: 'Up to 150 guests',
+    guests: 'Up to 150 invitations',
     intro: 'Everything in Simple Card, plus:',
     features: [
       'Access to all Premium invitation designs',
@@ -51,16 +52,17 @@ const PACKAGES = [
       'Group-wise counts, replies and opening stats',
       'Set the group for many guests at once',
       'Bulk guest import from Excel or CSV',
+      'Download the guest list and replies in Excel',
     ],
   },
   {
     key: 'plus',
     name: 'Premium Plus',
     badge: 'Best value',
-    price: 'Rs. 3,000',
+    price: 'Rs. 3,500',
     priceNote: 'One-time payment',
     tagline: 'Everything you need to manage your wedding invitations and guests.',
-    guests: 'Up to 300 guests per invitation',
+    guests: 'Up to 300 invitations',
     intro: 'Everything in Premium, plus:',
     features: [
       'Photo gallery with up to 6 photos',
@@ -68,7 +70,6 @@ const PACKAGES = [
       'Day plan with a live timeline (weddings and corporate events)',
       'QR code for printed cards: paper-card guests scan it, find their name and reply',
       'Who visited, when, and how often',
-      'Download the guest list and replies in Excel',
     ],
   },
   {
@@ -78,7 +79,7 @@ const PACKAGES = [
     price: 'Rs. 6,000+',
     priceNote: 'One-time payment · Starting price',
     tagline: 'A one-of-a-kind invitation designed exclusively for you.',
-    guests: 'Up to 500 guests',
+    guests: 'Up to 500 invitations',
     intro: 'Everything in Premium Plus, plus:',
     features: [
       'Exclusive custom invitation design',
@@ -96,10 +97,10 @@ const PRINTED = {
   key: 'printed',
   name: 'Printed Cards',
   badge: 'Paper cards only',
-  price: 'Rs. 500',
+  price: 'Rs. 1,000',
   priceNote: 'One-time payment',
   tagline: 'Printing your invitations? Add one QR code to every card and collect replies online.',
-  guests: 'Up to 150 guests',
+  guests: 'Up to 150 invitations',
   features: [
     'One QR code with your initials, ready to print',
     'Guests scan it, find their name and reply',
@@ -133,8 +134,16 @@ function PackageButton({ pkg }) {
       </Link>
     )
   }
-  const href = contactHref(contact, pkg, user)
   const label = pkg.key === 'signature' ? 'Talk to us' : `Get ${pkg.name}`
+  // Not signed in: create an account with this package chosen (it's activated once paid)
+  if (!user && signupOpen) {
+    return (
+      <Link to={`/signup?package=${pkg.key}`} className={cls}>
+        {label} <ArrowRight size={16} aria-hidden="true" />
+      </Link>
+    )
+  }
+  const href = contactHref(contact, pkg, user)
   if (!href) {
     // No contact details set yet: sign up first, then upgrade
     return (
@@ -280,6 +289,8 @@ export default function Packages() {
         </article>
       ))}
     </div>
+    {/* What "invitations" means in the guest limits */}
+    <p className="mt-4 text-center text-body-sm text-on-surface-variant">{INVITATION_NOTE}</p>
     <EveryPackage />
     <PrintedPackage />
     </>

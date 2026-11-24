@@ -13,11 +13,99 @@ import TemplateThumbnail from '../templates/TemplateThumbnail'
 import { formatDate } from '../templates/strings'
 import Loader from '../components/Loader'
 import { publishCredit } from '../lib/publishCredit'
-import { qrLockNote } from '../lib/accountPlan'
+import { isPrintedOnly, qrLockNote } from '../lib/accountPlan'
 import PublishStatus from '../components/PublishStatus'
 import { siteUrl } from '../lib/siteUrl'
 import { qrInitials } from '../lib/qrStrings'
 import { drawQr } from '../lib/qrImage'
+import { SIGNUP_PACKAGES, packageOf, paymentHref } from '../lib/packages'
+import { useSiteConfig } from '../lib/siteConfig'
+import ContactLine from '../components/ContactLine'
+
+// The package chosen at sign-up, waiting for payment: how to pay, and a way to change it until then
+function WaitingPackage({ user, usedFreeCard, onChanged }) {
+  const pkg = packageOf(user.requestedPlan)
+  const { contact } = useSiteConfig()
+  const [changing, setChanging] = useState(false)
+  const [choice, setChoice] = useState(user.requestedPlan)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  if (!pkg) return null
+  const href = paymentHref(contact, pkg, user)
+
+  async function save() {
+    setBusy(true)
+    setError('')
+    try {
+      const d = await api('/auth/me/package', { method: 'PATCH', body: { package: choice } })
+      onChanged(d.user)
+      setChanging(false)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="mb-8 rounded-xl border border-gold/40 bg-blush-tint px-5 py-5 sm:px-6" aria-labelledby="waiting-h">
+      <p className="text-label-sm text-gold-text uppercase">Waiting for payment</p>
+      <h2 id="waiting-h" className="mt-1 font-serif text-headline-sm text-espresso">
+        Your {pkg.name} package · {pkg.price}
+      </h2>
+      <p className="mt-2 max-w-2xl text-body-md text-on-surface-variant">
+        {pkg.key === 'printed'
+          ? 'You can set up your printed cards now: your event details and guest list. Your QR code can be downloaded, and replies open, once we’ve received your payment.'
+          : 'You can set up your invitation now: choose a design, add your details and guests. You can publish it once we’ve received your payment.'}{' '}
+        Send us a message to pay, and we’ll activate your package, usually within a day.
+      </p>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        {href ? (
+          <a href={href} target="_blank" rel="noopener noreferrer" className="btn-primary px-5 py-2.5 text-body-md">
+            Pay for {pkg.name}
+          </a>
+        ) : (
+          <ContactLine className="text-body-md" />
+        )}
+        {!changing && (
+          <button type="button" className="text-body-sm font-semibold text-gold-text underline underline-offset-4" onClick={() => setChanging(true)}>
+            Change package
+          </button>
+        )}
+      </div>
+      {changing && (
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <label className="sr-only" htmlFor="change-package">
+            Package
+          </label>
+          <select
+            id="change-package"
+            className="rounded-lg border border-bone bg-white px-3 py-2 text-body-md text-espresso outline-none focus:border-gold"
+            value={choice}
+            onChange={(e) => setChoice(e.target.value)}
+          >
+            {/* After the free online card was used, paper cards too means Premium Plus */}
+            {SIGNUP_PACKAGES.filter((p) => !(usedFreeCard && p.key === 'printed' && user.requestedPlan !== 'printed')).map((p) => (
+              <option key={p.key} value={p.key}>
+                {p.name} · {p.price}
+              </option>
+            ))}
+          </select>
+          <button type="button" className="btn-primary px-4 py-2 text-body-sm" onClick={save} disabled={busy || choice === user.requestedPlan}>
+            {busy ? 'Saving…' : 'Save'}
+          </button>
+          <button type="button" className="btn-secondary px-4 py-2 text-body-sm" onClick={() => setChanging(false)} disabled={busy}>
+            Cancel
+          </button>
+          {choice === 'printed' && user.requestedPlan !== 'printed' && (
+            <p className="basis-full text-body-sm text-on-surface-variant">Printed Cards are paper cards only, without an online card.</p>
+          )}
+        </div>
+      )}
+      {error && <p className="mt-2 text-body-sm text-error">{error}</p>}
+    </section>
+  )
+}
 
 // A small picture of an invitation's QR code, for its card
 function QrThumb({ invitation }) {
@@ -78,7 +166,7 @@ function PrintedModal({ onClose }) {
       <div className="space-y-4 px-5 py-5">
         <FormAlert>{error}</FormAlert>
         <p className="text-body-md text-on-surface-variant">
-          For invitations you print yourself. You get one QR code to put on every card; guests scan it, find their name and reply. You can also send up to 50 guests a free online card from the same guest list.
+          For invitations you print yourself. You get one QR code to put on every card; guests scan it, find their name and reply. Guests without a paper card can reply with the same link on WhatsApp.
         </p>
         <fieldset>
           <legend className="mb-2 text-label-md text-espresso uppercase">What are you celebrating?</legend>
@@ -97,7 +185,9 @@ function PrintedModal({ onClose }) {
         <p className="rounded-lg bg-surface-container-low px-4 py-3 text-body-sm text-on-surface-variant">
           {credits > 0
             ? `You have ${credits} Printed Cards invitation${credits === 1 ? '' : 's'} to publish. Drafts are free.`
-            : 'You’ve used your Printed Cards package. Drafts are free; publishing another one needs the package again (Rs. 500).'}
+            : user?.requestedPlan === 'printed'
+              ? 'Your Printed Cards package is waiting for payment. You can set everything up now and publish once it’s activated.'
+              : 'You’ve used your Printed Cards package. Drafts are free; publishing another one needs the package again (Rs. 1,000).'}
         </p>
       </div>
     </Modal>
@@ -119,7 +209,7 @@ function PrintedSteps({ inv, user, onPublished }) {
     {
       done: total > 0,
       title: 'Guest list',
-      note: total ? `${total} guest${total === 1 ? '' : 's'}${inv.onlineCard ? ' · some with the free online card' : ''}` : 'Add or import your guests',
+      note: total ? `${total} guest${total === 1 ? '' : 's'}` : 'Add or import your guests',
       to: `/invitations/${inv.id}/guests`,
     },
     {
@@ -174,7 +264,7 @@ const STATUS_STYLES = {
 }
 
 export default function Dashboard() {
-  const { user } = useAuth()
+  const { user, updateUser } = useAuth()
   const firstName = user?.name?.split(' ')[0] || ''
   const [invitations, setInvitations] = useState(null)
   const [error, setError] = useState('')
@@ -182,9 +272,19 @@ export default function Dashboard() {
   const [busy, setBusy] = useState(false)
   const [printedOpen, setPrintedOpen] = useState(false)
   // Printed Cards is a package the admin turns on; Premium Plus and Signature have QR on their own invitations
+  // (or chose it when signing up, while it waits for payment)
+  // Not for Premium (a QR code is Premium Plus), nor after the free online card was used (paper and
+  // online cards together are Premium Plus too)
+  const usedFreeCard = (invitations || []).some((i) => i.paidKind === 'free')
   const canPrint =
     user?.role === 'admin' ||
-    (!['plus', 'signature'].includes(user?.plan) && (user?.printedMember || (user?.printedCredits || 0) > 0 || (invitations || []).some((i) => i.printed && i.paidKind === 'printed')))
+    user?.requestedPlan === 'printed' ||
+    (!['premium', 'plus', 'signature'].includes(user?.plan) &&
+      !['premium', 'plus', 'signature'].includes(user?.requestedPlan) &&
+      !usedFreeCard &&
+      (user?.printedMember || (user?.printedCredits || 0) > 0 || (invitations || []).some((i) => i.printed && i.paidKind === 'printed')))
+  // A Printed Cards account: paper cards only (no free online card), so printed cards come first
+  const printedOnly = isPrintedOnly(user)
   // Just reset their password (ResetPassword sends them here)
   const passwordChanged = Boolean(useLocation().state?.passwordChanged)
 
@@ -223,6 +323,7 @@ export default function Dashboard() {
           <CircleCheck size={18} className="shrink-0 text-gold-text" aria-hidden="true" /> Your password has been changed, and you’re signed in.
         </p>
       )}
+      {user?.requestedPlan && user.role !== 'admin' && <WaitingPackage key={user.requestedPlan} user={user} usedFreeCard={usedFreeCard} onChanged={updateUser} />}
       <nav aria-label="Breadcrumb" className="text-label-sm text-on-surface-variant uppercase">
         Home <span className="mx-1">/</span> <span className="text-gold-text">Host dashboard</span>
       </nav>
@@ -233,23 +334,27 @@ export default function Dashboard() {
           <p className="mt-2 max-w-xl text-body-md text-on-surface-variant">
             Welcome back{firstName && `, ${firstName}`}. Create invitations, manage your guests, and follow RSVPs in one place.
           </p>
-          {user?.role !== 'admin' && (
+          {user?.role !== 'admin' && !user?.requestedPlan && (
             <p className="mt-2 text-body-sm text-gold-text">
-              Free card: {user?.freeCredits || 0} left · Premium invitations: {user?.publishCredits || 0} left
-              {user?.printedCredits > 0 && ` · Printed cards: ${user.printedCredits} left`} · Drafts are free
+              {printedOnly
+                ? `Printed cards: ${user?.printedCredits || 0} left`
+                : `Free card: ${user?.freeCredits || 0} left · Premium invitations: ${user?.publishCredits || 0} left${user?.printedCredits > 0 ? ` · Printed cards: ${user.printedCredits} left` : ''}`}{' '}
+              · Drafts are free
               {!(user?.freeCredits || user?.publishCredits || user?.printedCredits) && ' · Contact us to upgrade'}
             </p>
           )}
         </div>
         <div className="flex flex-wrap gap-3 self-start md:self-auto">
           {canPrint && (
-            <button type="button" className="btn-secondary" onClick={() => setPrintedOpen(true)}>
+            <button type="button" className={printedOnly ? 'btn-primary' : 'btn-secondary'} onClick={() => setPrintedOpen(true)}>
               <Printer size={17} aria-hidden="true" /> New printed cards (QR)
             </button>
           )}
-          <Link to="/templates" className="btn-primary">
-            <Plus size={18} aria-hidden="true" /> Create New Invitation
-          </Link>
+          {!printedOnly && (
+            <Link to="/templates" className="btn-primary">
+              <Plus size={18} aria-hidden="true" /> Create New Invitation
+            </Link>
+          )}
         </div>
       </div>
 
@@ -283,12 +388,20 @@ export default function Dashboard() {
           </span>
           <h2 className="mt-5 font-serif text-headline-md-mobile text-espresso md:text-headline-md">No invitations yet</h2>
           <p className="mt-2 max-w-md text-body-md text-on-surface-variant">
-            Choose one of our templates, add your event details, and preview it before you share it with guests.
+            {printedOnly
+              ? 'Start your printed cards: add your event details and your guest list, then print the QR code on every card.'
+              : 'Choose one of our templates, add your event details, and preview it before you share it with guests.'}
           </p>
-          <Link to="/templates" className="btn-primary mt-6">
-            <Plus size={18} aria-hidden="true" /> Create your first invitation
-          </Link>
-          {canPrint && (
+          {printedOnly ? (
+            <button type="button" className="btn-primary mt-6" onClick={() => setPrintedOpen(true)}>
+              <Printer size={18} aria-hidden="true" /> Start your printed cards
+            </button>
+          ) : (
+            <Link to="/templates" className="btn-primary mt-6">
+              <Plus size={18} aria-hidden="true" /> Create your first invitation
+            </Link>
+          )}
+          {canPrint && !printedOnly && (
             <button type="button" className="mt-3 text-body-sm text-gold-text underline underline-offset-4" onClick={() => setPrintedOpen(true)}>
               Printing your cards? Start your printed cards with a QR code
             </button>
@@ -403,9 +516,11 @@ export default function Dashboard() {
                             <>
                               {missing ? ' · ' : ''}
                               {credit.short}.{' '}
-                              <a href="/#pricing" className="font-semibold underline underline-offset-2">
-                                See the packages
-                              </a>
+                              {!credit.waiting && (
+                                <a href="/#pricing" className="font-semibold underline underline-offset-2">
+                                  See the packages
+                                </a>
+                              )}
                             </>
                           )}
                         </p>

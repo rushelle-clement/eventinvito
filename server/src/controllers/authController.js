@@ -5,6 +5,8 @@ const AppError = require("../utils/AppError");
 const { signToken } = require("../utils/token");
 const { assertCanSignIn } = require("../utils/accountAccess");
 const { sendEmail, layout } = require("../utils/email");
+const { SIGNUP_PACKAGES, isActivated } = require("../utils/packages");
+const Invitation = require("../models/Invitation");
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD = 8;
@@ -32,7 +34,7 @@ function checkNewAccount({ name, email, password }) {
 }
 
 // Creates a customer account (sign-up and the admin page)
-async function createAccount({ name, email, password, publishCredits = 0, freeCredits = 1, printedCredits = 0, plan }) {
+async function createAccount({ name, email, password, publishCredits = 0, freeCredits = 1, printedCredits = 0, plan, requestedPlan }) {
     if (await User.exists({ email })) {
         throw new AppError(409, "An account with this email already exists.", {
             email: "An account with this email already exists.",
@@ -44,7 +46,17 @@ async function createAccount({ name, email, password, publishCredits = 0, freeCr
     let user;
     try {
         // Role is never taken from the request — new accounts are always customers
-        user = await User.create({ name, email, passwordHash, publishCredits, freeCredits, printedCredits, printedMember: printedCredits > 0, ...(plan && { plan }) });
+        user = await User.create({
+            name,
+            email,
+            passwordHash,
+            publishCredits,
+            freeCredits,
+            printedCredits,
+            printedMember: printedCredits > 0,
+            ...(plan && { plan }),
+            ...(requestedPlan && { requestedPlan }),
+        });
     } catch (err) {
         if (err.code === 11000) {
             // Race: same email registered between the check and the insert
@@ -55,7 +67,16 @@ async function createAccount({ name, email, password, publishCredits = 0, freeCr
     return user;
 }
 
-// POST /api/auth/register  { name, email, password }
+// The package a couple picked: free unless they chose one of the others
+function packageFrom(value) {
+    if (value === undefined || value === null || value === "") return "free";
+    if (!SIGNUP_PACKAGES.includes(value)) throw new AppError(400, "Choose a package.", { package: "Choose a package." });
+    return value;
+}
+
+// POST /api/auth/register  { name, email, password, package? }
+// package: free (works straight away) or premium / plus / signature / printed (waits for payment;
+// the admin activates it). Printed Cards accounts don't get the free online card.
 async function register(req, res) {
     if (!signupOpen()) {
         throw new AppError(403, "New accounts are created by the EventInvito team for now. Please contact us to get started.", undefined, "signup_closed");
@@ -64,8 +85,18 @@ async function register(req, res) {
     const email = str(req.body?.email).toLowerCase();
     const password = typeof req.body?.password === "string" ? req.body.password : "";
     checkNewAccount({ name, email, password });
+    const chosen = packageFrom(req.body?.package);
     const credits = Math.max(0, Math.min(50, Number(process.env.SIGNUP_CREDITS) || 0));
-    const user = await createAccount({ name, email, password, publishCredits: credits });
+    const user = await createAccount({
+        name,
+        email,
+        password,
+        publishCredits: credits,
+        // Only Simple Card comes with the free card: a paid package has its own invitation (free designs
+        // use it too), and Printed Cards are paper only
+        freeCredits: chosen === "free" ? 1 : 0,
+        requestedPlan: chosen === "free" ? undefined : chosen,
+    });
     res.status(201).json({ success: true, token: signToken(user), user: user.toPublicJSON() });
 }
 
@@ -96,6 +127,32 @@ async function login(req, res) {
 // GET /api/auth/me  (requires auth)
 async function me(req, res) {
     res.json({ success: true, user: req.user.toPublicJSON() });
+}
+
+// PATCH /api/auth/me/package  { package }  (requires auth)
+// Changes the package chosen at sign-up, while it's still waiting for payment. Only Simple Card has
+// the free card, so moving to a paid package takes the unused free card away, and moving back to
+// Simple Card gives it back.
+async function changePackage(req, res) {
+    const user = req.user;
+    if (user.role === "admin" || isActivated(user)) {
+        throw new AppError(403, "Your package is already active. Please contact us to change it.", undefined, "package_active");
+    }
+    const chosen = packageFrom(req.body?.package);
+    const usedFreeCard = await Invitation.exists({ owner: user._id, creditKind: "free" });
+    // Free online card already used: printed cards would be a second guest list (that's Premium Plus)
+    if (chosen === "printed" && usedFreeCard) {
+        throw new AppError(
+            400,
+            "You’ve already used your free online card. To send printed cards with a QR code as well, choose Premium Plus.",
+            { package: "Choose Premium Plus for paper and online cards together." },
+            "used_free_card"
+        );
+    }
+    user.requestedPlan = chosen === "free" ? undefined : chosen;
+    user.freeCredits = chosen === "free" && !usedFreeCard ? 1 : 0;
+    await user.save();
+    res.json({ success: true, user: user.toPublicJSON() });
 }
 
 // POST /api/auth/logout  (requires auth)
@@ -172,4 +229,4 @@ async function resetPassword(req, res) {
     res.json({ success: true, message: "Your password has been changed.", token: signToken(user), user: user.toPublicJSON() });
 }
 
-module.exports = { register, login, me, logout, forgotPassword, resetPassword, checkNewAccount, createAccount, signupOpen, str };
+module.exports = { register, login, me, logout, changePackage, forgotPassword, resetPassword, checkNewAccount, createAccount, signupOpen, str };

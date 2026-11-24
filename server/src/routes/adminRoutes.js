@@ -6,6 +6,7 @@ const {
     listAccounts,
     createUserAccount,
     updateUserAccount,
+    activateAccount,
     passwordSuggestion,
     listCustomDesigns,
     updateCustomDesign,
@@ -19,6 +20,7 @@ router.use(requireAuth, requireRole("admin"));
 router.get("/users", listAccounts);
 router.post("/users", createUserAccount);
 router.patch("/users/:id", updateUserAccount);
+router.post("/users/:id/activate", activateAccount); // the couple paid for the package they chose
 router.get("/password-suggestion", passwordSuggestion);
 router.get("/custom-designs", listCustomDesigns);
 router.patch("/custom-designs/:key", updateCustomDesign);
