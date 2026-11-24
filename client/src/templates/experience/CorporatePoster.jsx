@@ -27,6 +27,8 @@ function Dear({ invitation, guestName, t }) {
   if (guestNamedInLine(invitation)) return null
   return <p className="cp-dear">{guestName ? t.dear(guestName) : t.dearGuest}</p>
 }
+// A company anniversary's number (the editor's form keeps an empty field as "")
+const hasMilestone = (invitation) => invitation.milestone != null && invitation.milestone !== ''
 const invitesText = (invitation, t) => invitation.hostLine || (invitation.companyName ? t.corpInvites?.(invitation.companyName) : t.together)
 function Invites({ invitation, t, className = 'cp-invites' }) {
   const text = invitesText(invitation, t)
@@ -83,7 +85,7 @@ function Elegance(p) {
         {...p}
         variant="corporate-elegance"
         title={<Title as={p.titleAs} headingRef={p.headingRef} className={sizeOf(p.invitation.eventTitle)}>{p.invitation.eventTitle || '…'}</Title>}
-        after={p.invitation.milestone != null && <p className="cp-note">{p.t.corpYearsOf?.(p.invitation.milestone)}</p>}
+        after={hasMilestone(p.invitation) && <p className="cp-note">{p.t.corpYearsOf?.(p.invitation.milestone)}</p>}
       />
     </>
   )
@@ -166,7 +168,7 @@ function Gradient(p) {
             {words.length > 0 && <>{words.join(' ')} </>}
             <span className="cp-accent-word">{last}</span>
           </Title>
-          {p.invitation.milestone != null && <p className="cp-note">{p.t.corpYearsOf?.(p.invitation.milestone)}</p>}
+          {hasMilestone(p.invitation) && <p className="cp-note">{p.t.corpYearsOf?.(p.invitation.milestone)}</p>}
           <span className="cp-rule" aria-hidden="true" />
           <Words invitation={p.invitation} guestName={p.guestName} t={p.t} />
         </div>
@@ -224,7 +226,6 @@ function Emerald(p) {
         {...p}
         variant="emerald-prestige"
         title={<Title as={p.titleAs} headingRef={p.headingRef} className={sizeOf(p.invitation.eventTitle)}>{p.invitation.eventTitle || '…'}</Title>}
-        after={p.invitation.blessing && <p className="cp-note">{p.invitation.blessing}</p>}
       />
     </>
   )

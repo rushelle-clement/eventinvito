@@ -228,3 +228,9 @@ body {
     overflow-x: hidden;
   }
 }
+
+/* Invitations: full-height numbers for dates and times. Several design fonts (Cormorant, Playfair…)
+   use small "old-style" numbers by default, which made times like 10.00 look tiny. */
+.ei-root, .sc-page, .bc-page, .xc-page, .cx-page, .ei-preview-card {
+  font-variant-numeric: lining-nums;
+}

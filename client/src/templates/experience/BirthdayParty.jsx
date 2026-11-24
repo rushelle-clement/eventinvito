@@ -295,10 +295,6 @@ export default function BirthdayParty({ invitation, guestName, rsvp, music, t, l
     music.play() // inside the tap, so browsers allow sound
     timers.current = runTimeline(setPhase, revealAt, doneAt)
   }
-  function skip() {
-    timers.current.forEach(clearTimeout)
-    setPhase('open')
-  }
 
   const date = formatDate(invitation.eventDate, lang)
   const time = timeRange(invitation.eventTime, invitation.endTime, lang)
@@ -350,11 +346,6 @@ export default function BirthdayParty({ invitation, guestName, rsvp, music, t, l
           <span className="bp-flash" aria-hidden="true" />
           {opening && DRAWN.includes(variant) && <Burst colours={PARTY_COLOURS[variant]} />}
           {opening && <ConfettiBurst variant={variant} />}
-          {opening && (
-            <button type="button" className="ei-skip" onClick={skip} lang={lang}>
-              {t.skip}
-            </button>
-          )}
         </div>
       )}
 
@@ -366,7 +357,6 @@ export default function BirthdayParty({ invitation, guestName, rsvp, music, t, l
             <HeroArt variant={variant} still={poster} />
             <div className="bp-hero-inner">
               <Reveal variant="fade">
-                {invitation.blessing && <p className="bp-blessing">{invitation.blessing}</p>}
                 {!guestNamedInLine(invitation) && <p className={`bp-greeting ${local}`}>{guestName ? t.dear(guestName) : t.together}</p>}
                 {invitation.hostLine && <p className="bp-hostline">{invitation.hostLine}</p>}
                 <p className={`bp-eyebrow ${local}`}>{t.bdayJoin}</p>

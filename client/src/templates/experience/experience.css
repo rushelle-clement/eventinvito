@@ -170,3 +170,14 @@
 /* Sinhala and Tamil letters carry joined vowel signs, so spacing letters apart breaks the words */
 .ei-root *:lang(si),
 .ei-root *:lang(ta) { letter-spacing: normal !important; }
+
+/* Opening buttons never spill past their card. Sinhala and Tamil fonts differ a lot between phones
+   and computers, so in those languages the button wraps onto two lines when the words don't fit. */
+button:is(.bb-open-btn, .es-open-btn, .kh-open-btn, .nl-open-btn, .pf-open-btn, .pl-open-btn, .pg-open-btn, .sn-open-btn, .wr-view-btn, .wv-open-btn) {
+  max-width: 100%;
+}
+button:is(.bb-open-btn, .es-open-btn, .kh-open-btn, .nl-open-btn, .pf-open-btn, .pl-open-btn, .pg-open-btn, .sn-open-btn, .wr-view-btn, .wv-open-btn):is(:lang(si), :lang(ta)) {
+  white-space: normal;
+  line-height: 1.35;
+  text-wrap: balance;
+}

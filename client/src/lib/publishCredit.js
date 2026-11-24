@@ -45,6 +45,15 @@ export function publishCredit({ printed = false, paid = false, paidKind = null, 
     }
     return { note: null, blocked: false }
   }
+  // A Printed Cards account (paper cards only) looking at an online invitation: it never had a free
+  // card, so say what its package is for instead of "you've used your free card"
+  if (free === 0 && premium === 0 && (user?.printedMember || printedLeft > 0 || user?.requestedPlan === 'printed')) {
+    return {
+      note: 'This is an online invitation. Your Printed Cards package is for paper cards with a QR code, so it can’t publish online invitations. Start your printed cards from your dashboard (New printed cards), or upgrade to Premium Plus to send online invitations too.',
+      blocked: true,
+      short: 'Online invitation — your Printed Cards package is paper cards only',
+    }
+  }
   if (freeDesign) {
     if (free > 0) return { note: 'This is a free design: publishing it uses your free card. After that you can still edit it, unpublish it and publish it again.', blocked: false }
     // Paid packages have no free card: a free design uses the package's invitation

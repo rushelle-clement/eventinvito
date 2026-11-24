@@ -11,8 +11,8 @@ import { publishCredit } from '../lib/publishCredit'
 import { formatDate } from '../templates/strings'
 import ContactLine from './ContactLine'
 
-// compact: one line for the Dashboard card; otherwise a banner
-export default function PublishStatus({ invitation, onPublished, compact = false }) {
+// compact: one line for the Dashboard card; otherwise a banner. note: an extra line when live
+export default function PublishStatus({ invitation, onPublished, compact = false, note = '' }) {
   const { user, updateUser } = useAuth()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -70,8 +70,14 @@ export default function PublishStatus({ invitation, onPublished, compact = false
       <div className="mt-6 flex items-start gap-3 rounded-lg border border-[#b7e0c4] bg-[#e3f4e8] px-5 py-4 text-[#1e6b3a]" role="status">
         <CheckCircle2 size={20} className="mt-0.5 shrink-0" aria-hidden="true" />
         <p className="text-body-md">
-          <strong>Published — guests can reply.</strong> {invitation.printed ? 'They scan the QR code, find their name and reply' : 'Guests can open their links and reply'}
+          <strong>Published — guests can reply.</strong>{' '}
+          {invitation.printed
+            ? 'They scan the QR code, find their name and reply'
+            : invitation.qr?.enabled
+              ? 'Guests can open their links, and paper-card guests can scan the QR code, to reply'
+              : 'Guests can open their links and reply'}
           {replyBy ? ` until ${replyBy}.` : '.'}
+          {note && <span className="mt-1 block text-body-sm">{note}</span>}
         </p>
       </div>
     )
@@ -81,7 +87,11 @@ export default function PublishStatus({ invitation, onPublished, compact = false
       <div className="text-body-md text-espresso">
         <p>
           <strong>{invitation.status === 'unpublished' ? 'Unpublished' : 'Not published yet'} — guests can’t reply.</strong>{' '}
-          {invitation.printed ? 'The QR reply page opens when you publish. You can print the code now: it won’t change.' : 'Guest links open when you publish.'}
+          {invitation.printed
+            ? 'The QR reply page opens when you publish. You can print the code now: it won’t change.'
+            : invitation.qr?.enabled
+              ? 'Guest links and the QR reply page open when you publish. You can add guests now.'
+              : 'Guest links open when you publish. You can add guests now.'}
         </p>
         <p className="mt-1 text-body-sm text-on-surface-variant">
           {missing ? `First fill in ${missing} more detail${missing === 1 ? '' : 's'} in Event details.` : credit.blocked ? `${credit.short}.` : credit.note || 'Everything is ready.'}

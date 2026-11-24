@@ -56,10 +56,6 @@ export default function ModernRomance({ invitation, guestName, rsvp, music, t, l
     music.play()
     timers.current = runTimeline(setPhase, REVEAL_AT, DONE_AT)
   }
-  function skip() {
-    timers.current.forEach(clearTimeout)
-    setPhase('open')
-  }
 
   const date = formatDate(invitation.eventDate, lang)
   const time = timeRange(invitation.eventTime, invitation.endTime, lang)
@@ -101,11 +97,6 @@ export default function ModernRomance({ invitation, guestName, rsvp, music, t, l
             </button>
           </div>
 
-          {phase !== 'closed' && (
-            <button type="button" className="ei-skip" onClick={skip} lang={lang}>
-              {t.skip}
-            </button>
-          )}
         </div>
       )}
 
@@ -156,7 +147,7 @@ export default function ModernRomance({ invitation, guestName, rsvp, music, t, l
 
           <section className="mr-section mr-words">
             <Reveal>
-              {!hasParentsLines(invitation) && <p className={eyebrow}>{t.together}</p>}
+              {/* the hosts' own line replaces "together with their families" */}{!hasParentsLines(invitation) && !invitation.hostLine && <p className={eyebrow}>{t.together}</p>}
               {invitation.hostLine && <p className="mr-hostline">{invitation.hostLine}</p>}
               <p className="mr-message">{invitation.message || t.defaultInvite}</p>
               <InviteLine invitation={invitation} guestName={guestName} />

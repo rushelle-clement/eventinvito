@@ -59,10 +59,6 @@ export default function RoyalIndian({ invitation, guestName, rsvp, music, t, lan
     music.play()
     timers.current = runTimeline(setPhase, REVEAL_AT, DONE_AT)
   }
-  function skip() {
-    timers.current.forEach(clearTimeout)
-    setPhase('open')
-  }
 
   const date = formatDate(invitation.eventDate, lang)
   const time = timeRange(invitation.eventTime, invitation.endTime, lang)
@@ -104,11 +100,6 @@ export default function RoyalIndian({ invitation, guestName, rsvp, music, t, lan
             {t.tapToOpen}
           </p>
 
-          {phase !== 'closed' && (
-            <button type="button" className="ei-skip" onClick={skip} lang={lang}>
-              {t.skip}
-            </button>
-          )}
         </div>
       )}
 
@@ -133,7 +124,7 @@ export default function RoyalIndian({ invitation, guestName, rsvp, music, t, lan
                 </Reveal>
                 <Reveal delay={300}>
                   {!guestNamedInLine(invitation) && <p className="ri-greeting">{greeting}</p>}
-                  {!hasParentsLines(invitation) && <p className={`${eyebrow} mt-5`}>{t.together}</p>}
+                  {/* the hosts' own line replaces "together with their families" */}{!hasParentsLines(invitation) && !invitation.hostLine && <p className={`${eyebrow} mt-5`}>{t.together}</p>}
                   {invitation.hostLine && <p className="ri-hostline">{invitation.hostLine}</p>}
                 </Reveal>
 

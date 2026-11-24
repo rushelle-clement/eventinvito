@@ -89,10 +89,6 @@ export default function WhiteLily({ invitation, guestName, rsvp, music, t, lang,
     music.play() // inside the tap, so browsers allow sound
     timers.current = runTimeline(setPhase, REVEAL_AT, DONE_AT)
   }
-  function skip() {
-    timers.current.forEach(clearTimeout)
-    setPhase('open')
-  }
 
   const date = formatDate(invitation.eventDate, lang)
   const time = timeRange(invitation.eventTime, invitation.endTime, lang)
@@ -143,11 +139,6 @@ export default function WhiteLily({ invitation, guestName, rsvp, music, t, lang,
               {t.openInvitation}
             </button>
           </div>
-          {phase !== 'closed' && (
-            <button type="button" className="ei-skip" onClick={skip} lang={lang}>
-              {t.skip}
-            </button>
-          )}
         </div>
       )}
 
@@ -161,7 +152,7 @@ export default function WhiteLily({ invitation, guestName, rsvp, music, t, lang,
               <Reveal variant="fade">
                 {invitation.blessing && <p className="wl-blessing">{invitation.blessing}</p>}
                 {!guestNamedInLine(invitation) && <p className={`wl-greeting ${local}`}>{guestName ? t.dear(guestName) : t.dearGuest}</p>}
-                {!hasParentsLines(invitation) && <p className={`wl-eyebrow ${local}`}>{t.together}</p>}
+                {/* the hosts' own line replaces "together with their families" */}{!hasParentsLines(invitation) && !invitation.hostLine && <p className={`wl-eyebrow ${local}`}>{t.together}</p>}
                 {invitation.hostLine && <p className="wl-hostline">{invitation.hostLine}</p>}
               </Reveal>
 

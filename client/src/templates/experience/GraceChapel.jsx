@@ -100,10 +100,6 @@ export default function GraceChapel({ invitation, guestName, rsvp, music, t, lan
     music.play() // inside the tap, so browsers allow sound
     timers.current = runTimeline(setPhase, REVEAL_AT, DONE_AT)
   }
-  function skip() {
-    timers.current.forEach(clearTimeout)
-    setPhase('open')
-  }
 
   const date = formatDate(invitation.eventDate, lang)
   const time = timeRange(invitation.eventTime, invitation.endTime, lang)
@@ -159,11 +155,6 @@ export default function GraceChapel({ invitation, guestName, rsvp, music, t, lan
               {t.openInvitation}
             </button>
           </div>
-          {phase !== 'closed' && (
-            <button type="button" className="ei-skip" onClick={skip} lang={lang}>
-              {t.skip}
-            </button>
-          )}
         </div>
       )}
 
@@ -198,7 +189,7 @@ export default function GraceChapel({ invitation, guestName, rsvp, music, t, lan
             <div className="gc-arch">
               <img className="gc-arch-img" src={img('arch')} alt="" aria-hidden="true" decoding="async" />
               <div className="gc-arch-inner">
-                {!hasParentsLines(invitation) && <p className={`gc-eyebrow ${local} gc-together`}>{t.together}</p>}
+                {/* the hosts' own line replaces "together with their families" */}{!hasParentsLines(invitation) && !invitation.hostLine && <p className={`gc-eyebrow ${local} gc-together`}>{t.together}</p>}
                 {invitation.hostLine && <p className="gc-hostline">{invitation.hostLine}</p>}
                 <h1 ref={headingRef} tabIndex={-1} className="gc-names outline-none">
                   <span className="gc-name" style={{ animationDelay: '0.2s' }}>

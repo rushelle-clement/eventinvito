@@ -78,10 +78,6 @@ export default function RanPahana({ invitation, guestName, rsvp, music, t, lang,
     if (r) setGlowAt({ x: `${Math.round(r.left + r.width * 0.172)}px`, y: `${Math.round(r.top + r.height * 0.3)}px` })
     timers.current = runTimeline(setPhase, REVEAL_AT, DONE_AT)
   }
-  function skip() {
-    timers.current.forEach(clearTimeout)
-    setPhase('open')
-  }
 
   const date = formatDate(invitation.eventDate, lang)
   const time = timeRange(invitation.eventTime, invitation.endTime, lang)
@@ -127,11 +123,6 @@ export default function RanPahana({ invitation, guestName, rsvp, music, t, lang,
           </div>
 
           <span className="rp-glow" aria-hidden="true" />
-          {phase !== 'closed' && (
-            <button type="button" className="ei-skip" onClick={skip} lang={lang}>
-              {t.skip}
-            </button>
-          )}
         </div>
       )}
 
@@ -148,7 +139,7 @@ export default function RanPahana({ invitation, guestName, rsvp, music, t, lang,
                 {!guestNamedInLine(invitation) && <p className={`rp-greeting ${local}`}>{guestName ? t.dear(guestName) : t.dearGuest}</p>}
               </Reveal>
               <Reveal delay={150}>
-                {!hasParentsLines(invitation) && <p className={`rp-eyebrow ${local} mt-6`}>{t.together}</p>}
+                {/* the hosts' own line replaces "together with their families" */}{!hasParentsLines(invitation) && !invitation.hostLine && <p className={`rp-eyebrow ${local} mt-6`}>{t.together}</p>}
                 {invitation.hostLine && <p className="rp-hostline">{invitation.hostLine}</p>}
               </Reveal>
 

@@ -120,7 +120,7 @@ export default function InvitationCard({ invitation, templateKey, guestName, rsv
   return (
     <article
       lang={lang}
-      className={`relative overflow-hidden rounded-xl ${className}`}
+      className={`ei-preview-card relative overflow-hidden rounded-xl ${className}`}
       style={{ background: theme.card, color: theme.text, fontFamily: theme.bodyFont }}
     >
       {/* Decorative frames per design */}
@@ -136,6 +136,13 @@ export default function InvitationCard({ invitation, templateKey, guestName, rsv
       {romantic && <div aria-hidden="true" className="h-3" style={{ background: theme.accent }} />}
 
       <div className={`relative px-8 pb-10 sm:px-12 ${romantic ? 'pt-10' : 'pt-12'} ${minimal ? 'text-left' : 'text-center'}`}>
+        {/* Opening blessing: small type at the very top, as on the invitation itself */}
+        {invitation.blessing && !['birthday', 'corporate', 'christmas'].includes(invitation.eventType) && (
+          <p className="mx-auto mb-5 max-w-md text-[15px] leading-6 italic" style={{ color: theme.muted, fontFamily: theme.headingFont }}>
+            {invitation.blessing}
+          </p>
+        )}
+
         {/* Personal greeting (left out when the closing line already names the guest) */}
         {!guestNamedInLine(invitation) && (
           <p
@@ -158,7 +165,8 @@ export default function InvitationCard({ invitation, templateKey, guestName, rsv
           </p>
         )}
 
-        {!corporate && !hasParentsLines(invitation) && (
+        {/* the hosts' own line replaces "together with their families" */}
+        {!corporate && !hasParentsLines(invitation) && !invitation.hostLine && (
           <p className={`mt-8 ${latin ? 'text-[12px] tracking-[0.18em] uppercase' : 'text-[15px]'}`} style={{ color: theme.muted }}>
             {t.together}
           </p>

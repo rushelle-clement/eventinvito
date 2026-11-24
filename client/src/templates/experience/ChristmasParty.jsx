@@ -307,10 +307,6 @@ export default function ChristmasParty({ invitation, guestName, rsvp, music, t, 
     music.play() // inside the tap, so browsers allow sound
     timers.current = runTimeline(setPhase, revealAt, doneAt)
   }
-  function skip() {
-    timers.current.forEach(clearTimeout)
-    setPhase('open')
-  }
 
   const date = formatDate(invitation.eventDate, lang)
   const time = timeRange(invitation.eventTime, invitation.endTime, lang)
@@ -351,11 +347,6 @@ export default function ChristmasParty({ invitation, guestName, rsvp, music, t, 
           {opening && variant === 'pink-christmas' && <Confetti colours={['#f7a8c4', '#ffffff', '#e7c27d', '#f4c6d7', '#d46a8c']} />}
           <span className="xp-glow" aria-hidden="true" />
           <span className="xp-flash" aria-hidden="true" />
-          {opening && (
-            <button type="button" className="ei-skip" onClick={skip} lang={lang}>
-              {t.skip}
-            </button>
-          )}
         </div>
       )}
 
@@ -368,7 +359,6 @@ export default function ChristmasParty({ invitation, guestName, rsvp, music, t, 
             <div className="xp-hero-inner">
               {variant === 'pink-christmas' && <img className="xp-bow is-hero" src={img(variant, 'bow')} alt="" aria-hidden="true" decoding="async" />}
               <Reveal variant="fade">
-                {invitation.blessing && <p className="xp-blessing">{invitation.blessing}</p>}
                 {!guestNamedInLine(invitation) && <p className="xp-greeting">{guestName ? t.dear(guestName) : t.dearGuest}</p>}
                 {invites && <p className={`xp-eyebrow ${local}`}>{invites}</p>}
               </Reveal>

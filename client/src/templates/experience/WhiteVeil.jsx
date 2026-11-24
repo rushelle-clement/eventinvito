@@ -68,7 +68,6 @@ function GoldRule({ className = '' }) {
 
 export default function WhiteVeil({ invitation, guestName, rsvp, music, t, lang, startOpen = false, poster = false }) {
   const [phase, setPhase] = useState(startOpen ? 'open' : 'closed') // closed → revealing → open
-  const [skipped, setSkipped] = useState(false)
   const timers = useRef([])
   const openBtnRef = useRef(null)
   const headingRef = useRef(null)
@@ -85,10 +84,10 @@ export default function WhiteVeil({ invitation, guestName, rsvp, music, t, lang,
       return undefined
     }
     if (phase !== 'closed') return undefined
-    const delay = skipped || prefersReducedMotion() ? 0 : 5400
+    const delay = prefersReducedMotion() ? 0 : 5400
     const id = setTimeout(() => openBtnRef.current?.focus({ preventScroll: true }), delay)
     return () => clearTimeout(id)
-  }, [phase, poster, skipped])
+  }, [phase, poster])
 
   function open() {
     music.play() // inside the tap, so browsers allow sound
@@ -112,7 +111,7 @@ export default function WhiteVeil({ invitation, guestName, rsvp, music, t, lang,
       {/* ---------- Opening: the veil ---------- */}
       {phase !== 'open' && (
         <div
-          className={`wv-opening ${skipped ? 'is-skipped' : ''} ${phase === 'revealing' ? 'is-leaving' : ''}`}
+          className={`wv-opening ${phase === 'revealing' ? 'is-leaving' : ''}`}
           role="dialog"
           aria-modal="true"
           aria-label={t.openInvitation}
@@ -146,11 +145,6 @@ export default function WhiteVeil({ invitation, guestName, rsvp, music, t, lang,
             <Flecks />
           </div>
 
-          {!skipped && phase === 'closed' && (
-            <button type="button" className="ei-skip wv-skip" onClick={() => setSkipped(true)} lang={lang}>
-              {t.skip}
-            </button>
-          )}
         </div>
       )}
 
@@ -175,7 +169,7 @@ export default function WhiteVeil({ invitation, guestName, rsvp, music, t, lang,
                   </Reveal>
                 )}
                 <Reveal delay={150}>
-                  {!hasParentsLines(invitation) && <p className={`wv-eyebrow ${local} mt-6`}>{t.together}</p>}
+                  {/* the hosts' own line replaces "together with their families" */}{!hasParentsLines(invitation) && !invitation.hostLine && <p className={`wv-eyebrow ${local} mt-6`}>{t.together}</p>}
                   {invitation.hostLine && <p className="wv-hostline">{invitation.hostLine}</p>}
                 </Reveal>
                 <h1 ref={headingRef} tabIndex={-1} className="wv-names outline-none">

@@ -120,10 +120,6 @@ export default function CorporateEvent({ variant, invitation, guestName, rsvp, m
     music.play() // inside the tap, so browsers allow sound
     timers.current = runTimeline(setPhase, REVEAL_AT, DONE_AT)
   }
-  function skip() {
-    timers.current.forEach(clearTimeout)
-    setPhase('open')
-  }
 
   const productEl = product ? (
     <span className="ce-product">
@@ -146,11 +142,6 @@ export default function CorporateEvent({ variant, invitation, guestName, rsvp, m
               {t.openInvitation}
             </button>
           </div>
-          {phase !== 'closed' && (
-            <button type="button" className="ei-skip" onClick={skip} lang={lang}>
-              {t.skip}
-            </button>
-          )}
         </div>
       )}
 

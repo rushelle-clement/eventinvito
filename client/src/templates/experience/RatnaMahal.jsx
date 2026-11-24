@@ -159,10 +159,6 @@ export default function RatnaMahal({ invitation, guestName, rsvp, music, t, lang
     music.play() // inside the tap, so browsers allow sound
     timers.current = runTimeline(setPhase, REVEAL_AT, DONE_AT)
   }
-  function skip() {
-    timers.current.forEach(clearTimeout)
-    setPhase('open')
-  }
 
   const date = formatDate(invitation.eventDate, lang)
   const time = timeRange(invitation.eventTime, invitation.endTime, lang)
@@ -240,11 +236,6 @@ export default function RatnaMahal({ invitation, guestName, rsvp, music, t, lang
             ))}
           </span>
           <span className="rm-light" aria-hidden="true" />
-          {phase !== 'closed' && (
-            <button type="button" className="ei-skip" onClick={skip} lang={lang}>
-              {t.skip}
-            </button>
-          )}
         </div>
       )}
 
@@ -265,7 +256,7 @@ export default function RatnaMahal({ invitation, guestName, rsvp, music, t, lang
                 <Reveal variant="fade" className="rm-top-lines">
                   {invitation.blessing && <p className="rm-blessing">{invitation.blessing}</p>}
                   {!guestNamedInLine(invitation) && <p className={`rm-greeting ${local}`}>{guestName ? t.dear(guestName) : t.dearGuest}</p>}
-                  {!hasParentsLines(invitation) && <p className={`rm-together ${local}`}>{t.together}</p>}
+                  {/* the hosts' own line replaces "together with their families" */}{!hasParentsLines(invitation) && !invitation.hostLine && <p className={`rm-together ${local}`}>{t.together}</p>}
                   {invitation.hostLine && <p className="rm-hostline">{invitation.hostLine}</p>}
                   <Divider gem="gem-pink-2" className="is-small" />
                 </Reveal>

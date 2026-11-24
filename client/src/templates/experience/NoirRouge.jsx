@@ -59,10 +59,6 @@ export default function NoirRouge({ invitation, guestName, rsvp, music, t, lang,
     music.play() // inside the tap, so browsers allow sound
     timers.current = runTimeline(setPhase, REVEAL_AT, DONE_AT)
   }
-  function skip() {
-    timers.current.forEach(clearTimeout)
-    setPhase('open')
-  }
 
   const date = formatDate(invitation.eventDate, lang)
   const time = timeRange(invitation.eventTime, invitation.endTime, lang)
@@ -103,11 +99,6 @@ export default function NoirRouge({ invitation, guestName, rsvp, music, t, lang,
             </button>
           </div>
 
-          {phase !== 'closed' && (
-            <button type="button" className="ei-skip" onClick={skip} lang={lang}>
-              {t.skip}
-            </button>
-          )}
         </div>
       )}
 
@@ -126,7 +117,7 @@ export default function NoirRouge({ invitation, guestName, rsvp, music, t, lang,
               )}
               <Reveal delay={150}>
                 {invitation.blessing && <p className="nr-blessing">{invitation.blessing}</p>}
-                {!hasParentsLines(invitation) && <p className={`nr-eyebrow ${local} mt-6`}>{t.together}</p>}
+                {/* the hosts' own line replaces "together with their families" */}{!hasParentsLines(invitation) && !invitation.hostLine && <p className={`nr-eyebrow ${local} mt-6`}>{t.together}</p>}
                 {invitation.hostLine && <p className="nr-hostline">{invitation.hostLine}</p>}
               </Reveal>
 

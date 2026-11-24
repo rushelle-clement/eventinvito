@@ -15,6 +15,8 @@ export const PLANS = {
 export function planOf(user) {
   if (!user) return null
   if (user.role === 'admin') return 'admin'
+  // Chose a package at sign-up that's waiting for payment: show that package (PlanBadge marks it pending)
+  if (PLANS[user.requestedPlan]) return user.requestedPlan
   if ((user.plan || 'free') === 'free' && (user.printedMember || (user.printedCredits || 0) > 0)) return 'printed'
   return PLANS[user.plan] ? user.plan : 'free'
 }

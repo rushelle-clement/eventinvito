@@ -89,10 +89,6 @@ export default function CrimsonLove({ invitation, guestName, rsvp, music, t, lan
     setOrigin(`${Math.round(r.left + r.width / 2)}px ${Math.round(r.top + r.height / 2)}px`)
     timers.current = runTimeline(setPhase, REVEAL_AT, DONE_AT)
   }
-  function skip() {
-    timers.current.forEach(clearTimeout)
-    setPhase('open')
-  }
 
   const date = formatDate(invitation.eventDate, lang)
   const time = timeRange(invitation.eventTime, invitation.endTime, lang)
@@ -123,11 +119,6 @@ export default function CrimsonLove({ invitation, guestName, rsvp, music, t, lan
           </div>
 
           <span className="cl-bloom" style={{ '--origin': origin }} aria-hidden="true" />
-          {phase !== 'closed' && (
-            <button type="button" className="ei-skip" onClick={skip} lang={lang}>
-              {t.skip}
-            </button>
-          )}
         </div>
       )}
 
@@ -143,7 +134,7 @@ export default function CrimsonLove({ invitation, guestName, rsvp, music, t, lan
                 {!guestNamedInLine(invitation) && <p className="cl-greeting">{guestName ? t.dear(guestName) : t.dearGuest}</p>}
               </Reveal>
               <Reveal delay={200}>
-                {!hasParentsLines(invitation) && <p className={`${eyebrow} mt-8`}>{t.together}</p>}
+                {/* the hosts' own line replaces "together with their families" */}{!hasParentsLines(invitation) && !invitation.hostLine && <p className={`${eyebrow} mt-8`}>{t.together}</p>}
                 {invitation.blessing && <p className="cl-blessing">{invitation.blessing}</p>}
                 {invitation.hostLine && <p className="cl-hostline">{invitation.hostLine}</p>}
               </Reveal>

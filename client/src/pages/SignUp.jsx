@@ -10,7 +10,7 @@ import FormAlert from '../components/FormAlert'
 import InvitationShowcase from '../components/InvitationShowcase'
 import ContactLine from '../components/ContactLine'
 import { useSiteConfig } from '../lib/siteConfig'
-import { INVITATION_NOTE, SIGNUP_PACKAGES, packageOf } from '../lib/packages'
+import { SIGNUP_PACKAGES, packageOf } from '../lib/packages'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const MIN_PASSWORD = 8 // must match the server rule
@@ -221,8 +221,7 @@ export default function SignUp() {
                 </label>
               ))}
             </div>
-            <p className="mt-2 text-body-sm text-on-surface-variant">{INVITATION_NOTE}</p>
-            <p className="mt-1 text-body-sm text-on-surface-variant">
+            <p className="mt-2 text-body-sm text-on-surface-variant">
               {form.package === 'free'
                 ? 'Free to publish. You can upgrade any time.'
                 : 'You can set everything up straight away. We’ll show you how to pay, and you can publish once your payment is confirmed.'}{' '}

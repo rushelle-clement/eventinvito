@@ -25,7 +25,6 @@ const DONE_AT = 1300
 
 export default function SwarnaNelum({ invitation, guestName, rsvp, music, t, lang, startOpen = false, poster = false }) {
   const [phase, setPhase] = useState(startOpen ? 'open' : 'closed') // closed → revealing → open
-  const [skipped, setSkipped] = useState(false)
   const timers = useRef([])
   const openBtnRef = useRef(null)
   const headingRef = useRef(null)
@@ -42,10 +41,10 @@ export default function SwarnaNelum({ invitation, guestName, rsvp, music, t, lan
       return undefined
     }
     if (phase !== 'closed') return undefined
-    const delay = skipped || prefersReducedMotion() ? 0 : 6500
+    const delay = prefersReducedMotion() ? 0 : 6500
     const id = setTimeout(() => openBtnRef.current?.focus({ preventScroll: true }), delay)
     return () => clearTimeout(id)
-  }, [phase, poster, skipped])
+  }, [phase, poster])
 
   function open() {
     music.play() // inside the tap, so browsers allow sound
@@ -69,7 +68,7 @@ export default function SwarnaNelum({ invitation, guestName, rsvp, music, t, lan
       {/* ---------- Opening: the golden lotus mandala ---------- */}
       {phase !== 'open' && (
         <div
-          className={`sn-opening ${skipped ? 'is-skipped' : ''} ${phase === 'revealing' ? 'is-leaving' : ''}`}
+          className={`sn-opening ${phase === 'revealing' ? 'is-leaving' : ''}`}
           role="dialog"
           aria-modal="true"
           aria-label={t.openInvitation}
@@ -103,11 +102,6 @@ export default function SwarnaNelum({ invitation, guestName, rsvp, music, t, lan
             </div>
           </div>
 
-          {!skipped && phase === 'closed' && (
-            <button type="button" className="ei-skip sn-skip" onClick={() => setSkipped(true)} lang={lang}>
-              {t.skip}
-            </button>
-          )}
         </div>
       )}
 
@@ -131,7 +125,7 @@ export default function SwarnaNelum({ invitation, guestName, rsvp, music, t, lan
                   </Reveal>
                 )}
                 <Reveal delay={150}>
-                  {!hasParentsLines(invitation) && <p className={`sn-eyebrow ${local} mt-5`}>{t.together}</p>}
+                  {/* the hosts' own line replaces "together with their families" */}{!hasParentsLines(invitation) && !invitation.hostLine && <p className={`sn-eyebrow ${local} mt-5`}>{t.together}</p>}
                   {invitation.hostLine && <p className="sn-hostline">{invitation.hostLine}</p>}
                 </Reveal>
                 <h1 ref={headingRef} tabIndex={-1} className="sn-names outline-none">

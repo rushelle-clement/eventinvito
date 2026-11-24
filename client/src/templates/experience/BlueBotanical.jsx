@@ -116,7 +116,6 @@ function Divider({ className = '' }) {
 
 export default function BlueBotanical({ invitation, guestName, rsvp, music, t, lang, startOpen = false, poster = false }) {
   const [phase, setPhase] = useState(startOpen ? 'open' : 'closed') // closed → revealing → open
-  const [skipped, setSkipped] = useState(false)
   const timers = useRef([])
   const openBtnRef = useRef(null)
   const headingRef = useRef(null)
@@ -133,10 +132,10 @@ export default function BlueBotanical({ invitation, guestName, rsvp, music, t, l
       return undefined
     }
     if (phase !== 'closed') return undefined
-    const delay = skipped || prefersReducedMotion() ? 0 : 6500
+    const delay = prefersReducedMotion() ? 0 : 6500
     const id = setTimeout(() => openBtnRef.current?.focus({ preventScroll: true }), delay)
     return () => clearTimeout(id)
-  }, [phase, poster, skipped])
+  }, [phase, poster])
 
   function open() {
     music.play() // inside the tap, so browsers allow sound
@@ -160,7 +159,7 @@ export default function BlueBotanical({ invitation, guestName, rsvp, music, t, l
       {/* ---------- Opening: the botanical sketch ---------- */}
       {phase !== 'open' && (
         <div
-          className={`bb-opening ${skipped ? 'is-skipped' : ''} ${phase === 'revealing' ? 'is-leaving' : ''}`}
+          className={`bb-opening ${phase === 'revealing' ? 'is-leaving' : ''}`}
           role="dialog"
           aria-modal="true"
           aria-label={t.openInvitation}
@@ -198,11 +197,6 @@ export default function BlueBotanical({ invitation, guestName, rsvp, music, t, l
             </div>
           </div>
 
-          {!skipped && phase === 'closed' && (
-            <button type="button" className="ei-skip bb-skip" onClick={() => setSkipped(true)} lang={lang}>
-              {t.skip}
-            </button>
-          )}
         </div>
       )}
 
@@ -225,7 +219,7 @@ export default function BlueBotanical({ invitation, guestName, rsvp, music, t, l
                   </Reveal>
                 )}
                 <Reveal delay={150}>
-                  {!hasParentsLines(invitation) && <p className={`bb-eyebrow ${local} mt-6`}>{t.together}</p>}
+                  {/* the hosts' own line replaces "together with their families" */}{!hasParentsLines(invitation) && !invitation.hostLine && <p className={`bb-eyebrow ${local} mt-6`}>{t.together}</p>}
                   {invitation.hostLine && <p className="bb-hostline">{invitation.hostLine}</p>}
                 </Reveal>
                 <h1 ref={headingRef} tabIndex={-1} className="bb-names outline-none">

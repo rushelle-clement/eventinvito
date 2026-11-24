@@ -406,7 +406,8 @@ export default function InvitationEditor() {
       <div className="flex justify-center px-4 py-8" style={{ background: theme.page }}>
         {device === 'mobile' ? (
           <div className="w-full max-w-[380px] rounded-[2.5rem] border-[10px] border-espresso bg-espresso shadow-float">
-            <div className="max-h-[680px] overflow-y-auto rounded-[1.8rem]" style={{ background: theme.page }}>
+            {/* Fits the window: the preview stays pinned while the form scrolls, so the phone's bottom must stay on screen */}
+            <div className="max-h-[max(320px,min(680px,calc(100vh-17rem)))] overflow-y-auto rounded-[1.8rem]" style={{ background: theme.page }}>
               <InvitationCard invitation={previewInvitation} templateKey={form.templateKey} guestName={previewGuest.trim()} className="rounded-none" />
             </div>
           </div>
@@ -836,16 +837,19 @@ export default function InvitationEditor() {
           {!printed && (<>
           <Section id="wording" icon={NotebookPen} number={4} title="Wording" subtitle="The words on your invitation" open={open === 'wording'} onToggle={toggle}>
             {form.language === 'si' && !birthday && !corporate && !christmas && <SinhalaWordingFill form={form} update={update} />}
-            <Field
-              label={corporate || christmas ? 'Top line' : 'Opening blessing'}
-              name="blessing"
-              value={form.blessing}
-              onChange={update}
-              error={errors.blessing}
-              maxLength={140}
-              placeholder={corporate ? 'e.g. Celebrating 25 years of excellence' : christmas ? 'e.g. ‘Glory to God in the highest’ — Luke 2:14' : 'e.g. ॥ श्री गणेशाय नमः ॥ or a line of scripture'}
-              hint="Optional. Printed in small type at the very top, in any language or script."
-            />
+            {/* The opening blessing is for weddings, engagements and homecomings only */}
+            {!birthday && !corporate && !christmas && (
+              <Field
+                label="Opening blessing"
+                name="blessing"
+                value={form.blessing}
+                onChange={update}
+                error={errors.blessing}
+                maxLength={140}
+                placeholder="e.g. ॥ श्री गणेशाय नमः ॥ or a line of scripture"
+                hint="Optional. Printed in small type at the very top, in any language or script."
+              />
+            )}
             <Field
               label="Hosts' line"
               name="hostLine"

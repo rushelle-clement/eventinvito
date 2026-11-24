@@ -89,11 +89,6 @@ export default function PureElegance({ invitation, guestName, rsvp, music, t, la
     timers.current = [setTimeout(() => setPhase('revealing'), REVEAL_AT), setTimeout(() => setPhase('open'), DONE_AT)]
   }
 
-  function skip() {
-    timers.current.forEach(clearTimeout)
-    setPhase('open')
-  }
-
   const date = formatDate(invitation.eventDate, lang)
   const time = timeRange(invitation.eventTime, invitation.endTime, lang)
   const ceremonies = ceremonyList(invitation, lang)
@@ -142,11 +137,6 @@ export default function PureElegance({ invitation, guestName, rsvp, music, t, la
             <p className="pl-hint pl-step s2">{t.tapToOpen}</p>
           </div>
 
-          {phase === 'opening' && (
-            <button type="button" className="ei-skip" onClick={skip} lang={lang}>
-              {t.skip}
-            </button>
-          )}
         </div>
       )}
 
@@ -176,7 +166,7 @@ export default function PureElegance({ invitation, guestName, rsvp, music, t, la
                   </Reveal>
                 )}
                 <Reveal delay={200}>
-                  {!hasParentsLines(invitation) && <p className={`pl-eyebrow ${local}`}>{t.together}</p>}
+                  {/* the hosts' own line replaces "together with their families" */}{!hasParentsLines(invitation) && !invitation.hostLine && <p className={`pl-eyebrow ${local}`}>{t.together}</p>}
                   {invitation.hostLine && <p className="pl-hostline">{invitation.hostLine}</p>}
                 </Reveal>
 

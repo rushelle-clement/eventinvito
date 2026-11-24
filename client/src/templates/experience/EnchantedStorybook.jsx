@@ -137,7 +137,6 @@ function Flourish({ className = '' }) {
 
 export default function EnchantedStorybook({ invitation, guestName, rsvp, music, t, lang, startOpen = false, poster = false }) {
   const [phase, setPhase] = useState(startOpen ? 'open' : 'closed') // closed → opening → revealing → open
-  const [skipped, setSkipped] = useState(false)
   const timers = useRef([])
   const openBtnRef = useRef(null)
   const headingRef = useRef(null)
@@ -155,10 +154,10 @@ export default function EnchantedStorybook({ invitation, guestName, rsvp, music,
       return undefined
     }
     if (phase !== 'closed') return undefined
-    const delay = skipped || prefersReducedMotion() ? 0 : 2900
+    const delay = prefersReducedMotion() ? 0 : 2900
     const id = setTimeout(() => openBtnRef.current?.focus({ preventScroll: true }), delay)
     return () => clearTimeout(id)
-  }, [phase, poster, skipped])
+  }, [phase, poster])
 
   function open() {
     music.play() // inside the tap, so browsers allow sound
@@ -198,7 +197,7 @@ export default function EnchantedStorybook({ invitation, guestName, rsvp, music,
       {/* ---------- Opening: the storybook ---------- */}
       {phase !== 'open' && (
         <div
-          className={`es-opening ${skipped ? 'is-skipped' : ''} ${phase === 'opening' ? 'is-opening' : ''} ${phase === 'revealing' ? 'is-leaving' : ''}`}
+          className={`es-opening ${phase === 'opening' ? 'is-opening' : ''} ${phase === 'revealing' ? 'is-leaving' : ''}`}
           role="dialog"
           aria-modal="true"
           aria-label={t.openBook}
@@ -285,11 +284,6 @@ export default function EnchantedStorybook({ invitation, guestName, rsvp, music,
             </button>
           </div>
 
-          {!skipped && phase === 'closed' && (
-            <button type="button" className="ei-skip es-skip" onClick={() => setSkipped(true)} lang={lang}>
-              {t.skip}
-            </button>
-          )}
         </div>
       )}
 
@@ -316,7 +310,7 @@ export default function EnchantedStorybook({ invitation, guestName, rsvp, music,
                 <OnceUpon text={t.onceUpon} />
               </Reveal>
               <Reveal delay={200}>
-                {!hasParentsLines(invitation) && <p className={`es-eyebrow ${local}`}>{t.together}</p>}
+                {/* the hosts' own line replaces "together with their families" */}{!hasParentsLines(invitation) && !invitation.hostLine && <p className={`es-eyebrow ${local}`}>{t.together}</p>}
                 {invitation.hostLine && <p className="es-hostline">{invitation.hostLine}</p>}
               </Reveal>
               <h1 ref={headingRef} tabIndex={-1} className="es-names outline-none">

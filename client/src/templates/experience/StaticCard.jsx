@@ -56,7 +56,7 @@ export default function StaticCard({ invitation, guestName, rsvp, t, lang, embed
         <div className="sc-body">
           {invitation.blessing && <p className="sc-blessing">{invitation.blessing}</p>}
           {!guestNamedInLine(invitation) && <p className={`sc-greeting ${local}`}>{guestName ? t.dear(guestName) : t.dearGuest}</p>}
-          {!hasParentsLines(invitation) && <p className={`sc-eyebrow ${local}`}>{t.together}</p>}
+          {/* the hosts' own line replaces "together with their families" */}{!hasParentsLines(invitation) && !invitation.hostLine && <p className={`sc-eyebrow ${local}`}>{t.together}</p>}
           {invitation.hostLine && <p className="sc-hostline">{invitation.hostLine}</p>}
 
           <h1 className="sc-names">

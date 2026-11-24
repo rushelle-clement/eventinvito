@@ -46,6 +46,7 @@ import { FAMILY, TITLES, formatAddress, parseAddress } from '../lib/addressing'
 import { MAX_GROUP_LENGTH, groupChoices, groupCounts, groupKey } from '../lib/guestGroups'
 import { STRINGS, formatDate, invitationTitle, stringsFor } from '../templates/strings'
 import Loader from '../components/Loader'
+import PublishStatus from '../components/PublishStatus'
 import Pagination from '../components/Pagination'
 import { useAuth } from '../context/AuthContext'
 import { qrLockNote } from '../lib/accountPlan'
@@ -1230,7 +1231,17 @@ export default function ManageGuests() {
 
       {/* Title, then one toolbar: adding guests on the left, sending and downloading on the right */}
       <div className="mt-3">
-        <h1 className="font-serif text-headline-lg-mobile text-espresso md:text-headline-lg">Manage Guests</h1>
+        <h1 className="flex flex-wrap items-center gap-3 font-serif text-headline-lg-mobile text-espresso md:text-headline-lg">
+          Manage Guests
+          {/* At a glance: is the invitation (and its QR code) live? */}
+          <span
+            className={`rounded-full px-3 py-1 font-sans text-label-sm uppercase ${
+              live && !invitation.ended ? 'bg-[#e3f4e8] text-[#1e6b3a]' : live ? 'bg-surface-container-high text-on-surface-variant' : 'bg-blush-tint text-gold-text'
+            }`}
+          >
+            {live ? (invitation.ended ? 'Ended' : 'Published') : invitation.status === 'unpublished' ? 'Unpublished' : 'Not published'}
+          </span>
+        </h1>
         <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-body-md text-on-surface-variant">
           {invitation.eventDate && (
             <span className="inline-flex items-center gap-1.5">
@@ -1273,30 +1284,19 @@ export default function ManageGuests() {
         </div>
       </div>
 
-      {!live && (
-        <div className="mt-6 flex flex-col gap-3 rounded-lg border border-gold/30 bg-blush-tint px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="flex items-start gap-2 text-body-md text-espresso">
-            <AlertTriangle size={18} className="mt-0.5 shrink-0 text-gold-text" aria-hidden="true" />
-            {invitation.status === 'unpublished'
-              ? 'This invitation is unpublished, so guest links show “not available” until you publish it again.'
-              : 'This invitation is still a draft. You can add guests now, but their links will only open once you publish.'}
-          </p>
-          <Link to={`/invitations/${id}/edit`} className="btn-secondary shrink-0">
-            Go to publish
-          </Link>
-        </div>
+      {/* Published or not (invitation links and the QR code), with a Publish button when it isn't */}
+      {!(live && invitation.ended) && (
+        <PublishStatus
+          invitation={invitation}
+          onPublished={(inv) => setInvitation((i) => ({ ...i, ...inv }))}
+          note={live && invitation.onlineUntil && !physicalOnly ? `Guest links open the invitation until ${formatDate(invitation.onlineUntil, 'en')}, the day after your last event.` : ''}
+        />
       )}
 
       {live && invitation.ended && !physicalOnly && (
         <p className="mt-6 flex items-start gap-2 rounded-lg border border-gold/30 bg-blush-tint px-5 py-4 text-body-md text-espresso">
           <Info size={18} className="mt-0.5 shrink-0 text-gold-text" aria-hidden="true" />
           This invitation ended on {formatDate(invitation.onlineUntil, 'en')}, the day after your last event. Guests who open their link now see a short note that it has ended.
-        </p>
-      )}
-      {live && !invitation.ended && invitation.onlineUntil && !physicalOnly && (
-        <p className="mt-6 flex items-start gap-2 rounded-lg border border-bone bg-white px-5 py-4 text-body-md text-on-surface-variant">
-          <Info size={18} className="mt-0.5 shrink-0 text-gold-text" aria-hidden="true" />
-          Guest links open the invitation until {formatDate(invitation.onlineUntil, 'en')}, the day after your last event.
         </p>
       )}
 
@@ -1366,7 +1366,7 @@ export default function ManageGuests() {
               {invitation.qr?.locked
                 ? qrLockNote(user).short
                 : invitation.qr?.enabled
-                  ? `On · ${summary.physical.total} with physical cards · ${summary.viaQr} replied by QR`
+                  ? `${live && !invitation.ended ? 'Live' : invitation.ended ? 'Ended' : 'Ready — goes live when you publish'} · ${summary.physical.total} with physical cards · ${summary.viaQr} replied by QR`
                   : 'Off'}
             </span>
           </span>
@@ -1501,6 +1501,12 @@ export default function ManageGuests() {
               ? 'Add the guests you’re giving printed cards to, using the names on their cards. They reply by scanning your QR code.'
               : 'Each guest gets a personal link that greets them by name. Add a phone number to send it straight to their WhatsApp.'}
           </p>
+          {/* How many the package allows (each guest is one invitation: a family or one person) */}
+          {guestLimit > 0 && (
+            <p className="mt-4 inline-flex rounded-full bg-blush-tint px-4 py-1.5 text-body-sm text-gold-text">
+              Your {limits.planName} package: up to <strong className="mx-1">{guestLimit}</strong> guests, each a family or one person
+            </p>
+          )}
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <button type="button" className="btn-primary" onClick={addGuest}>
               <UserPlus size={16} aria-hidden="true" /> Add Guest

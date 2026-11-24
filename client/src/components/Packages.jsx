@@ -41,18 +41,13 @@ const PACKAGES = [
     guests: 'Up to 150 invitations',
     intro: 'Everything in Simple Card, plus:',
     features: [
-      'Access to all Premium invitation designs',
+      'All Premium invitation designs',
       'Photo gallery with up to 3 photos',
       'Background music from our song collection',
-      'Full RSVP management and deadline',
-      'Individual invitation opened / not opened status',
-      'First opened date',
-      'Opened but haven’t replied filter',
-      'Guest groups (Bride’s side, Groom’s side, Friends, etc.) with a group filter',
-      'Group-wise counts, replies and opening stats',
-      'Set the group for many guests at once',
-      'Bulk guest import from Excel or CSV',
-      'Download the guest list and replies in Excel',
+      'Reply-by date and full RSVP management',
+      'See who opened their invitation, when, and who hasn’t replied',
+      'Guest groups (Bride’s side, Groom’s side, Friends…) with filters and counts',
+      'Import guests from Excel or CSV, and download replies in Excel',
     ],
   },
   {
@@ -257,7 +252,8 @@ export default function Packages() {
           <p className="mt-3 inline-flex self-start rounded-full bg-blush-tint px-3 py-1 text-label-md text-gold-text">{pkg.guests}</p>
 
           <div className="mt-5 flex-1 border-t border-bone pt-5">
-            {pkg.intro && <p className="mb-3 text-body-sm font-semibold text-espresso">{pkg.intro}</p>}
+            {/* "Everything in …, plus": each package includes the whole list of the one before */}
+            {pkg.intro && <p className="mb-3 rounded-md bg-gold/15 px-2.5 py-1.5 text-body-sm font-semibold text-gold-text">{pkg.intro}</p>}
             <ul className="space-y-2.5">
               {pkg.features.map((f) => (
                 <li key={f} className="flex gap-2.5 text-body-sm text-espresso">

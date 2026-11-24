@@ -110,7 +110,6 @@ function numericDate(iso) {
 
 export default function WhiteRose({ invitation, guestName, rsvp, music, t, lang, startOpen = false, poster = false }) {
   const [phase, setPhase] = useState(startOpen ? 'open' : 'closed') // closed → opening → revealing → open
-  const [skipped, setSkipped] = useState(false)
   const timers = useRef([])
   const viewBtnRef = useRef(null)
   const headingRef = useRef(null)
@@ -127,10 +126,10 @@ export default function WhiteRose({ invitation, guestName, rsvp, music, t, lang,
       return undefined
     }
     if (phase !== 'closed') return undefined
-    const delay = skipped || prefersReducedMotion() ? 0 : 6900
+    const delay = prefersReducedMotion() ? 0 : 6900
     const id = setTimeout(() => viewBtnRef.current?.focus({ preventScroll: true }), delay)
     return () => clearTimeout(id)
-  }, [phase, poster, skipped])
+  }, [phase, poster])
 
   function view() {
     music.play() // inside the tap, so browsers allow sound
@@ -154,7 +153,7 @@ export default function WhiteRose({ invitation, guestName, rsvp, music, t, lang,
       {/* ---------- Opening: the white rose unfolding ---------- */}
       {phase !== 'open' && (
         <div
-          className={`wr-opening ${skipped ? 'is-skipped' : ''} ${phase === 'revealing' ? 'is-leaving' : ''}`}
+          className={`wr-opening ${phase === 'revealing' ? 'is-leaving' : ''}`}
           role="dialog"
           aria-modal="true"
           aria-label={t.viewInvitation}
@@ -188,11 +187,6 @@ export default function WhiteRose({ invitation, guestName, rsvp, music, t, lang,
             <Corner className="wr-open-corner" />
           </div>
 
-          {!skipped && phase === 'closed' && (
-            <button type="button" className="ei-skip wr-skip" onClick={() => setSkipped(true)} lang={lang}>
-              {t.skip}
-            </button>
-          )}
         </div>
       )}
 
@@ -225,7 +219,7 @@ export default function WhiteRose({ invitation, guestName, rsvp, music, t, lang,
                 </span>
               </h1>
               <Reveal delay={900}>
-                {!hasParentsLines(invitation) && <p className={`wr-together ${latin ? '' : 'is-local'}`}>{t.together}</p>}
+                {/* the hosts' own line replaces "together with their families" */}{!hasParentsLines(invitation) && !invitation.hostLine && <p className={`wr-together ${latin ? '' : 'is-local'}`}>{t.together}</p>}
                 {invitation.hostLine && <p className="wr-hostline">{invitation.hostLine}</p>}
                 <p className="wr-message">{invitation.message || t.defaultInvite}</p>
                 <InviteLine invitation={invitation} guestName={guestName} />

@@ -228,7 +228,6 @@ export default function ChristmasCard({ invitation, guestName, rsvp, t, lang, em
       <article className={`xc xc-${variant}`}>
         <Art variant={variant} />
         <div className="xc-in">
-          {invitation.blessing && <p className="xc-blessing">{invitation.blessing}</p>}
           {!guestNamedInLine(invitation) && <p className="xc-dear">{guestName ? t.dear(guestName) : t.dearGuest}</p>}
           {invites && <p className="xc-invites">{invites}</p>}
           <h1 className="xc-title">

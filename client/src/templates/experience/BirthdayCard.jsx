@@ -42,7 +42,6 @@ export default function BirthdayCard({ invitation, guestName, rsvp, t, lang, emb
       <article className="bc-card">
         <Art />
         <div className="bc-body">
-          {invitation.blessing && <p className="bc-blessing">{invitation.blessing}</p>}
           {!guestNamedInLine(invitation) && <p className={`bc-greeting ${local}`}>{guestName ? t.dear(guestName) : t.together}</p>}
           {invitation.hostLine && <p className="bc-hostline">{invitation.hostLine}</p>}
           <p className={`bc-eyebrow ${local}`}>{t.bdayJoin}</p>
