@@ -139,7 +139,8 @@ describe("QR replies for printed cards", () => {
         assert.equal(b.duplicate.physical, true);
         assert.deepEqual(b.allowedActions, ["skip"]);
         assert.equal(c.duplicate.type, "existing");
-        assert.deepEqual(c.allowedActions, ["skip", "update"]);
+        assert.equal(c.allowedActions[0], "skip"); // already on the list: nothing new to add
+        assert.ok(!c.allowedActions.includes("add"));
 
         const done = await api().post(`/api/invitations/${id}/guests/import`).set(auth(owner.token)).send({ rows, dryRun: false, cardType: "physical" });
         assert.equal(done.body.summary.added, 1);

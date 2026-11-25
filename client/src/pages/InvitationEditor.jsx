@@ -2,7 +2,7 @@
 // (based on the Stitch "Invitation Editor" screen). Template-based: no drag-and-drop.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   ArrowLeft,
   CalendarDays,
@@ -192,17 +192,48 @@ export default function InvitationEditor() {
   const [justPublished, setJustPublished] = useState(false)
   const [confirmUnpublish, setConfirmUnpublish] = useState(false)
 
+  // Opened from "Fill in N details" (?fill=1): go straight to what's missing for publishing
+  const [params, setParams] = useSearchParams()
+  const [fillFirst, setFillFirst] = useState('')
+
   // Load the invitation and the list of designs
   useEffect(() => {
     Promise.all([api(`/invitations/${id}`), api('/templates')])
       .then(([inv, tpl]) => {
         setSaved(inv.invitation)
         setForm(pickFields(inv.invitation))
+        const missingNow = inv.invitation.missingForPublish || []
+        if (params.get('fill') && missingNow.length) {
+          // open its section, mark every missing field, and say which ones at the top
+          setOpen(sectionFor(missingNow[0]))
+          setErrors(Object.fromEntries(missingNow.map((f) => [f, 'Fill this in to publish.'])))
+          setStatus({ type: 'fill', message: `Fill in to publish: ${missingNow.map((f) => FIELD_LABELS[f] || f).join(', ')}` })
+          setFillFirst(missingNow[0])
+        }
         // A Signature couple's own custom design comes first
         setTemplates([...tpl.templates].sort((a, b) => (b.custom ? 1 : 0) - (a.custom ? 1 : 0)))
       })
       .catch((err) => setLoadError(err.status === 404 ? 'This invitation could not be found.' : err.message))
+    // load once per invitation; ?fill is read on arrival
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
+
+  // ...then scroll to the first missing field and put the cursor in it (once its section is open),
+  // and take ?fill out of the address so a refresh doesn't do it again
+  useEffect(() => {
+    if (!fillFirst) return undefined
+    const t = setTimeout(() => {
+      const el = document.querySelector(`[name="${fillFirst}"]`)
+      el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      el?.focus({ preventScroll: true })
+      setFillFirst('')
+      setParams((p) => {
+        p.delete('fill')
+        return p
+      }, { replace: true })
+    }, 250)
+    return () => clearTimeout(t)
+  }, [fillFirst, setParams])
 
   const dirty = useMemo(() => {
     if (!form || !saved) return false
@@ -533,6 +564,12 @@ export default function InvitationEditor() {
         <div className="mt-4">
           <FormAlert>{status.message}</FormAlert>
         </div>
+      )}
+      {/* Arrived from "Fill in N details": what's still needed (gone once it's saved) */}
+      {status.type === 'fill' && (
+        <p className="mt-4 rounded-lg border border-gold/40 bg-blush-tint px-4 py-3 text-body-md text-espresso" role="status">
+          {status.message}
+        </p>
       )}
 
       <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,480px)_minmax(0,1fr)]">

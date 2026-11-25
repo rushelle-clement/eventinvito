@@ -6,11 +6,13 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import InvitationExperience from './experience/InvitationExperience'
 import { sampleInvitation } from './themes'
 import { sampleGuestName } from './strings'
+import SampleWatermark from '../components/SampleWatermark'
 
 const W = 440
 const H = 620
 
-export default function TemplateThumbnail({ templateKey, invitation, height = 300, guestName, occasion }) {
+// watermark: the public previews (gallery, home page) show "EventInvito · Sample" across the still
+export default function TemplateThumbnail({ templateKey, invitation, height = 300, guestName, occasion, watermark = false }) {
   const ref = useRef(null)
   const [width, setWidth] = useState(0)
 
@@ -35,6 +37,7 @@ export default function TemplateThumbnail({ templateKey, invitation, height = 30
           <InvitationExperience invitation={data} guestName={guestName ?? sampleGuestName(data.language)} poster />
         </div>
       )}
+      {watermark && <SampleWatermark single />}
     </div>
   )
 }

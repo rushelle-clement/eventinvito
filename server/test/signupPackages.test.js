@@ -161,4 +161,23 @@ describe("Choosing a package at sign-up", () => {
         assert.equal(r.body.user.freeCredits, 0);
         assert.equal(r.body.user.publishCredits, 1);
     });
+
+    it("accounts created on the admin page get the free card only with Simple Card", async () => {
+        const make = (body) => api().post("/api/admin/users").set(auth(admin.token)).send({ name: "Made", email: `made${Date.now()}${Math.random()}@test.local`, password: "Password123", ...body });
+        for (const plan of ["premium", "plus", "signature"]) {
+            const r = await make({ plan });
+            assert.equal(r.status, 201);
+            assert.equal(r.body.user.freeCredits, 0, plan);
+            assert.equal(r.body.user.publishCredits, 1, plan);
+        }
+        assert.equal((await make({ plan: "free" })).body.user.freeCredits, 1);
+        assert.equal((await make({ plan: "free", credits: 0, printedCredits: 1 })).body.user.freeCredits, 0, "Printed Cards");
+
+        // A Simple Card account given a Printed Cards credit by hand loses its unused free card
+        const simple = (await make({ plan: "free", credits: 0 })).body.user;
+        assert.equal(simple.freeCredits, 1);
+        const bumped = await api().patch(`/api/admin/users/${simple.id}`).set(auth(admin.token)).send({ printedCredits: 1 });
+        assert.equal(bumped.body.user.printedCredits, 1);
+        assert.equal(bumped.body.user.freeCredits, 0);
+    });
 });

@@ -8,6 +8,7 @@ import { ArrowLeft } from 'lucide-react'
 import AgendaView from '../components/AgendaView'
 import { THEMES, sampleInvitation } from '../templates/themes'
 import { OCCASIONS } from '../templates/strings'
+import SampleWatermark from '../components/SampleWatermark'
 import { sampleAgenda } from '../lib/agenda'
 
 const BAR_HEIGHT = 56
@@ -49,6 +50,7 @@ export default function TemplateAgendaDemo() {
         </div>
       </div>
       <AgendaView invitation={invitation} backTo={back} topOffset={BAR_HEIGHT} demoNow={invitation.at} />
+      <SampleWatermark fixed topOffset={BAR_HEIGHT} />
     </>
   )
 }

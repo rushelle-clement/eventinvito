@@ -10,6 +10,7 @@ import InvitationExperience from '../templates/experience/InvitationExperience'
 import { THEMES, sampleInvitation } from '../templates/themes'
 import { OCCASIONS, sampleGuestName } from '../templates/strings'
 import { SUGGESTED_TRACK } from '../templates/music'
+import SampleWatermark from '../components/SampleWatermark'
 
 const BAR_HEIGHT = 56
 
@@ -118,6 +119,7 @@ export default function TemplateDemo() {
         // (free cards and birthdays have none)
         agendaHref={THEMES[key].free || birthday ? '' : `/templates/${key}/preview/agenda?occasion=${occasion}`}
       />
+      <SampleWatermark fixed topOffset={BAR_HEIGHT} />
     </>
   )
 }

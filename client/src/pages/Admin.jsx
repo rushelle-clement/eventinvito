@@ -1,4 +1,4 @@
-// Admin page: couples sign up themselves (with one free card); when a couple pays, find their
+// Admin page: couples sign up themselves (Simple Card comes with one free card); when a couple pays, find their
 // account here and choose their package, which adds its Premium credit (1 invitation with each
 // package; Signature's is its custom design) and sets the limits (guests, photos, own song, Excel). Also: turn accounts
 // off, set new passwords, and create accounts for couples who can't sign up themselves. Only admin accounts can open it (see App.jsx and the server's /api/admin).
@@ -136,8 +136,9 @@ function CreateAccount({ onCreated }) {
             <input className={`${input} mt-1.5 h-[50px]`} type="number" min={0} max={50} value={form.credits} onChange={set('credits')} title="Premium invitations they can publish" />
           </label>
           <span className="col-span-2 -mt-1 block text-body-sm text-on-surface-variant">
-            {planOf(form.plan).limits} per invitation, and {form.credits || 0} Premium invitation{Number(form.credits) === 1 ? '' : 's'} to publish. Every account also gets 1 free card.
-            For the Printed Cards package, create a Simple Card account with 0 Premium invitations, then add a Printed card in its row.
+            {planOf(form.plan).limits} per invitation, and {form.credits || 0} Premium invitation{Number(form.credits) === 1 ? '' : 's'} to publish.{' '}
+            {form.plan === 'free' ? 'Simple Card accounts also get 1 free card.' : 'Paid packages have no separate free card: free designs use the package’s invitation.'}{' '}
+            For the Printed Cards package, create a Simple Card account with 0 Premium invitations, then add a Printed card in its row (its free card is set to 0 then).
           </span>
         </div>
         <div className="sm:col-span-2">

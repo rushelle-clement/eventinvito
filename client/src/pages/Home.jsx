@@ -149,7 +149,7 @@ export default function Home() {
               { key: 'golden-vow', cls: 'left-1/2 -translate-x-1/2 top-0 z-10' },
             ].map(({ key, cls }) => (
               <div key={key} className={`absolute w-[240px] overflow-hidden rounded-xl border border-bone shadow-float sm:w-[260px] ${cls}`}>
-                <TemplateThumbnail templateKey={key} height={360} />
+                <TemplateThumbnail templateKey={key} height={360} watermark />
               </div>
             ))}
           </div>
@@ -185,7 +185,7 @@ export default function Home() {
           <ul className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {featured.map((t) => (
               <li key={t.key} className="card flex flex-col overflow-hidden">
-                <TemplateThumbnail templateKey={t.key} height={340} />
+                <TemplateThumbnail templateKey={t.key} height={340} watermark />
                 <div className="flex flex-1 flex-col p-5">
                   <p className="text-label-sm text-gold-text uppercase">{SUITE[t.eventType] || 'Wedding suite'}</p>
                   <h3 className="mt-1 font-serif text-headline-sm text-espresso">{t.name}</h3>

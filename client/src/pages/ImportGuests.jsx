@@ -104,59 +104,85 @@ const NoAutoSend = ({ physical = false }) => (
 
 // ---------- row helpers ----------
 
-// What each choice does to this one row (the labels say "this guest", so nobody reads them as
-// adding the whole file)
-const ACTION_LABELS = { add: 'Import this guest', update: 'Update the guest already on my list', skip: 'Skip this row', exclude: 'Leave this row out' }
-const actionLabel = (a, r) => (a === 'add' && r.duplicate ? (r.duplicate.type === 'existing' ? 'Import as a separate, new guest' : 'Import this row too') : ACTION_LABELS[a])
+// The boxes in "Fix here"
+const EDIT_LABELS = { name: 'Guest name', displayName: 'Name on invitation', phone: 'Phone number', email: 'Email address', group: 'Group', cardType: 'Card type (Online or Physical)' }
+
+// Each row's status comes from the server, in the couple's terms:
+// new · same (already on your list) · changed (on your list, with different details)
+// · repeat (repeated in this file) · shared (shares a phone/email with someone else) · error
+const WHAT = { phone: 'phone number', email: 'email', displayName: 'name on the invitation', name: 'name' }
+
+// What each choice does to this one row
+function actionLabel(a, r) {
+  if (a === 'exclude') return r.status === 'error' ? 'This row will be left out' : 'Leave this row out'
+  if (r.status === 'changed') return a === 'update' ? 'Use the file’s details' : 'Keep my list as it is'
+  if (r.status === 'shared') return a === 'add' ? 'Add as a new guest' : 'Skip this row'
+  if (r.status === 'repeat') return `Skipped — same as row ${r.duplicate.row}`
+  if (r.status === 'same') return 'Nothing to do'
+  return 'Add this guest'
+}
+
+// A bad email or phone in the file is never copied onto a guest already on the list
+const notCopied = (r) =>
+  Object.values(r.warnings)
+    .map((t) => t.replace(' The guest will be imported without it.', ' It won’t be copied to your list.').replace(' — the guest will be imported without it.', '. It won’t be copied to your list.'))
+    .join(' ')
 
 function issueText(r) {
-  if (r.errors.name) return { tone: 'error', title: r.errors.name.includes('100') ? 'Name too long' : 'Missing guest name', text: r.errors.name }
-  if (r.errors.notes) return { tone: 'error', title: 'Notes too long', text: r.errors.notes }
-  if (r.errors.displayName) return { tone: 'error', title: 'Name on invitation too long', text: r.errors.displayName }
-  // Physical cards: guests find themselves by name, so the same name can't be added twice
-  if (r.duplicate?.physical && r.duplicate.type === 'existing')
-    return {
-      tone: 'dup',
-      title: 'Already has a physical card',
-      text: `“${r.duplicate.guestName}” is already on your list with a physical card. Skip it, update that guest, or change the name in your file (e.g. add their town).`,
-    }
-  if (r.duplicate?.physical)
-    return {
-      tone: 'dup',
-      title: 'Same name as another physical card',
-      text: `Same name as row ${r.duplicate.row}. Guests find themselves by name on the QR page, so give one of them a different name in your file (e.g. “Amal Perera (Kandy)”) and upload it again.`,
-    }
-  if (r.duplicate?.type === 'existing') {
-    // Say which guest this row matched, and why
-    const d = r.duplicate
-    const why = d.on === 'phone' ? `the phone number ${d.guestPhone} is the same` : d.on === 'email' ? `the email ${d.guestEmail} is the same` : 'the name is the same'
-    const who = `This looks like “${d.guestName}”, who is already on your list: ${why}`
-    // A bad email or phone in the file is never copied onto the guest
-    const problems = Object.values(r.warnings)
-      .map((t) => t.replace(' The guest will be imported without it.', ' It won’t be copied to your list.').replace(' — the guest will be imported without it.', '. It won’t be copied to your list.'))
-      .join(' ')
-    if (hasChanges(r)) return { tone: 'dup', title: 'New details for a guest on your list', text: `${who}. The file has new details for them — choose “Update” to use these:`, changes: r.duplicate.changes, problems }
-    if (problems) return { tone: 'warn', title: 'Already on your list — check this row', text: `${who}.`, problems }
-    return { tone: 'same', title: 'Already on your list', text: `${who}. The file has nothing new for them.` }
+  const d = r.duplicate
+  if (r.status === 'error') {
+    if (r.errors.name) return { tone: 'error', title: r.errors.name.includes('100') ? 'Needs fixing: name too long' : 'Needs fixing: no guest name', text: r.errors.name }
+    if (r.errors.notes) return { tone: 'error', title: 'Needs fixing: notes too long', text: r.errors.notes }
+    if (r.errors.displayName) return { tone: 'error', title: 'Needs fixing: name on invitation too long', text: r.errors.displayName }
+    return { tone: 'error', title: 'Needs fixing', text: Object.values(r.errors).join(' ') }
   }
-  if (r.duplicate?.type === 'file') return { tone: 'dup', title: 'Duplicate in this file', text: `Same ${r.duplicate.on} as row ${r.duplicate.row}.` }
+  if (r.status === 'shared') {
+    const what = WHAT[d.on] || d.on
+    const who = d.guestName ? `${d.guestName}` : `row ${d.row}`
+    return {
+      tone: 'shared',
+      title: `Shares a ${what} with ${who}`,
+      text:
+        d.type === 'existing'
+          ? `${who} is already on your list with this ${what}. Families often share one, so add ${r.values.name} as a new guest — or skip this row if it’s the same person. A typing mistake? Use “Fix here”.`
+          : `Row ${d.row}${d.guestName ? ` (${d.guestName})` : ''} has the same ${what}. Add ${r.values.name} as a new guest, or skip this row if it’s the same person. A typing mistake? Use “Fix here”.`,
+    }
+  }
+  if (r.status === 'repeat') {
+    const sameName = d.physical && d.on === 'name' ? ' If this is a different person, give one of them a different name with “Fix here” (e.g. “Amal Perera (Kandy)”) — guests find themselves by name on the QR page.' : ''
+    return { tone: 'repeat', title: 'Repeated in this file', text: `Same guest as row ${d.row}${d.guestName ? ` (${d.guestName})` : ''}, so this row is skipped.${sameName}` }
+  }
+  if (r.status === 'changed' || r.status === 'same') {
+    const why = d.on === 'phone' ? `same phone number, ${d.guestPhone}` : d.on === 'email' ? `same email, ${d.guestEmail}` : d.on === 'displayName' ? 'same name on the invitation' : 'same name'
+    const sameName = d.physical ? ' A different person with the same name? Give them a different name with “Fix here”.' : ''
+    if (r.status === 'changed')
+      return { tone: 'changed', title: 'On your list, with different details', text: `${d.guestName} is already on your list (${why}). The file has different details:${sameName}`, changes: d.changes, problems: notCopied(r) }
+    return { tone: 'same', title: 'Already on your list', text: `${d.guestName} is already on your list (${why}). Nothing to do.${sameName}`, problems: notCopied(r) }
+  }
   const w = Object.values(r.warnings)
-  if (w.length) return { tone: 'warn', title: 'Will be imported with a change', text: w.join(' ') }
-  return null
+  return {
+    tone: 'new',
+    title: w.length ? 'New guest — with a small fix' : 'New guest',
+    text: w.join(' '),
+    note: noPhone(r) ? 'No phone number. That’s fine — when you share their link, you’ll pick their WhatsApp chat yourself. Have a number? Add it with “Fix here”.' : '',
+  }
 }
 
-// A guest already on the list: does the file have anything new for them?
-const hasChanges = (r) => (r.duplicate?.changes?.length ?? 0) > 0
+// An online guest with no phone number: fine, just a heads-up (sharing picks the chat by hand)
+const noPhone = (r) => r.values.cardType !== 'physical' && !r.values.phone && !r.warnings.phone
 
-// error · changed (on the list, with new details) · dup (repeated, or a physical-card name clash)
-// · same (on the list, nothing new) · warn (small fix) · ok
-const rowKind = (r) => {
-  if (Object.keys(r.errors).length) return 'error'
-  if (r.duplicate?.type === 'existing' && !r.duplicate.physical) return hasChanges(r) ? 'changed' : Object.keys(r.warnings).length ? 'warn' : 'same'
-  if (r.duplicate) return 'dup'
-  return Object.keys(r.warnings).length ? 'warn' : 'ok'
-}
+// Rows that need a decision or a look: errors, shared phones/emails, different details, small fixes
+const needsAttention = (r) => ['error', 'shared', 'changed'].includes(r.status) || (r.status === 'new' && Object.keys(r.warnings).length > 0)
 const CHANGE_SHOW = { online: 'Online card', physical: 'Physical card' }
+const TONE_CLASS = { error: 'text-error', shared: 'text-gold-text', changed: 'text-gold-text', repeat: 'text-on-surface-variant', same: 'text-on-surface-variant', new: 'text-espresso' }
+const TONE_ICON = {
+  error: <XCircle size={15} aria-hidden="true" />,
+  shared: <AlertTriangle size={15} aria-hidden="true" />,
+  changed: <PencilLine size={15} aria-hidden="true" />,
+  repeat: <Copy size={15} aria-hidden="true" />,
+  same: <Check size={15} aria-hidden="true" />,
+  new: <CheckCircle2 size={15} className="text-gold-text" aria-hidden="true" />,
+}
 const showValue = (c, v) => (c.field === 'cardType' ? CHANGE_SHOW[v] || v : v)
 
 // ---------- page ----------
@@ -195,7 +221,7 @@ export default function ImportGuests() {
   const [analysis, setAnalysis] = useState(null) // { summary, rows }
   const [checking, setChecking] = useState(false)
   const [error, setError] = useState('')
-  const [filter, setFilter] = useState('issues')
+  const [filter, setFilter] = useState('attention')
   // Review pages: the page belongs to one tab and page size (changing either goes back to page 1)
   const [pageSize, setPageSize] = useState(25)
   const [pageState, setPageState] = useState({ key: '', page: 1 })
@@ -312,8 +338,7 @@ export default function ImportGuests() {
     const built = buildRows(sheet.rows, mapping)
     const data = await check(built)
     if (!data) return
-    const hasIssues = data.rows.some((r) => !['ok', 'same'].includes(rowKind(r)))
-    setFilter(hasIssues ? 'issues' : 'all')
+    setFilter(data.rows.some(needsAttention) ? 'attention' : 'all')
     setPageState({ key: '', page: 1 })
     setStep(3)
   }
@@ -322,34 +347,30 @@ export default function ImportGuests() {
   const merged = useMemo(() => (analysis ? analysis.rows.map((r, i) => ({ ...r, action: rows[i]?.action ?? r.action })) : []), [analysis, rows])
 
   const counts = useMemo(() => {
-    const c = { total: merged.length, ok: 0, error: 0, dup: 0, changed: 0, same: 0, warn: 0, ready: 0, readyFix: 0, unchanged: 0, addOnline: 0, addPhysical: 0, add: 0, update: 0, skip: 0 }
+    const c = { total: merged.length, error: 0, shared: 0, changed: 0, same: 0, repeat: 0, new: 0, newFix: 0, attention: 0, unchanged: 0, addOnline: 0, addPhysical: 0, add: 0, update: 0, skip: 0, choose: 0 }
     for (const r of merged) {
-      const k = rowKind(r)
-      c[k] += 1
-      // Guests already on the list with nothing new aren't "left out": there's simply nothing to do
-      if (k === 'same' && r.action !== 'add' && r.action !== 'update') c.unchanged += 1
-      if (k === 'ok' || (k === 'warn' && !r.duplicate)) c.ready += 1
-      if (k === 'warn' && !r.duplicate) c.readyFix += 1
+      c[r.status] += 1
+      if (needsAttention(r)) c.attention += 1
+      if (r.status === 'new' && Object.keys(r.warnings).length) c.newFix += 1
+      // Guests already on the list (or repeated rows) that are skipped aren't "left out": there's simply nothing to do
+      if ((r.status === 'same' || r.status === 'repeat' || r.status === 'changed') && r.action === 'skip') c.unchanged += 1
       if (r.action === 'add') {
         c.add += 1
         if (r.values.cardType === 'physical') c.addPhysical += 1
         else c.addOnline += 1
-      }
-      else if (r.action === 'update') c.update += 1
+      } else if (r.action === 'update') c.update += 1
+      else if (r.action === 'choose') c.choose += 1 // a shared phone/email: waiting for their choice
       else c.skip += 1
     }
     c.leftOut = c.skip - c.unchanged
+    c.onList = c.same + c.repeat
     return c
   }, [merged])
 
-  // Duplicates: how many match a guest already on the list (those can be updated), and the
-  // action chosen for them — all skipped, all updated, or a mix
-  const dupInfo = useMemo(() => {
-    const dups = merged.filter((r) => r.duplicate)
-    const existing = dups.filter((r) => r.allowedActions?.includes('update'))
-    const changed = existing.filter(hasChanges)
-    const mode = changed.length && changed.every((r) => r.action === 'update') ? 'update' : changed.every((r) => r.action === 'skip') ? 'skip' : 'mixed'
-    return { total: dups.length, existing: existing.length, changed: changed.length, mode }
+  // Guests on the list with different details in the file: kept as they are, all updated, or a mix
+  const changedMode = useMemo(() => {
+    const changed = merged.filter((r) => r.status === 'changed')
+    return changed.every((r) => r.action === 'update') ? 'update' : changed.every((r) => r.action === 'skip') ? 'skip' : 'mixed'
   }, [merged])
 
   // With the actions chosen now, do the new guests fit the package?
@@ -357,19 +378,14 @@ export default function ImportGuests() {
   const tooManyNew = fit ? Math.max(0, fit.existing + counts.add - fit.limit) : 0
   const placesFree = fit ? fit.limit - fit.existing - counts.add : Infinity
 
-  // Rows with a wrong phone, email or group (shown under Small fixes)
-  const withWarnings = merged.filter((r) => Object.keys(r.warnings).length > 0).length
-
   const filtered = useMemo(() => {
     return merged
       .map((r, i) => ({ ...r, index: i }))
       .filter((r) => {
-        const k = rowKind(r)
-        if (filter === 'issues') return k !== 'ok' && k !== 'same'
-        if (filter === 'all') return true
-        // Small fixes: every row with a wrong phone, email or group, whatever else it has
-        if (filter === 'warn') return Object.keys(r.warnings).length > 0
-        return k === filter
+        if (filter === 'attention') return needsAttention(r)
+        if (filter === 'new') return r.status === 'new'
+        if (filter === 'onlist') return r.status === 'same' || r.status === 'repeat'
+        return true
       })
   }, [merged, filter])
 
@@ -382,16 +398,8 @@ export default function ImportGuests() {
     setRows((list) => list.map((r, i) => (i === index ? { ...r, action } : r)))
   }
 
-  function setAllDuplicates(action) {
-    setRows((list) =>
-      list.map((r, i) => {
-        const a = merged[i]
-        if (!a.duplicate || !a.allowedActions.includes(action)) return r
-        // "Update" only touches guests the file has something new for
-        if (action === 'update' && !hasChanges(a)) return { ...r, action: 'skip' }
-        return { ...r, action }
-      }),
-    )
+  function setAllChanged(action) {
+    setRows((list) => list.map((r, i) => (merged[i].status === 'changed' ? { ...r, action } : r)))
   }
 
   async function saveEdit(index) {
@@ -528,8 +536,7 @@ export default function ImportGuests() {
               <div className="mt-3 rounded-lg border border-gold/30 bg-blush-tint px-4 py-3 text-body-sm text-espresso">
                 <p className="font-semibold">Card type: Online or Physical</p>
                 <p className="mt-1 text-on-surface-variant">
-                  Write <strong className="text-espresso">Online</strong> for guests who get a personal link on WhatsApp
-, and <strong className="text-espresso">Physical</strong> for guests who get a printed card and reply with the QR code. Leave it empty for{' '}
+                  Write <strong className="text-espresso">Online</strong> for guests who get a personal link on WhatsApp, and <strong className="text-espresso">Physical</strong> for guests who get a printed card and reply with the QR code. Leave it empty for{' '}
                   {usualCard === 'physical' ? 'a printed card' : 'an online card'}. Physical-card guests don’t need a phone number.
                 </p>
               </div>
@@ -771,7 +778,7 @@ export default function ImportGuests() {
               </h2>
               <p className="mt-1 text-body-md text-on-surface-variant">Nothing is saved yet. Fix or decide on any flagged rows, then continue.</p>
             </div>
-            {counts.total !== counts.ok && (
+            {counts.total !== counts.new - counts.newFix && (
               <button type="button" className="btn-secondary shrink-0" onClick={() => downloadReport(merged, rows, `guest-import-issues.csv`)}>
                 <Download size={16} aria-hidden="true" /> Download issues (.csv)
               </button>
@@ -780,9 +787,9 @@ export default function ImportGuests() {
 
           <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
             <Stat label="Rows in file" value={counts.total} />
-            <Stat label="Ready to add" value={counts.ready} note={counts.readyFix ? `${counts.readyFix} with a small fix` : 'No problems'} />
-            <Stat label="Need attention" value={counts.error} note="Missing or invalid name" tone={counts.error ? 'text-error' : ''} />
-            <Stat label="Already on your list" value={dupInfo.existing} note={dupInfo.existing ? (dupInfo.changed ? `${dupInfo.changed} with new details` : 'Nothing new for them') : 'None'} />
+            <Stat label="New guests" value={counts.new} note={counts.newFix ? `${counts.newFix} with a small fix` : counts.new ? 'Ready to add' : 'None'} />
+            <Stat label="Needs your attention" value={counts.attention} note={counts.choose ? `${counts.choose} waiting for your choice` : counts.attention ? 'Have a look before you continue' : 'Nothing'} tone={counts.choose || counts.error ? 'text-error' : ''} />
+            <Stat label="Already on your list" value={counts.onList} note={counts.onList ? (counts.repeat ? `Incl. ${counts.repeat} repeated in this file` : 'Nothing to do') : 'None'} />
           </div>
 
           <div className="mt-4">
@@ -802,68 +809,49 @@ export default function ImportGuests() {
             </div>
           )}
 
-          {/* What to do with guests who are already on the list */}
-          {dupInfo.total > 0 && (
-            <section className="card mt-6 p-5" aria-labelledby="dup-h">
-              <h2 id="dup-h" className="text-title-md text-espresso">
-                {dupInfo.existing > 0
-                  ? `${dupInfo.existing} ${dupInfo.existing === 1 ? 'person in this file is' : 'people in this file are'} already on your guest list`
-                  : `${dupInfo.total} ${dupInfo.total === 1 ? 'row repeats' : 'rows repeat'} a name in this file`}
+          {/* Guests on the list with different details in the file: one choice for all of them */}
+          {counts.changed > 1 && (
+            <section className="card mt-6 p-5" aria-labelledby="chg-h">
+              <h2 id="chg-h" className="text-title-md text-espresso">
+                {counts.changed} guests on your list have different details in this file
               </h2>
-              <p className="mt-1 text-body-sm text-on-surface-variant">
-                {dupInfo.existing > 0 &&
-                  (dupInfo.changed === 0
-                    ? 'The file has nothing new for them, so they’ll be skipped.'
-                    : dupInfo.changed === dupInfo.existing
-                      ? 'The file has new details for all of them. Choose what to do — you can still change single rows below.'
-                      : `The file has new details for ${dupInfo.changed} of them; the other ${dupInfo.existing - dupInfo.changed} are the same and will be skipped. You can still change single rows below.`)}
-                {dupInfo.total > dupInfo.existing && dupInfo.existing > 0 && ` ${dupInfo.total - dupInfo.existing} more ${dupInfo.total - dupInfo.existing === 1 ? 'row repeats' : 'rows repeat'} a name in the file itself and will be skipped.`}
-              </p>
-              {dupInfo.changed > 0 && (
-                <div className="mt-4 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="All duplicates">
-                  {[
-                    ['skip', 'Keep my list as it is', 'Skip these rows. Nothing changes on your list.'],
-                    [
-                      'update',
-                      `Update ${dupInfo.changed === 1 ? 'this guest' : `these ${dupInfo.changed} guests`}`,
-                      'Use the new details from the file. Blank cells don’t clear anything, and their link and reply stay the same.',
-                    ],
-                  ].map(([v, title, note]) => {
-                    const on = dupInfo.mode === v
-                    return (
-                      <button
-                        key={v}
-                        type="button"
-                        role="radio"
-                        aria-checked={on}
-                        onClick={() => setAllDuplicates(v)}
-                        className={`flex items-start gap-3 rounded-xl border p-4 text-left transition ${on ? 'border-gold bg-blush-tint' : 'border-bone bg-white hover:border-gold'}`}
-                      >
-                        <span className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border ${on ? 'border-espresso' : 'border-bone'}`} aria-hidden="true">
-                          {on && <span className="h-2.5 w-2.5 rounded-full bg-espresso" />}
-                        </span>
-                        <span>
-                          <span className="block text-body-md font-semibold text-espresso">{title}</span>
-                          <span className="mt-0.5 block text-body-sm text-on-surface-variant">{note}</span>
-                        </span>
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-              {dupInfo.mode === 'mixed' && <p className="mt-3 text-body-sm text-on-surface-variant">You’ve chosen different actions for some rows.</p>}
+              <p className="mt-1 text-body-sm text-on-surface-variant">Choose for all of them here, or one by one below.</p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Guests with different details">
+                {[
+                  ['skip', 'Keep my list as it is', 'Nothing changes on your list.'],
+                  ['update', 'Use the file’s details', 'Blank cells don’t clear anything, and their link and reply stay the same.'],
+                ].map(([v, title, note]) => {
+                  const on = changedMode === v
+                  return (
+                    <button
+                      key={v}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      onClick={() => setAllChanged(v)}
+                      className={`flex items-start gap-3 rounded-xl border p-4 text-left transition ${on ? 'border-gold bg-blush-tint' : 'border-bone bg-white hover:border-gold'}`}
+                    >
+                      <span className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border ${on ? 'border-espresso' : 'border-bone'}`} aria-hidden="true">
+                        {on && <span className="h-2.5 w-2.5 rounded-full bg-espresso" />}
+                      </span>
+                      <span>
+                        <span className="block text-body-md font-semibold text-espresso">{title}</span>
+                        <span className="mt-0.5 block text-body-sm text-on-surface-variant">{note}</span>
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+              {changedMode === 'mixed' && <p className="mt-3 text-body-sm text-on-surface-variant">You’ve chosen differently for some of them.</p>}
             </section>
           )}
 
           {/* Which rows to show */}
           <div className="mt-6 flex gap-1 overflow-x-auto overflow-y-hidden border-b border-bone [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Show rows">
             {[
-              ['issues', 'Needs review', counts.error + counts.changed + counts.dup + counts.warn],
-              ['error', 'Errors', counts.error],
-              ['changed', 'New details', counts.changed],
-              ['dup', 'Duplicates', counts.dup],
-              ['warn', 'Small fixes', withWarnings],
-              ['same', 'No changes', counts.same],
+              ['attention', 'Needs your attention', counts.attention],
+              ['new', 'New guests', counts.new],
+              ['onlist', 'Already on your list', counts.onList],
               ['all', 'All rows', counts.total],
             ]
               .filter(([v, , n]) => n > 0 || v === 'all' || v === filter)
@@ -887,7 +875,7 @@ export default function ImportGuests() {
           {filtered.length === 0 ? (
             <div className="card mt-4 px-6 py-12 text-center">
               <CheckCircle2 className="mx-auto text-gold-text" aria-hidden="true" />
-              <p className="mt-3 text-body-md text-espresso">{filter === 'issues' ? 'No problems found — every row is ready.' : 'No rows in this view.'}</p>
+              <p className="mt-3 text-body-md text-espresso">{filter === 'attention' ? 'Nothing needs your attention — every row is ready.' : 'No rows in this view.'}</p>
             </div>
           ) : (
             <ul className="mt-4 space-y-3">
@@ -902,9 +890,9 @@ export default function ImportGuests() {
                     <div className="min-w-0">
                       {isEditing ? (
                         <div className="space-y-2">
-                          {[...(r.values.cardType === 'physical' ? ['name', 'email'] : ['name', 'phone', 'email']), ...(r.warnings.group ? ['group'] : []), ...(r.warnings.cardType ? ['cardType'] : [])].map((k) => (
+                          {[...(r.values.cardType === 'physical' ? ['name', 'displayName'] : ['name', 'displayName', 'phone']), ...(r.warnings.group ? ['group'] : []), ...(r.warnings.cardType ? ['cardType'] : [])].map((k) => (
                             <label key={k} className="block">
-                              <span className="text-label-sm text-on-surface-variant uppercase">{k === 'name' ? 'Guest name' : k === 'cardType' ? 'Card type (Online or Physical)' : k}</span>
+                              <span className="text-label-sm text-on-surface-variant uppercase">{EDIT_LABELS[k] || k}</span>
                               <input
                                 value={draft[k] ?? ''}
                                 onChange={(e) => setDraft((d) => ({ ...d, [k]: e.target.value }))}
@@ -940,43 +928,39 @@ export default function ImportGuests() {
                     </div>
 
                     <div className="min-w-0">
-                      {issue ? (
-                        <>
-                          <p className={`flex items-center gap-1.5 text-body-sm font-semibold ${issue.tone === 'error' ? 'text-error' : issue.tone === 'dup' ? 'text-gold-text' : issue.tone === 'same' ? 'text-on-surface-variant' : 'text-espresso'}`}>
-                            {issue.tone === 'error' ? <XCircle size={15} aria-hidden="true" /> : issue.tone === 'dup' || issue.tone === 'same' ? <Copy size={15} aria-hidden="true" /> : <AlertTriangle size={15} aria-hidden="true" />}
-                            {issue.title}
-                          </p>
-                          <p className="mt-0.5 text-body-sm text-on-surface-variant">{issue.text}</p>
-                          {issue.problems && (
-                            <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-error-container px-3 py-2 text-body-sm text-on-error-container">
-                              <AlertTriangle size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
-                              {issue.problems}
-                            </p>
-                          )}
-                          {issue.changes && (
-                            <ul className="mt-2 space-y-1.5 rounded-lg bg-blush-tint px-3 py-2 text-body-sm">
-                              {issue.changes.map((c) => (
-                                <li key={c.field}>
-                                  <span className="text-on-surface-variant">{c.label}: </span>
-                                  <span className="font-semibold text-espresso">{showValue(c, c.to)}</span>
-                                  <span className="block text-label-sm text-on-surface-variant">{c.from ? `On your list: ${showValue(c, c.from)}` : 'Empty on your list'}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </>
-                      ) : (
-                        <p className="flex items-center gap-1.5 text-body-sm text-on-surface-variant">
-                          <CheckCircle2 size={15} className="text-gold-text" aria-hidden="true" /> Ready
+                      <p className={`flex items-center gap-1.5 text-body-sm font-semibold ${TONE_CLASS[issue.tone]}`}>
+                        {TONE_ICON[issue.tone]}
+                        {issue.title}
+                      </p>
+                      {issue.text && <p className="mt-0.5 text-body-sm text-on-surface-variant">{issue.text}</p>}
+                      {issue.note && <p className="mt-0.5 text-body-sm text-on-surface-variant italic">{issue.note}</p>}
+                      {issue.problems && (
+                        <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+                          <AlertTriangle size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
+                          {issue.problems}
                         </p>
                       )}
-                      {!isEditing && (issue?.tone === 'error' || issue?.tone === 'warn' || issue?.problems) && (
+                      {issue.changes && (
+                        <ul className="mt-2 space-y-1.5 rounded-lg bg-blush-tint px-3 py-2 text-body-sm">
+                          {issue.changes.map((c) => (
+                            <li key={c.field}>
+                              <span className="block text-label-sm text-on-surface-variant uppercase">{c.label}</span>
+                              <span className="text-on-surface-variant">On your list: </span>
+                              <span className="text-espresso">{c.from ? showValue(c, c.from) : '(empty)'}</span>
+                              <span className="text-on-surface-variant"> · In this file: </span>
+                              <span className="font-semibold text-espresso">{showValue(c, c.to)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {/* Errors, small fixes, and duplicates (a repeated name, phone or email is often a typing mistake) */}
+                      {!isEditing && (r.status !== 'new' || Object.keys(r.warnings).length > 0 || noPhone(r)) && r.status !== 'same' && (
                         <button
                           type="button"
                           className="mt-2 inline-flex items-center gap-1 text-body-sm font-semibold text-gold-text underline underline-offset-4"
                           onClick={() => {
                             setEditing(r.index)
-                            setDraft({ name: raw.name, phone: raw.phone, email: raw.email, ...(r.warnings.group && { group: raw.group }), ...(r.warnings.cardType && { cardType: raw.cardType }) })
+                            setDraft({ name: raw.name, displayName: raw.displayName ?? '', phone: raw.phone, email: raw.email, ...(r.warnings.group && { group: raw.group }), ...(r.warnings.cardType && { cardType: raw.cardType }) })
                           }}
                         >
                           <PencilLine size={14} aria-hidden="true" /> Fix here
@@ -984,8 +968,9 @@ export default function ImportGuests() {
                       )}
                     </div>
 
-                    <fieldset className="min-w-0">
+                    <fieldset className={`min-w-0 self-start ${r.action === 'choose' ? 'rounded-lg ring-2 ring-gold/60 ring-offset-2' : ''}`}>
                       <legend className="sr-only">What to do with row {r.row}</legend>
+                      {r.action === 'choose' && <p className="mb-1.5 text-label-sm font-semibold text-gold-text uppercase">Choose one</p>}
                       {r.allowedActions.length === 1 ? (
                         <p className="text-body-sm text-on-surface-variant">{r.action === 'exclude' ? 'This row will be left out' : actionLabel(r.action, r)}</p>
                       ) : (
@@ -1031,11 +1016,21 @@ export default function ImportGuests() {
             <button type="button" className="btn-secondary" onClick={() => setStep(2)}>
               <ArrowLeft size={16} aria-hidden="true" /> Back to columns
             </button>
-            <button type="button" className="btn-primary" onClick={() => setStep(4)} disabled={counts.add + counts.update === 0 || tooManyNew > 0 || checking || editing !== null}>
+            <button type="button" className="btn-primary" onClick={() => setStep(4)} disabled={counts.choose > 0 || counts.add + counts.update === 0 || tooManyNew > 0 || checking || editing !== null}>
               Continue <ArrowRight size={16} aria-hidden="true" />
             </button>
           </div>
-          {counts.add + counts.update === 0 && <p className="mt-2 text-right text-body-sm text-on-surface-variant">Every row is skipped — nothing to import.</p>}
+          {counts.choose > 0 ? (
+            <p className="mt-2 text-right text-body-sm text-gold-text">
+              {counts.choose} row{counts.choose === 1 ? ' shares' : 's share'} a phone number with another guest — choose “Add as a new guest” or “Skip this row” for {counts.choose === 1 ? 'it' : 'each'} (in Needs your attention).
+            </p>
+          ) : (
+            counts.add + counts.update === 0 && (
+              <p className="mt-2 text-right text-body-sm text-on-surface-variant">
+                {counts.leftOut === 0 ? 'Everyone in this file is already on your list — nothing to import.' : 'Every row is skipped — nothing to import.'}
+              </p>
+            )
+          )}
         </section>
       )}
 

@@ -14,7 +14,8 @@ import './agendaView.css'
 const TICK = 30000 // re-check the time every 30 seconds
 
 // `demoNow`: show the plan as at this moment, without ticking (the gallery's sample)
-export default function AgendaView({ invitation, backTo, topOffset = 0, demoNow }) {
+// onBack: a button instead of the back link (the day plan opened over the invitation)
+export default function AgendaView({ invitation, backTo, onBack, topOffset = 0, demoNow }) {
   const theme = getTheme(invitation.templateKey)
   const lang = invitation.language || 'en'
   const s = agendaStrings(lang)
@@ -69,10 +70,16 @@ export default function AgendaView({ invitation, backTo, topOffset = 0, demoNow 
   return (
     <main className="ag-page" style={{ ...vars, paddingTop: topOffset }} lang={lang}>
       <div className="ag-wrap">
-        {backTo && (
-          <Link to={backTo} className="ag-back">
+        {onBack ? (
+          <button type="button" onClick={onBack} className="ag-back">
             <ArrowLeft size={15} aria-hidden="true" /> {s.back}
-          </Link>
+          </button>
+        ) : (
+          backTo && (
+            <Link to={backTo} className="ag-back">
+              <ArrowLeft size={15} aria-hidden="true" /> {s.back}
+            </Link>
+          )
         )}
 
         <header className="ag-head">

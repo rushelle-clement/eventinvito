@@ -13,7 +13,8 @@ export const FIELDS = [
   { key: 'name', label: 'Guest name', required: true, aliases: ['guest name', 'name', 'full name', 'guest', 'guest full name', 'nama', 'නම', 'பெயர்'] },
   { key: 'displayName', label: 'Name on invitation', aliases: ['name on invitation', 'name on the invitation', 'display name', 'invitation name', 'sinhala name', 'name in sinhala', 'ආරාධිත නම', 'ආරාධනාවේ නම'] },
   { key: 'phone', label: 'Phone number', aliases: ['phone', 'phone number', 'mobile', 'mobile number', 'whatsapp', 'whatsapp number', 'contact number', 'tel', 'telephone', 'දුරකථන', 'தொலைபேசி'] },
-  { key: 'email', label: 'Email address', aliases: ['email', 'email address', 'e-mail', 'mail'] },
+  // Email is off for now: nothing is sent by email yet. Put this line back to import emails again.
+  // { key: 'email', label: 'Email address', aliases: ['email', 'email address', 'e-mail', 'mail'] },
   { key: 'group', label: 'Group / side', aliases: ['group', 'group / side', 'group/side', 'side', 'group / household', 'group/household', 'household', 'family', 'party', 'category', 'කණ්ඩායම', 'பிரிவு'] },
   { key: 'notes', label: 'Notes', aliases: ['notes', 'note', 'comments', 'comment', 'remarks'] },
   // Only for packages with a QR code: Online (a personal link) or Physical (a printed card)
@@ -116,30 +117,30 @@ export function buildRows(rows, mapping) {
 //   printed – everyone gets a printed card: no phone or Card type columns (Printed Cards)
 const TEMPLATES = {
   online: {
-    headers: ['Guest Name', 'Name on Invitation', 'Phone Number', 'Email Address', 'Group', 'Notes'],
-    widths: [28, 28, 18, 28, 22, 30],
+    headers: ['Guest Name (required)', 'Name on Invitation (required)', 'Phone Number', 'Group', 'Notes'],
+    widths: [28, 28, 18, 22, 30],
     rows: [
-      ['Amal Perera', 'අමල් පෙරේරා මහතා', '0771234567', 'amal@example.com', "Groom's family", ''],
-      ['Kamala Silva', 'කමලා සිල්වා මහත්මිය', '0712345678', '', "Bride's family", 'Aunt'],
-      ['Ruwan Fernando', '', '+94763456789', 'ruwan@example.com', 'Office', ''],
+      ['Amal Perera', 'Mr & Mrs Perera', '0771234567', "Groom's family", ''],
+      ['Kamala Silva', 'Mrs Kamala Silva', '0712345678', "Bride's family", 'Aunt'],
+      ['Ruwan Fernando', 'Mr Ruwan Fernando', '+94763456789', 'Office', ''],
     ],
   },
   mixed: {
-    headers: ['Guest Name', 'Name on Invitation', 'Card Type', 'Phone Number', 'Email Address', 'Group', 'Notes'],
-    widths: [28, 28, 14, 18, 28, 22, 30],
+    headers: ['Guest Name (required)', 'Name on Invitation (required)', 'Card Type', 'Phone Number', 'Group', 'Notes'],
+    widths: [28, 28, 14, 18, 22, 30],
     rows: [
-      ['Amal Perera', 'අමල් පෙරේරා මහතා', 'Online', '0771234567', 'amal@example.com', "Groom's family", ''],
-      ['Kamala Silva', 'කමලා සිල්වා මහත්මිය', 'Physical', '', '', "Bride's family", 'Aunt — printed card'],
-      ['Ruwan Fernando', '', 'Online', '+94763456789', 'ruwan@example.com', 'Office', ''],
+      ['Amal Perera', 'Mr & Mrs Perera', 'Online', '0771234567', "Groom's family", ''],
+      ['Kamala Silva', 'Mrs Kamala Silva', 'Physical', '', "Bride's family", 'Aunt — printed card'],
+      ['Ruwan Fernando', 'Mr Ruwan Fernando', 'Online', '+94763456789', 'Office', ''],
     ],
   },
   printed: {
-    headers: ['Guest Name', 'Name on Invitation', 'Email Address', 'Group', 'Notes'],
-    widths: [28, 28, 28, 22, 30],
+    headers: ['Guest Name (required)', 'Name on Invitation (required)', 'Group', 'Notes'],
+    widths: [28, 28, 22, 30],
     rows: [
-      ['Amal Perera', 'අමල් පෙරේරා මහතා', '', "Groom's family", ''],
-      ['Kamala Silva', 'කමලා සිල්වා මහත්මිය', '', "Bride's family", 'Aunt'],
-      ['Ruwan Fernando', '', 'ruwan@example.com', 'Office', ''],
+      ['Amal Perera', 'Mr & Mrs Perera', "Groom's family", ''],
+      ['Kamala Silva', 'Mrs Kamala Silva', "Bride's family", 'Aunt'],
+      ['Ruwan Fernando', 'Mr Ruwan Fernando', 'Office', ''],
     ],
   },
 }
@@ -177,7 +178,9 @@ export function downloadTemplateCsv(kind = 'online') {
 
 export async function downloadTemplateXlsx(kind = 'online') {
   const t = TEMPLATES[kind] || TEMPLATES.online
-  const header = t.headers.map((value) => ({ value, fontWeight: 'bold' }))
+  // The required columns stand out (the upload ignores the "(required)" when matching columns).
+  // Name on Invitation is marked required in the template only; the upload still accepts it empty.
+  const header = t.headers.map((value) => ({ value, fontWeight: 'bold', ...(value.includes('(required)') && { backgroundColor: '#F6E7B8' }) }))
   // Phone numbers as text so Excel keeps the leading 0
   const body = t.rows.map((r) => r.map((value) => ({ value, type: String })))
   const blob = await writeExcelFile([header, ...body], { columns: t.widths.map((width) => ({ width })) }).toBlob()
@@ -189,11 +192,15 @@ export async function downloadTemplateXlsx(kind = 'online') {
 export function downloadReport(analysedRows, rawRows, filename, { onlyLeftOut = false } = {}) {
   const describe = (r) => {
     const parts = [...Object.values(r.errors || {}), ...Object.values(r.warnings || {})]
-    if (r.duplicate?.type === 'existing') parts.push(`Matches existing guest "${r.duplicate.guestName}" (same ${r.duplicate.on})`)
-    if (r.duplicate?.type === 'file') parts.push(`Same ${r.duplicate.on} as row ${r.duplicate.row} in this file`)
+    const d = r.duplicate
+    const what = { phone: 'phone number', email: 'email', displayName: 'name on the invitation', name: 'name' }[d?.on] || d?.on
+    if (r.status === 'shared') parts.push(d.type === 'existing' ? `Shares a ${what} with ${d.guestName}, who is on your list` : `Shares a ${what} with row ${d.row}`)
+    else if (r.status === 'repeat') parts.push(`Repeated in this file: same as row ${d.row}`)
+    else if (r.status === 'changed') parts.push(`On your list as "${d.guestName}", with different details`)
+    else if (r.status === 'same') parts.push(`Already on your list as "${d.guestName}"`)
     return parts.join(' | ')
   }
-  const label = { add: 'Added', update: 'Updated existing guest', skip: 'Skipped', exclude: 'Left out (has errors)' }
+  const label = { add: 'Added', update: 'Updated with the file’s details', skip: 'Skipped', exclude: 'Left out', choose: 'Waiting for your choice' }
   const rawByRow = new Map(rawRows.map((r) => [r.row, r]))
   const list = analysedRows.filter((r) => (onlyLeftOut ? r.action === 'skip' || r.action === 'exclude' : r.action !== 'add' || describe(r)))
   const rows = [

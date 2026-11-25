@@ -10,6 +10,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 const TARGET_VOLUME = 0.55
 
+// Is an invitation's music playing right now? (the reply chime only plays when it is)
+let musicOn = false
+export const isMusicPlaying = () => musicOn
+
 export default function useBackgroundMusic(src) {
   const audioRef = useRef(null)
   const fadeRef = useRef(null)
@@ -30,8 +34,14 @@ export default function useBackgroundMusic(src) {
       setFailedSrc(src)
       setPlaying(false)
     }
-    const onPause = () => setPlaying(false)
-    const onPlay = () => setPlaying(true)
+    const onPause = () => {
+      musicOn = false
+      setPlaying(false)
+    }
+    const onPlay = () => {
+      musicOn = true
+      setPlaying(true)
+    }
     audio.addEventListener('error', onError)
     audio.addEventListener('pause', onPause)
     audio.addEventListener('play', onPlay)

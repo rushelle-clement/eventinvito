@@ -104,11 +104,11 @@ describe("Guest import", () => {
     it("shows what an update would change for a guest already on the list", async () => {
         const dry = (rows) => api().post(`/api/invitations/${id}/guests/import`).set(auth(owner.token)).send({ rows, dryRun: true });
         await api().post(`/api/invitations/${id}/guests/import`).set(auth(owner.token)).send({ rows: [{ row: 2, name: "Change Check", phone: "0775550001", group: "Office" }], dryRun: false });
-        const res = await dry([
-            { row: 2, name: "Change Check", phone: "+94775550001", group: "office" }, // same (phone and group written differently)
-            { row: 3, name: "Change Check", phone: "0775550001", displayName: "Mr & Mrs Check", email: "check@example.com" },
-        ]);
-        const [same, changed] = res.body.rows;
+        // (one row each: a second row for the same guest in one file is a repeat)
+        const [same] = (await dry([{ row: 2, name: "Change Check", phone: "+94775550001", group: "office" }])).body.rows; // same (phone and group written differently)
+        const [changed] = (await dry([{ row: 3, name: "Change Check", phone: "0775550001", displayName: "Mr & Mrs Check", email: "check@example.com" }])).body.rows;
+        assert.equal(same.status, "same");
+        assert.equal(changed.status, "changed");
         assert.equal(same.duplicate.type, "existing");
         assert.deepEqual(same.duplicate.changes, []);
         assert.deepEqual(
@@ -136,5 +136,98 @@ describe("Guest import", () => {
         assert.equal(check.body.fit.over, true);
         assert.equal(check.body.fit.adding, rows.length);
         assert.equal((await send(rows, { dryRun: false, showLimit: true })).status, 403);
+    });
+
+    it("asks the couple about a different name on the same phone (families share phones)", async () => {
+        const res = await send(
+            [
+                { row: 2, name: "Rushelle", phone: "0771234567" }, // Amal Perera's phone, someone else's name
+                { row: 3, name: "Mr A. Perera", phone: "0771234567" }, // Amal again (initial + title)
+                { row: 4, name: "Kasun Silva", phone: "0779998888" },
+                { row: 5, name: "Dev Silva", phone: "0779998888" }, // shares row 4's phone
+            ],
+            true
+        );
+        assert.equal(res.status, 200);
+        const r = Object.fromEntries(res.body.rows.map((x) => [x.row, x]));
+        assert.equal(r[2].duplicate.differentName, true);
+        assert.equal(r[2].action, "choose", "no default: the couple decides");
+        assert.deepEqual(r[2].allowedActions, ["add", "skip"], "a different person: add or skip, never overwrite");
+        assert.equal(r[2].status, "shared");
+        assert.equal(r[3].duplicate.differentName, false);
+        assert.equal(r[3].action, "skip");
+        assert.equal(r[5].duplicate.type, "file");
+        assert.equal(r[5].duplicate.differentName, true);
+        assert.equal(r[5].action, "choose");
+        assert.equal(res.body.summary.choose, 2);
+
+        // Importing needs a choice for each of them
+        const rows = [
+            { row: 2, name: "Rushelle", phone: "0771234567" },
+            { row: 3, name: "Zara Fonseka", phone: "0711111111" },
+        ];
+        const refused = await send(rows, false);
+        assert.equal(refused.status, 400);
+        assert.equal(refused.body.code, "choose_rows");
+        const done = await send([{ ...rows[0], action: "add" }, rows[1]], false);
+        assert.equal(done.status, 200);
+        assert.equal(done.body.summary.added, 2);
+    });
+
+    it("also spots a repeated Name on Invitation, and a fixed row is checked again", async () => {
+        await addGuest(owner.token, id, { name: "Saman Jayasinghe", displayName: "Mr & Mrs Jayasinghe" });
+        const first = await send([{ row: 2, name: "Nadeesha Jayasinghe", displayName: "mr & mrs  jayasinghe" }], true);
+        const d = first.body.rows[0].duplicate;
+        assert.equal(d.on, "displayName");
+        assert.equal(d.guestName, "Saman Jayasinghe");
+        assert.equal(first.body.rows[0].action, "choose");
+        // fixed: a different name on the invitation → a normal new guest
+        const fixed = await send([{ row: 2, name: "Nadeesha Jayasinghe", displayName: "Ms Nadeesha Jayasinghe" }], true);
+        assert.equal(fixed.body.rows[0].duplicate, null);
+        assert.equal(fixed.body.rows[0].action, "add");
+    });
+
+    it("tells a repeat within the file apart from a guest already on the list", async () => {
+        const res = await send(
+            [
+                { row: 2, name: "Kamala Silva", email: "kamala@example.com" }, // on the list, nothing different
+                { row: 3, name: "Kamala Silva", email: "kamala@example.com" }, // the same again
+                { row: 4, name: "kamala silva", notes: "Aunt" }, // and again, with a note
+                { row: 5, name: "Brand New Person" },
+            ],
+            true
+        );
+        const r = Object.fromEntries(res.body.rows.map((x) => [x.row, x]));
+        assert.equal(r[2].status, "same");
+        assert.deepEqual(r[2].allowedActions, ["skip"]);
+        assert.equal(r[3].status, "repeat");
+        assert.equal(r[3].duplicate.row, 2);
+        assert.equal(r[4].status, "repeat");
+        assert.deepEqual(r[4].allowedActions, ["skip"]);
+        assert.equal(r[5].status, "new");
+        assert.equal(r[5].action, "add");
+    });
+
+    it("uploading again: a guest who shares a phone is matched to themselves, not asked about again", async () => {
+        // Rushelle was added earlier with Amal Perera's phone (the shared-phone test)
+        const res = await send(
+            [
+                { row: 2, name: "Amal Perera", phone: "0771234567" },
+                { row: 3, name: "Rushelle", phone: "0771234567" },
+                { row: 4, name: "Kasun Silva", phone: "0779998888" },
+                { row: 5, name: "Dev Silva", phone: "0779998888" },
+                { row: 6, name: "Dev Silva", phone: "0779998888" }, // Dev again, not "shares Kasun's phone"
+            ],
+            true
+        );
+        const r = Object.fromEntries(res.body.rows.map((x) => [x.row, x]));
+        assert.equal(r[2].status, "same");
+        assert.equal(r[2].duplicate.guestName, "Amal Perera");
+        assert.equal(r[3].status, "same", "Rushelle is already on the list");
+        assert.equal(r[3].duplicate.guestName, "Rushelle");
+        assert.equal(r[5].status, "shared");
+        assert.equal(r[6].status, "repeat");
+        assert.equal(r[6].duplicate.row, 5);
+        assert.equal(res.body.summary.choose, 1);
     });
 });

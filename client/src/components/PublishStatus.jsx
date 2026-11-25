@@ -36,7 +36,7 @@ export default function PublishStatus({ invitation, onPublished, compact = false
   }
 
   const action = missing ? (
-    <Link to={`/invitations/${invitation.id}/edit`} className="btn-secondary shrink-0 px-4 py-2 text-body-sm">
+    <Link to={`/invitations/${invitation.id}/edit?fill=1`} className="btn-secondary shrink-0 px-4 py-2 text-body-sm">
       Fill in {missing} detail{missing === 1 ? '' : 's'}
     </Link>
   ) : credit.waiting ? (

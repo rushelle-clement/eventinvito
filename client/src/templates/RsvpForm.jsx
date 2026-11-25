@@ -8,6 +8,8 @@ import { CheckCircle2, HeartCrack, PartyPopper } from 'lucide-react'
 import { api } from '../lib/api'
 import { getTheme } from './themes'
 import { STRINGS, formatDate } from './strings'
+import { celebrate, playChime } from './celebrate'
+import { isMusicPlaying } from './experience/useBackgroundMusic'
 
 export default function RsvpForm({ token, invitation, rsvp, onChange }) {
   const theme = getTheme(invitation.templateKey)
@@ -35,6 +37,15 @@ export default function RsvpForm({ token, invitation, rsvp, onChange }) {
       onChange(data.rsvp)
       setEditing(false)
       setJustSent(true)
+      // Accepting: a short shower of petals (confetti for birthdays) in the design's colours,
+      // and a soft chime if the music is on. Declining gets only a gentle fade (below).
+      if (data.rsvp?.status === 'attending') {
+        celebrate({
+          colors: [theme.accent, theme.accentText, theme.border].filter(Boolean),
+          kind: invitation.eventType === 'birthday' ? 'confetti' : 'petals',
+        })
+        if (isMusicPlaying()) playChime()
+      }
     } catch (err) {
       // Closed / invalid link messages come from the server; anything else gets a friendly retry message
       setError(err.status === 403 || err.status === 404 ? err.message : t.tryAgain)
@@ -61,10 +72,25 @@ export default function RsvpForm({ token, invitation, rsvp, onChange }) {
   // Already answered → show it, with a way to change
   if (answered && !editing) {
     const Icon = rsvp.status === 'attending' ? PartyPopper : HeartCrack
+    const declined = rsvp.status === 'not_attending'
+    // Just replied: accepting pops in warmly; declining fades in softly, in muted colours
+    const motion = justSent ? (declined ? 'rsvp-fade' : 'rsvp-pop') : ''
     return (
-      <div className={box} style={{ background: theme.soft, color: theme.text }} role="status" aria-live="polite">
+      <div
+        className={`${box} ${motion}`}
+        style={{
+          background: declined && justSent ? `color-mix(in srgb, ${theme.soft} 70%, #8f8f8f 18%)` : theme.soft,
+          color: declined && justSent ? theme.muted : theme.text,
+        }}
+        role="status"
+        aria-live="polite"
+      >
         <p className="flex items-center gap-2 font-semibold">
-          {justSent ? <CheckCircle2 size={18} aria-hidden="true" style={{ color: theme.accentText }} /> : <Icon size={18} aria-hidden="true" style={{ color: theme.accentText }} />}
+          {justSent && !declined ? (
+            <CheckCircle2 size={18} aria-hidden="true" style={{ color: theme.accentText }} />
+          ) : (
+            <Icon size={18} aria-hidden="true" style={{ color: declined ? theme.muted : theme.accentText }} />
+          )}
           {justSent ? (rsvp.status === 'attending' ? t.thanksYes : t.thanksNo) : t.yourAnswer(answerLabel)}
         </p>
         {justSent && <p className="mt-1">{t.yourAnswer(answerLabel)}</p>}

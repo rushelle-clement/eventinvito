@@ -106,7 +106,8 @@ export default function MusicChooser({ invitationId, templateKey, value, customM
   )
 
   return (
-    <fieldset>
+    // min-w-0: a fieldset otherwise grows to fit its longest line (e.g. a long song file name)
+    <fieldset className="min-w-0">
       <legend className="mb-3 text-body-sm text-on-surface-variant">
         Music starts only when a guest taps “Open Invitation”, and they can pause it at any time.
       </legend>
@@ -194,7 +195,6 @@ export default function MusicChooser({ invitationId, templateKey, value, customM
         </div>
       )}
 
-      <p className="mt-3 text-body-sm text-on-surface-variant">{MUSIC_TRACKS.map((t) => t.credit).join(' ')}</p>
     </fieldset>
   )
 }

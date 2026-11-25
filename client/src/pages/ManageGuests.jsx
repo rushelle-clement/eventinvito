@@ -56,6 +56,11 @@ const RSVP = {
   not_attending: { label: 'Declined', Icon: CircleSlash, className: 'bg-blush-tint text-on-tertiary-fixed-variant' },
   pending: { label: 'Awaiting reply', Icon: Hourglass, className: 'bg-surface-container text-on-surface-variant' },
 }
+// An online guest whose link hasn't been sent (or opened) yet can't be awaited for a reply
+const NOT_SENT = { label: 'Not sent yet', Icon: Send, className: 'border border-dashed border-outline-variant bg-white text-on-surface-variant' }
+// A paper-card guest can only reply with the QR code: while it isn't live (off, not paid for, or the
+// invitation isn't published) they can't be awaited either
+const QR_NOT_LIVE = { label: 'QR not live yet', Icon: QrCode, className: 'border border-dashed border-outline-variant bg-white text-on-surface-variant' }
 
 const FILTERS = [
   { value: 'all', label: 'All guests' },
@@ -1119,6 +1124,8 @@ export default function ManageGuests() {
 
   const names = invitationTitle(invitation)
   const live = invitation.status === 'published'
+  // Guests can reply with the QR code (switched on, paid for, and the invitation is live)
+  const qrLive = live && !invitation.ended && Boolean(invitation.qr?.enabled) && !invitation.qr?.locked
   const pct = (n) => (summary.total ? `${Math.round((n / summary.total) * 100)}%` : '–')
   // The filter counts follow the chosen group
   const counts = Object.fromEntries([...FILTERS.map((f) => f.value), 'opened'].map((f) => [f, inGroup.filter((g) => matchesFilter(g, f)).length]))
@@ -1210,9 +1217,6 @@ export default function ManageGuests() {
       : setModal({ type: 'upgrade', reason: 'export' })
   const filters = (can.openDetails ? FILTERS : FILTERS.filter((f) => !OPEN_FILTERS.includes(f.value))).filter((f) => !physicalOnly || f.value !== 'not_shared')
   // Reply tabs, and the sharing / opening filters in a drop-down beside them
-  const REPLY_FILTERS = ['all', 'attending', 'pending', 'not_attending']
-  const replyFilters = filters.filter((f) => REPLY_FILTERS.includes(f.value))
-  const linkFilters = filters.filter((f) => !REPLY_FILTERS.includes(f.value))
   const selectCls = 'w-full rounded-full border py-2.5 pr-9 pl-4 text-body-md text-espresso outline-none focus:border-gold'
   const importGuests = (e) => {
     if (can.import) return
@@ -1450,9 +1454,10 @@ export default function ManageGuests() {
         </div>
 
         <div className="flex flex-col gap-3 border-t border-bone pt-3 md:flex-row md:items-center md:justify-between">
-          {/* Replies: one row of tabs */}
-          <div className="flex flex-wrap gap-1" role="group" aria-label="Filter by reply">
-            {replyFilters.map((f) => {
+          {/* Every filter as one row of tabs (replies, then sharing and opening); on phones, where the
+              row would be too long, the same filters in one drop-down */}
+          <div className="hidden flex-wrap gap-1 md:flex" role="group" aria-label="Filter guests">
+            {filters.map((f) => {
               const on = activeFilter === f.value
               return (
                 <button
@@ -1468,24 +1473,20 @@ export default function ManageGuests() {
               )
             })}
           </div>
-          {/* Sharing and opening: a drop-down, so the tabs stay short */}
-          {linkFilters.length > 0 && (
-            <label className="flex shrink-0 items-center gap-2 text-body-sm text-on-surface-variant">
-              <span className="shrink-0">Invitation</span>
-              <select
-                value={linkFilters.some((f) => f.value === activeFilter) ? activeFilter : ''}
-                onChange={(e) => setFilter(e.target.value || 'all')}
-                className={`${selectCls} md:w-52 ${linkFilters.some((f) => f.value === activeFilter) ? 'border-gold bg-gold/15' : 'border-bone bg-ivory'}`}
-              >
-                <option value="">Any</option>
-                {linkFilters.map((f) => (
-                  <option key={f.value} value={f.value}>
-                    {f.label} ({counts[f.value]})
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
+          <label className="flex items-center gap-2 text-body-sm text-on-surface-variant md:hidden">
+            <span className="shrink-0">Show</span>
+            <select
+              value={filters.some((f) => f.value === activeFilter) ? activeFilter : 'all'}
+              onChange={(e) => setFilter(e.target.value)}
+              className={`${selectCls} ${activeFilter !== 'all' ? 'border-gold bg-gold/15' : 'border-bone bg-ivory'}`}
+            >
+              {filters.map((f) => (
+                <option key={f.value} value={f.value}>
+                  {f.label} ({counts[f.value]})
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
       </div>
 
@@ -1578,8 +1579,17 @@ export default function ManageGuests() {
           )}
           <ul>
             {pageGuests.map((g) => {
-              const r = RSVP[g.rsvpStatus]
               const physical = g.cardType === 'physical'
+              const r =
+                g.rsvpStatus !== 'pending'
+                  ? RSVP[g.rsvpStatus]
+                  : physical
+                    ? qrLive
+                      ? RSVP.pending
+                      : QR_NOT_LIVE
+                    : !g.sharedAt && !g.openedAt
+                      ? NOT_SENT
+                      : RSVP.pending
               return (
                 <li
                   key={g.id}

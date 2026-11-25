@@ -14,12 +14,17 @@ import TemplateThumbnail from '../templates/TemplateThumbnail'
 import { getTheme, sampleInvitation } from '../templates/themes'
 import { CATEGORIES, categoryOf, categoryOfDesign } from '../lib/categories'
 import Loader from '../components/Loader'
+import SampleWatermark from '../components/SampleWatermark'
+import Pagination from '../components/Pagination'
 
 const PLANS = [
   { value: 'all', label: 'All designs' },
   { value: 'free', label: 'Free' },
   { value: 'premium', label: 'Premium' },
 ]
+
+// Designs per page
+const PAGE_SIZE = 24
 
 // The main occasion categories (no sub-filters): lib/categories.js
 const OCCASIONS = [{ value: 'all', label: 'All Occasions' }, ...CATEGORIES]
@@ -50,6 +55,7 @@ export default function Templates() {
     const next = new URLSearchParams(window.location.search)
     if (!value || value === empty) next.delete(name)
     else next.set(name, value)
+    next.delete('page') // a new filter starts again from page 1
     setParams(next, { replace: true })
   }
   const setOccasion = (v) => setFilter('occasion', v, 'all')
@@ -104,6 +110,17 @@ export default function Templates() {
       return [t.name, t.description, ...(t.styleTags || [])].join(' ').toLowerCase().includes(q)
     })
   }, [templates, category, plan, query])
+  // One page of designs; the page is in the address too (?page=2), so Back from a preview returns to it
+  const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE))
+  const page = Math.min(pageCount, Math.max(1, parseInt(params.get('page'), 10) || 1))
+  const shown = visible.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  function goToPage(n) {
+    const next = new URLSearchParams(window.location.search)
+    if (n > 1) next.set('page', String(n))
+    else next.delete('page')
+    setParams(next)
+    document.getElementById('designs')?.scrollIntoView({ block: 'start' })
+  }
   // a category with no designs at all yet shows "Coming soon" (not "no match")
   const comingSoon = !!category && !templates?.some((t) => category.types.includes(t.eventType))
 
@@ -208,11 +225,12 @@ export default function Templates() {
               </p>
             </div>
           ) : (
-            <ul className="mt-4 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
-              {visible.map((t) => (
+            <>
+            <ul id="designs" className="mt-4 scroll-mt-24 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
+              {shown.map((t) => (
                 <li key={t.key} className="card flex flex-col overflow-hidden">
                   <div className="relative">
-                    <TemplateThumbnail templateKey={t.key} height={260} occasion="wedding" />
+                    <TemplateThumbnail templateKey={t.key} height={260} occasion="wedding" watermark />
                     <TierBadge tier={t.tier} custom={t.custom} className="absolute top-2 left-2" />
                   </div>
                   <div className="flex flex-1 flex-col p-3 sm:p-4">
@@ -252,6 +270,8 @@ export default function Templates() {
                 </li>
               ))}
             </ul>
+            <Pagination page={page} pageSize={PAGE_SIZE} total={visible.length} onPage={goToPage} sizes={[PAGE_SIZE]} label="Design pages" className="mt-8" />
+            </>
           )}
         </>
       )}
@@ -272,7 +292,8 @@ export default function Templates() {
             </>
           }
         >
-          <div className="p-4 sm:p-8" style={{ background: getTheme(previewing.key).page }}>
+          <div className="relative p-4 sm:p-8" style={{ background: getTheme(previewing.key).page }}>
+            <SampleWatermark />
             <InvitationCard
               invitation={sampleInvitation(previewing.key, 'wedding')}
               templateKey={previewing.key}

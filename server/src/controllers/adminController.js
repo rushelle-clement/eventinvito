@@ -159,8 +159,10 @@ async function createUserAccount(req, res) {
     checkNewAccount({ name, email, password });
     const plan = planFrom(req.body?.plan ?? "premium");
     const credits = creditsFrom(req.body?.credits ?? PLAN_CREDITS[plan]);
-    const freeCredits = "freeCredits" in (req.body || {}) ? creditsFrom(req.body.freeCredits) : 1;
     const printedCredits = "printedCredits" in (req.body || {}) ? creditsFrom(req.body.printedCredits) : 0;
+    // Only Simple Card comes with the free card: a paid package has its own invitation (free designs
+    // use it too), and Printed Cards are paper only
+    const freeCredits = "freeCredits" in (req.body || {}) ? creditsFrom(req.body.freeCredits) : plan === "free" && !printedCredits ? 1 : 0;
     const user = await createAccount({ name, email, password, publishCredits: credits, freeCredits, printedCredits, plan });
     res.status(201).json({ success: true, user: await accountJSON(user, []) });
 }
@@ -183,8 +185,14 @@ async function updateUserAccount(req, res) {
     if ("credits" in body) user.publishCredits = creditsFrom(body.credits);
     if ("freeCredits" in body) user.freeCredits = creditsFrom(body.freeCredits);
     if ("printedCredits" in body) {
+        const firstPrinted = !user.printedMember && !(user.printedCredits > 0);
         user.printedCredits = creditsFrom(body.printedCredits);
-        if (user.printedCredits > 0) user.printedMember = true;
+        if (user.printedCredits > 0) {
+            // Becoming a Printed Cards account: paper cards only, so the unused free card goes
+            // (unless the free card is set in the same request)
+            if (firstPrinted && !("freeCredits" in body)) user.freeCredits = 0;
+            user.printedMember = true;
+        }
     }
     if ("disabled" in body) {
         if (typeof body.disabled !== "boolean") throw new AppError(400, "disabled must be true or false.");

@@ -204,7 +204,7 @@ function PrintedSteps({ inv, user, onPublished }) {
       done: !missing,
       title: 'Event details',
       note: missing ? `${missing} to fill in` : 'Done',
-      to: `/invitations/${inv.id}/edit`,
+      to: `/invitations/${inv.id}/edit${missing ? '?fill=1' : ''}`, // straight to what's missing
     },
     {
       done: total > 0,

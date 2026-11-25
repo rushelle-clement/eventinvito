@@ -2,7 +2,7 @@
 // Picks the experience for the invitation's template; templates without their own animated
 // version yet use the classic card. Music, theme colours and wording are shared by all.
 
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { getTheme } from '../themes'
 import { STRINGS, stringsFor } from '../strings'
 import { defaultTrackFor, getTrack } from '../music'
@@ -36,7 +36,10 @@ import StaticCard from './StaticCard'
 import BirthdayCard from './BirthdayCard'
 import BirthdayParty from './BirthdayParty'
 import { siteHost, siteUrl } from '../../lib/siteUrl'
-import { Link } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+
+// The day plan, opened over the invitation (loaded only when a guest opens it)
+const AgendaView = lazy(() => import('../../components/AgendaView'))
 import { CalendarClock } from 'lucide-react'
 import { agendaStrings } from '../../lib/agenda'
 import './experience.css'
@@ -165,12 +168,57 @@ function BrandFooter() {
 
 // "Day plan": opens the timed plan of the day. It sits under the opening screen (which covers
 // the whole page), so guests see it once the invitation is open.
-function DayPlanButton({ href, lang }) {
+// With the invitation's details at hand, the plan opens over the invitation instead of on its own
+// page, so the music keeps playing and closing it returns to the same place. The phone's Back
+// button closes it too (opening it adds a history step; the address stays the same).
+function DayPlanButton({ href, lang, invitation, music, t }) {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const open = Boolean(location.state?.dayPlan)
+
+  // The page behind stays where it was; only the plan scrolls. Esc closes it.
+  useEffect(() => {
+    if (!open) return undefined
+    const before = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (e) => e.key === 'Escape' && navigate(-1)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = before
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open, navigate])
+
+  if (!invitation?.agenda?.length) {
+    return (
+      <Link to={href} className="ei-dayplan" lang={lang}>
+        <CalendarClock size={16} aria-hidden="true" />
+        {agendaStrings(lang).dayPlan}
+      </Link>
+    )
+  }
   return (
-    <Link to={href} className="ei-dayplan" lang={lang}>
-      <CalendarClock size={16} aria-hidden="true" />
-      {agendaStrings(lang).dayPlan}
-    </Link>
+    <>
+      <button type="button" className="ei-dayplan" lang={lang} onClick={() => navigate(`${location.pathname}${location.search}`, { state: { dayPlan: true } })}>
+        <CalendarClock size={16} aria-hidden="true" />
+        {agendaStrings(lang).dayPlan}
+      </button>
+      {open && (
+        // A popup over the dimmed invitation; a tap outside it (or Esc) closes it too
+        <div className="ei-plan-overlay" onClick={(e) => e.target === e.currentTarget && navigate(-1)}>
+          <div className="ei-plan-panel" role="dialog" aria-modal="true" aria-label={agendaStrings(lang).title}>
+            {/* Scrolls inside the rounded card, so the scrollbar never cuts its corners */}
+            <div className="ei-plan-scroll">
+              <Suspense fallback={null}>
+                <AgendaView invitation={invitation} onBack={() => navigate(-1)} />
+              </Suspense>
+            </div>
+          </div>
+          {/* The design's own music button sits under this panel, so the plan has its own */}
+          {music?.available && <MusicButton music={music} labels={t} />}
+        </div>
+      )}
+    </>
   )
 }
 
@@ -227,7 +275,7 @@ export default function InvitationExperience({ invitation, guestName, rsvp, star
   return (
     <div className={`ei-root ${poster ? 'is-poster' : ''}`} lang={lang} style={{ ...themeVars(theme), '--ei-top': `${topOffset}px` }}>
       <Experience invitation={invitation} guestName={guestName} rsvp={rsvp || sampleRsvp} music={music} t={t} lang={lang} startOpen={startOpen} poster={poster} />
-      {!poster && agendaHref && <DayPlanButton href={agendaHref} lang={lang} />}
+      {!poster && agendaHref && <DayPlanButton href={agendaHref} lang={lang} invitation={invitation} music={music} t={t} />}
       {freeMusic && <MusicButton music={music} labels={t} />}
       {!poster && <BrandFooter />}
     </div>

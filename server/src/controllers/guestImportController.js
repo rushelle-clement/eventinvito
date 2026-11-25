@@ -61,6 +61,37 @@ function changesFor(guest, values, cardType) {
     return changes;
 }
 
+// Two names on the same phone number or email: the same person, or someone sharing it (families
+// often share one phone)? Same person when the first names match, one is an initial of the other
+// ("A. Perera" / "Amal Perera"), or one is just the first name ("Amal" / "Amal Perera"). Titles
+// (Mr, Mrs, Dr…) are ignored.
+const TITLES = new Set(["mr", "mrs", "ms", "miss", "dr", "rev", "prof", "sir", "madam", "hon"]);
+function firstName(name) {
+    const words = nameKey(name).replace(/[.,]/g, " ").split(/\s+/).filter(Boolean);
+    return words.find((w) => !TITLES.has(w)) || "";
+}
+function samePerson(a, b) {
+    if (nameKey(a) === nameKey(b)) return true;
+    const fa = firstName(a);
+    const fb = firstName(b);
+    if (!fa || !fb) return true;
+    if (fa === fb) return true;
+    // an initial: "a" and "amal"
+    return (fa.length === 1 && fb.startsWith(fa)) || (fb.length === 1 && fa.startsWith(fb));
+}
+
+// Guests (or rows) sharing one phone number or email, in order
+function addTo(map, key, item) {
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(item);
+}
+// Of those, the one that is this person: the same name, then a likely match (e.g. an initial), else the first
+function pick(list, name) {
+    if (!list?.length) return null;
+    return list.find((x) => nameKey(x.name) === nameKey(name)) || list.find((x) => samePerson(x.name, name)) || list[0];
+}
+const rowOf = (x) => ({ row: x.row, rowName: x.name });
+
 // The Card type column: "Online" / "Physical" in the couple's words. "" = left empty, null = not understood.
 const ONLINE_WORDS = ["online", "online card", "link", "whatsapp", "e-card", "ecard", "digital", "ඔන්ලයින්", "ஆன்லைன்"];
 const PHYSICAL_WORDS = ["physical", "physical card", "paper", "paper card", "printed", "printed card", "print", "card", "qr", "කාඩ්පත", "අච්චු", "அட்டை"];
@@ -85,13 +116,18 @@ function analyse(rows, existing, { cards = "both", defaultCard = "online" } = {}
     const byPhone = new Map();
     const byEmail = new Map();
     const byName = new Map();
+    const byDisplay = new Map(); // the Name on Invitation
     for (const g of existing) {
-        if (g.phone) byPhone.set(phoneKey(g.phone), g);
-        if (g.email) byEmail.set(g.email, g);
+        if (g.phone) addTo(byPhone, phoneKey(g.phone), g);
+        if (g.email) addTo(byEmail, g.email, g);
         if (!byName.has(nameKey(g.name))) byName.set(nameKey(g.name), g);
+        if (g.displayName && !byDisplay.has(nameKey(g.displayName))) byDisplay.set(nameKey(g.displayName), g);
     }
 
-    const seen = { phone: new Map(), email: new Map(), name: new Map() };
+    const seen = { phone: new Map(), email: new Map(), name: new Map(), display: new Map() };
+    // Guests on the list already matched by an earlier row of this file: a second row for the same
+    // guest is a repeat within the file (e.g. Kamala three times), not another "already on your list"
+    const claimed = new Map();
     const byId = new Map(existing.map((g) => [g._id.toString(), g]));
 
     return rows.map((input, index) => {
@@ -145,10 +181,14 @@ function analyse(rows, existing, { cards = "both", defaultCard = "online" } = {}
         let duplicate = null;
         if (!errors.name) {
             const pk = phoneKey(clean.phone);
+            // A phone or email can be shared (a family): match the guest with this row's name first
+            const phoneGuest = pk && pick(byPhone.get(pk), clean.name);
+            const emailGuest = clean.email && pick(byEmail.get(clean.email), clean.name);
             const match =
-                (pk && byPhone.get(pk) && { guest: byPhone.get(pk), on: "phone" }) ||
-                (clean.email && byEmail.get(clean.email) && { guest: byEmail.get(clean.email), on: "email" }) ||
-                (byName.get(nameKey(clean.name)) && { guest: byName.get(nameKey(clean.name)), on: "name" });
+                (phoneGuest && { guest: phoneGuest, on: "phone" }) ||
+                (emailGuest && { guest: emailGuest, on: "email" }) ||
+                (byName.get(nameKey(clean.name)) && { guest: byName.get(nameKey(clean.name)), on: "name" }) ||
+                (clean.displayName && byDisplay.get(nameKey(clean.displayName)) && { guest: byDisplay.get(nameKey(clean.displayName)), on: "displayName" });
             if (match) {
                 duplicate = {
                     type: "existing",
@@ -157,17 +197,21 @@ function analyse(rows, existing, { cards = "both", defaultCard = "online" } = {}
                     guestName: match.guest.name,
                     guestPhone: match.guest.phone,
                     guestEmail: match.guest.email,
+                    // the same phone or email but someone else's name: probably a different person sharing it
+                    differentName: match.on !== "name" && !samePerson(match.guest.name, clean.name),
                 };
             } else {
                 const inFile =
-                    (pk && seen.phone.get(pk) && { row: seen.phone.get(pk), on: "phone" }) ||
-                    (clean.email && seen.email.get(clean.email) && { row: seen.email.get(clean.email), on: "email" }) ||
-                    (seen.name.get(nameKey(clean.name)) && { row: seen.name.get(nameKey(clean.name)), on: "name" });
-                if (inFile) duplicate = { type: "file", on: inFile.on, row: inFile.row };
+                    (pk && seen.phone.has(pk) && { ...rowOf(pick(seen.phone.get(pk), clean.name)), on: "phone" }) ||
+                    (clean.email && seen.email.has(clean.email) && { ...rowOf(pick(seen.email.get(clean.email), clean.name)), on: "email" }) ||
+                    (seen.name.get(nameKey(clean.name)) && { row: seen.name.get(nameKey(clean.name)), on: "name" }) ||
+                    (clean.displayName && seen.display.get(nameKey(clean.displayName)) && { row: seen.display.get(nameKey(clean.displayName)).row, rowName: seen.display.get(nameKey(clean.displayName)).name, on: "displayName" });
+                if (inFile) duplicate = { type: "file", on: inFile.on, row: inFile.row, ...(inFile.rowName && { guestName: inFile.rowName }), differentName: inFile.on !== "name" && !samePerson(inFile.rowName, clean.name) };
             }
-            if (pk && !seen.phone.has(pk)) seen.phone.set(pk, rowNumber);
-            if (clean.email && !seen.email.has(clean.email)) seen.email.set(clean.email, rowNumber);
+            if (pk) addTo(seen.phone, pk, { row: rowNumber, name: clean.name });
+            if (clean.email) addTo(seen.email, clean.email, { row: rowNumber, name: clean.name });
             if (!seen.name.has(nameKey(clean.name))) seen.name.set(nameKey(clean.name), rowNumber);
+            if (clean.displayName && !seen.display.has(nameKey(clean.displayName))) seen.display.set(nameKey(clean.displayName), { row: rowNumber, name: clean.name });
         }
 
         // Physical cards: the same name as another physical-card guest can't be added
@@ -182,27 +226,49 @@ function analyse(rows, existing, { cards = "both", defaultCard = "online" } = {}
             if (key && !physicalSeen.has(key)) physicalSeen.set(key, rowNumber);
         }
 
+        // The same guest as an earlier row: a repeat within the file
+        if (duplicate?.type === "existing" && !duplicate.differentName) {
+            if (claimed.has(duplicate.guestId)) {
+                duplicate = { type: "file", on: duplicate.on, row: claimed.get(duplicate.guestId), physical: duplicate.physical, guestName: duplicate.guestName };
+            } else {
+                claimed.set(duplicate.guestId, rowNumber);
+            }
+        }
+        if (duplicate?.type === "file" && !duplicate.differentName) duplicate.repeat = true;
+
         if (duplicate?.type === "existing") {
             const guest = byId.get(duplicate.guestId);
             duplicate.changes = guest ? changesFor(guest, clean, cardType) : [];
         }
 
-        // Decide the action: the user's choice if it's allowed, otherwise a safe default
+        // Each row's status, in the couple's terms, and only the choices that make sense for it:
+        //  error   – needs fixing (can't be imported as it is)
+        //  shared  – a different person sharing a phone, email or name on invitation with someone: add or skip (they choose)
+        //  repeat  – the same guest as an earlier row of this file: skipped
+        //  changed – already on the list, with different details: keep the list as it is, or use the file's details
+        //  same    – already on the list, nothing different: nothing to do
+        //  new     – a new guest: add, or leave out
         const hasErrors = Object.keys(errors).length > 0;
-        const allowed = hasErrors
-            ? ["exclude"]
-            : duplicate?.physical
-              ? duplicate.type === "existing" ? ["skip", "update"] : ["skip"]
-              : duplicate?.type === "existing" ? ["skip", "update", "add"] : duplicate ? ["skip", "add"] : ["add", "exclude"];
+        const status = hasErrors
+            ? "error"
+            : duplicate?.differentName
+              ? "shared"
+              : duplicate?.type === "file"
+                ? "repeat"
+                : duplicate?.type === "existing"
+                  ? duplicate.changes.length ? "changed" : "same"
+                  : "new";
+        const allowed = { error: ["exclude"], shared: ["add", "skip"], repeat: ["skip"], changed: ["skip", "update"], same: ["skip"], new: ["add", "exclude"] }[status];
         const requested = ACTIONS.includes(input?.action) ? input.action : null;
-        const action = requested && allowed.includes(requested) ? requested : allowed[0];
+        // A different person sharing a phone or email: no default, "choose" until the couple decides
+        const action = requested && allowed.includes(requested) ? requested : status === "shared" ? "choose" : allowed[0];
 
-        return { row: rowNumber, values: clean, errors, warnings, duplicate, allowedActions: allowed, action };
+        return { row: rowNumber, status, values: clean, errors, warnings, duplicate, allowedActions: allowed, action };
     });
 }
 
 function summarise(analysed) {
-    const s = { total: analysed.length, valid: 0, invalid: 0, duplicates: 0, warnings: 0, add: 0, update: 0, skip: 0, addOnline: 0, addPhysical: 0 };
+    const s = { total: analysed.length, valid: 0, invalid: 0, duplicates: 0, warnings: 0, add: 0, update: 0, skip: 0, choose: 0, addOnline: 0, addPhysical: 0 };
     for (const r of analysed) {
         if (Object.keys(r.errors).length) s.invalid += 1;
         else s.valid += 1;
@@ -213,6 +279,7 @@ function summarise(analysed) {
             if (r.values.cardType === "physical") s.addPhysical += 1;
             else s.addOnline += 1;
         } else if (r.action === "update") s.update += 1;
+        else if (r.action === "choose") s.choose += 1; // still waiting for the couple's choice
         else s.skip += 1; // skip + exclude
     }
     return s;
@@ -257,7 +324,15 @@ async function importGuests(req, res) {
     if (dryRun !== false) {
         return res.json({ success: true, dryRun: true, cardType, summary, fit, rows: analysed });
     }
-
+    // Every shared phone/email row needs the couple's choice before importing
+    if (summary.choose > 0) {
+        throw new AppError(
+            400,
+            `Choose Import, Update or Skip for the ${summary.choose} row${summary.choose === 1 ? "" : "s"} that share a phone number or email with another guest.`,
+            undefined,
+            "choose_rows"
+        );
+    }
     // ---- Apply ----
     const toAdd = analysed.filter((r) => r.action === "add");
     const toUpdate = analysed.filter((r) => r.action === "update");
